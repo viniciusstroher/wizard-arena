@@ -31,6 +31,13 @@ export class GameScene extends Phaser.Scene {
     this.moveDust = null;
     this.lavaBurn = null;
     this.fireballFx = null;
+    this.iceFx = null;
+    this.healFx = null;
+    this.poisonFx = null;
+    this.sparkFx = null;
+    this.magicFx = null;
+    this.burstSeen = new Set();
+    this.aoeFxAt = new Map();
     this.dashGhosts = [];
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
@@ -55,7 +62,7 @@ export class GameScene extends Phaser.Scene {
     this.effectGraphics = this.add.graphics().setDepth(5);
     this.createMoveDust();
     this.createLavaBurn();
-    this.createFireballFx();
+    this.createSpellParticleFx();
 
     this.createHud();
     this.createEventBoard();
@@ -775,7 +782,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(21);
   }
 
-  createFireballFx() {
+  createSpellParticleFx() {
     this.fireballFx = this.add
       .particles(0, 0, 'particle', {
         tint: [0xff2200, 0xff4a00, 0xff8800, 0xffcc33, 0xffee88],
@@ -789,35 +796,160 @@ export class GameScene extends Phaser.Scene {
         blendMode: 'ADD',
       })
       .setDepth(24);
+
+    this.iceFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xffffff, 0xc8f0ff, 0x66ccff, 0x88ddff, 0xaaddff],
+        speed: { min: 15, max: 70 },
+        scale: { start: 1.35, end: 0 },
+        alpha: { start: 0.9, end: 0 },
+        lifespan: { min: 220, max: 480 },
+        gravityY: 18,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(24);
+
+    this.healFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x55ff88, 0xa8ffc8, 0xffffff, 0x88ffaa],
+        speed: { min: 12, max: 48 },
+        angle: { min: 240, max: 300 },
+        scale: { start: 1.4, end: 0.2 },
+        alpha: { start: 0.95, end: 0 },
+        lifespan: { min: 420, max: 780 },
+        gravityY: -55,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(26);
+
+    this.poisonFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x88ff44, 0x66cc33, 0xaaff66, 0x44aa22],
+        speed: { min: 8, max: 36 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1.8, end: 0 },
+        alpha: { start: 0.55, end: 0 },
+        lifespan: { min: 500, max: 900 },
+        gravityY: -22,
+        frequency: -1,
+        emitting: false,
+      })
+      .setDepth(7);
+
+    this.sparkFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xffffff, 0xaadfff, 0xffee88, 0x88ccff],
+        speed: { min: 40, max: 160 },
+        scale: { start: 1.5, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: { min: 120, max: 320 },
+        gravityY: 40,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(27);
+
+    this.magicFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xaa88ff, 0xccbbff, 0xffffff, 0x8866ee],
+        speed: { min: 20, max: 90 },
+        scale: { start: 1.5, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        lifespan: { min: 200, max: 450 },
+        gravityY: -30,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(26);
   }
 
-  emitFireballTrail(sprite, x, y, vx = 0, vy = 0) {
-    if (!this.fireballFx) return;
+  emitDirectionalTrail(emitter, sprite, x, y, vx, vy, stampKey, count = 3) {
+    if (!emitter) return;
     const now = this.time.now;
-    if (now - (sprite.lastFireTrailAt || 0) < 22) return;
-    sprite.lastFireTrailAt = now;
-
+    if (now - (sprite[stampKey] || 0) < 22) return;
+    sprite[stampKey] = now;
     const ang = Phaser.Math.RadToDeg(Math.atan2(vy || 0, vx || 1));
-    // Faíscas para trás + um pouco de espalhamento
-    this.fireballFx.setEmitterAngle({ min: ang + 150, max: ang + 210 });
-    this.fireballFx.setParticleSpeed({ min: 35, max: 95 });
-    this.fireballFx.emitParticleAt(x, y, 3);
-    this.fireballFx.emitParticleAt(
+    emitter.setEmitterAngle({ min: ang + 150, max: ang + 210 });
+    emitter.setParticleSpeed({ min: 30, max: 90 });
+    emitter.emitParticleAt(x, y, count);
+    emitter.emitParticleAt(
       x - (vx || 0) * 0.02 + Phaser.Math.Between(-2, 2),
       y - (vy || 0) * 0.02 + Phaser.Math.Between(-2, 2),
-      2
+      Math.max(1, count - 1)
     );
+  }
 
+  ensureProjectileGlow(sprite, x, y, color, radius = 16) {
     if (!sprite.fireGlow) {
       sprite.fireGlow = this.add
-        .circle(x, y, 16, 0xff6600, 0.35)
+        .circle(x, y, radius, color, 0.35)
         .setDepth(23)
         .setBlendMode(Phaser.BlendModes.ADD);
+    } else {
+      sprite.fireGlow.setFillStyle(color, 0.35);
     }
-    const pulse = 0.55 + 0.45 * Math.sin(now / 55);
+    const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 55);
     sprite.fireGlow.setPosition(x, y).setVisible(true);
     sprite.fireGlow.setScale(0.95 + 0.35 * pulse);
     sprite.fireGlow.setAlpha(0.28 + 0.22 * pulse);
+  }
+
+  emitFireballTrail(sprite, x, y, vx = 0, vy = 0) {
+    this.emitDirectionalTrail(this.fireballFx, sprite, x, y, vx, vy, 'lastFireTrailAt', 3);
+    this.ensureProjectileGlow(sprite, x, y, 0xff6600, 16);
+  }
+
+  emitIceTrail(sprite, x, y, vx = 0, vy = 0) {
+    this.emitDirectionalTrail(this.iceFx, sprite, x, y, vx, vy, 'lastIceTrailAt', 2);
+    this.ensureProjectileGlow(sprite, x, y, 0x66ccff, 14);
+  }
+
+  burstOnce(key, emitFn) {
+    if (this.burstSeen.has(key)) return;
+    this.burstSeen.add(key);
+    emitFn();
+  }
+
+  pruneBurstSeen(activeKeys) {
+    for (const key of this.burstSeen) {
+      if (!activeKeys.has(key)) this.burstSeen.delete(key);
+    }
+  }
+
+  burstSpellParticles(e) {
+    const spell = e.spellId || e.type;
+    const x = e.x ?? e.x1 ?? 0;
+    const y = e.y ?? e.y1 ?? 0;
+    if (spell === 'firebolt' || spell === 'fireball' || e.type === 'nova' || spell === 'flame_nova') {
+      this.fireballFx?.emitParticleAt(x, y, 14);
+      this.sparkFx?.emitParticleAt(x, y, 8);
+    } else if (spell === 'ice_shard' || e.type === 'freeze') {
+      this.iceFx?.emitParticleAt(x, y, 16);
+      this.sparkFx?.emitParticleAt(x, y, 6);
+    } else if (spell === 'arc_lightning' || spell === 'storm_call' || e.type === 'lightning') {
+      this.sparkFx?.emitParticleAt(e.x1 ?? x, e.y1 ?? y, 10);
+      this.sparkFx?.emitParticleAt(e.x2 ?? x, e.y2 ?? y, 14);
+    } else if (e.type === 'heal' || spell === 'mend') {
+      this.healFx?.emitParticleAt(x, y, 12);
+    } else if (e.type === 'blink') {
+      this.magicFx?.emitParticleAt(x, y, 14);
+    } else if (e.type === 'barrier') {
+      this.magicFx?.emitParticleAt(x, y, 10);
+      this.sparkFx?.emitParticleAt(x, y, 6);
+    } else if (e.type === 'poison_burst' || spell === 'poison_cloud') {
+      this.poisonFx?.emitParticleAt(x, y, 18);
+    } else if (e.type === 'apocalypse') {
+      this.fireballFx?.emitParticleAt(x, y, 22);
+      this.sparkFx?.emitParticleAt(x, y, 14);
+    } else {
+      this.sparkFx?.emitParticleAt(x, y, 8);
+    }
   }
 
   isOnLava(x, y) {
@@ -1197,12 +1329,28 @@ export class GameScene extends Phaser.Scene {
       if (p.alive) s.corpseDropped = false;
 
       if (p.shield > 0 && p.alive) {
+        const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 140);
         if (!s.shieldRing) {
-          s.shieldRing = this.add.circle(p.x, p.y, 20, 0x88aaff, 0.15).setStrokeStyle(2, 0x88aaff, 0.8).setDepth(19);
+          s.shieldRing = this.add
+            .circle(p.x, p.y, 22, 0x88aaff, 0.15)
+            .setStrokeStyle(2, 0x88aaff, 0.85)
+            .setDepth(19);
+        }
+        if (!s.shieldRingOuter) {
+          s.shieldRingOuter = this.add
+            .circle(p.x, p.y, 28, 0x88aaff, 0)
+            .setStrokeStyle(1.5, 0xaaccff, 0.55)
+            .setDepth(18);
         }
         s.shieldRing.setPosition(p.x, p.y).setVisible(true);
-      } else if (s.shieldRing) {
-        s.shieldRing.setVisible(false);
+        s.shieldRing.setScale(0.95 + 0.12 * pulse);
+        s.shieldRing.setAlpha(0.35 + 0.25 * pulse);
+        s.shieldRingOuter.setPosition(p.x, p.y).setVisible(true);
+        s.shieldRingOuter.setScale(1 + 0.08 * pulse);
+        s.shieldRingOuter.setAlpha(0.35 + 0.3 * pulse);
+      } else {
+        if (s.shieldRing) s.shieldRing.setVisible(false);
+        if (s.shieldRingOuter) s.shieldRingOuter.setVisible(false);
       }
     }
     for (const [id, s] of this.playerSprites) {
@@ -1212,6 +1360,7 @@ export class GameScene extends Phaser.Scene {
         s.hpBg.destroy();
         s.hpFg.destroy();
         s.shieldRing?.destroy();
+        s.shieldRingOuter?.destroy();
         s.burnGlow?.destroy();
         this.playerSprites.delete(id);
       }
@@ -1270,8 +1419,10 @@ export class GameScene extends Phaser.Scene {
 
   projectileTexture(kind) {
     if (kind === 'arrow' && this.textures.exists('proj_arrow')) return 'proj_arrow';
-    if (kind === 'fireball' && this.textures.exists('proj_fireball')) return 'proj_fireball';
-    if (kind === 'firebolt' && this.textures.exists('proj_fireball')) return 'proj_fireball';
+    if ((kind === 'fireball' || kind === 'firebolt') && this.textures.exists('proj_fireball')) {
+      return 'proj_fireball';
+    }
+    if (kind === 'ice_shard' && this.textures.exists('proj_ice_shard')) return 'proj_ice_shard';
     return 'orb';
   }
 
@@ -1279,7 +1430,7 @@ export class GameScene extends Phaser.Scene {
     const seen = new Set();
     for (const p of this.state.projectiles) {
       seen.add(p.entityId);
-      const kind = p.kind || 'orb';
+      const kind = p.kind || p.spellId || 'orb';
       const tex = this.projectileTexture(kind);
       let s = this.projectileSprites.get(p.entityId);
       if (!s || s.texture.key !== tex) {
@@ -1298,12 +1449,21 @@ export class GameScene extends Phaser.Scene {
         s.setTint(p.color || 0xffffff);
         s.setScale((p.radius || 8) / 6);
         s.setRotation(0);
+        s.setBlendMode(Phaser.BlendModes.NORMAL);
         if (s.fireGlow) s.fireGlow.setVisible(false);
       } else if (kind === 'arrow') {
         s.clearTint();
         s.setScale(0.85);
+        s.setBlendMode(Phaser.BlendModes.NORMAL);
         s.setRotation(Math.atan2(p.vy || 0, p.vx || 1));
         if (s.fireGlow) s.fireGlow.setVisible(false);
+      } else if (kind === 'ice_shard') {
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 70);
+        s.clearTint();
+        s.setBlendMode(Phaser.BlendModes.ADD);
+        s.setScale(1.05 + 0.1 * pulse);
+        s.setRotation(Math.atan2(p.vy || 0, p.vx || 1) + Math.PI / 2);
+        this.emitIceTrail(s, p.x, p.y, p.vx, p.vy);
       } else {
         // fireball / firebolt — brilho + rastro de chama
         const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 60);
@@ -1325,12 +1485,77 @@ export class GameScene extends Phaser.Scene {
 
   renderAoes() {
     this.aoeGraphics.clear();
+    const t = this.time.now / 1000;
     for (const a of this.state.aoes) {
-      this.aoeGraphics.fillStyle(a.color, 0.18);
-      this.aoeGraphics.fillCircle(a.x, a.y, a.radius);
-      this.aoeGraphics.lineStyle(2, a.color, 0.5);
-      this.aoeGraphics.strokeCircle(a.x, a.y, a.radius);
+      const maxLife = a.maxLife || a.life || 1;
+      const lifeFade = Math.min(1, a.life / Math.min(1.2, maxLife));
+      const pulse = 0.9 + 0.1 * Math.sin(t * 5 + a.x * 0.01);
+      const r = (a.radius || 40) * pulse;
+      const color = a.color || 0x88ff44;
+
+      this.aoeGraphics.fillStyle(color, 0.1 * lifeFade);
+      this.aoeGraphics.fillCircle(a.x, a.y, r);
+      this.aoeGraphics.fillStyle(color, 0.08 * lifeFade);
+      this.aoeGraphics.fillCircle(a.x, a.y, r * 0.62);
+
+      for (let ring = 0; ring < 3; ring++) {
+        const rr = r * (0.45 + ring * 0.22);
+        const rot = t * (1.2 + ring * 0.4) * (ring % 2 === 0 ? 1 : -1);
+        this.aoeGraphics.lineStyle(2 - ring * 0.4, color, (0.55 - ring * 0.12) * lifeFade);
+        this.aoeGraphics.beginPath();
+        for (let i = 0; i <= 18; i++) {
+          const ang = rot + (i / 18) * Math.PI * 2;
+          const wobble = 1 + 0.06 * Math.sin(ang * 3 + t * 4);
+          const px = a.x + Math.cos(ang) * rr * wobble;
+          const py = a.y + Math.sin(ang) * rr * wobble;
+          if (i === 0) this.aoeGraphics.moveTo(px, py);
+          else this.aoeGraphics.lineTo(px, py);
+        }
+        this.aoeGraphics.closePath();
+        this.aoeGraphics.strokePath();
+      }
+
+      // Bolhas tóxicas orbitando
+      for (let i = 0; i < 6; i++) {
+        const ang = t * 1.6 + (i / 6) * Math.PI * 2;
+        const dist = r * (0.35 + 0.45 * ((i % 3) / 2));
+        const bx = a.x + Math.cos(ang) * dist;
+        const by = a.y + Math.sin(ang * 1.1) * dist * 0.85;
+        this.aoeGraphics.fillStyle(color, 0.35 * lifeFade);
+        this.aoeGraphics.fillCircle(bx, by, 3 + (i % 3));
+      }
+
+      if (this.poisonFx && a.entityId != null) {
+        const now = this.time.now;
+        const last = this.aoeFxAt.get(a.entityId) || 0;
+        if (now - last > 70) {
+          this.aoeFxAt.set(a.entityId, now);
+          this.poisonFx.emitParticleAt(
+            a.x + Phaser.Math.Between(-r * 0.5, r * 0.5),
+            a.y + Phaser.Math.Between(-r * 0.4, r * 0.4),
+            1
+          );
+        }
+      }
     }
+    for (const id of this.aoeFxAt.keys()) {
+      if (!(this.state.aoes || []).some((a) => a.entityId === id)) this.aoeFxAt.delete(id);
+    }
+  }
+
+  effectFade(e) {
+    const maxLife = e.maxLife || e.life || 0.3;
+    return Math.min(1, Math.max(0, e.life / maxLife));
+  }
+
+  effectProgress(e) {
+    const maxLife = e.maxLife || e.life || 0.3;
+    return 1 - Math.min(1, Math.max(0, e.life / maxLife));
+  }
+
+  seededRand(seedRef) {
+    seedRef.v = (seedRef.v * 1664525 + 1013904223) >>> 0;
+    return seedRef.v / 0xffffffff;
   }
 
   /** Raio em zigue-zague com brilho (seed estável enquanto o efeito vive). */
@@ -1343,16 +1568,13 @@ export class GameScene extends Phaser.Scene {
     const dx = x2 - x1;
     const dy = y2 - y1;
     const len = Math.hypot(dx, dy) || 1;
-    const fade = Math.min(1, (e.life || 0.2) / 0.28);
+    const fade = this.effectFade(e);
     const color = e.color || 0xaadfff;
     const branches = e.branches ?? 1;
-
-    // PRNG determinístico a partir do seed do efeito
-    let seed = (e.seed ?? (Math.floor(x1) * 73856093) ^ (Math.floor(y1) * 19349663) ^ (Math.floor(x2) * 83492791)) >>> 0;
-    const rand = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 0xffffffff;
+    const seedRef = {
+      v: (e.seed ?? (Math.floor(x1) * 73856093) ^ (Math.floor(y1) * 19349663) ^ (Math.floor(x2) * 83492791)) >>> 0,
     };
+    const rand = () => this.seededRand(seedRef);
 
     const buildBolt = (ax, ay, bx, by, segments, jag) => {
       const pts = [{ x: ax, y: ay }];
@@ -1384,13 +1606,11 @@ export class GameScene extends Phaser.Scene {
     const segs = Math.max(6, Math.round(len / 22));
     const main = buildBolt(x1, y1, x2, y2, segs, 14);
 
-    // Halo azul externo
-    strokeBolt(main, 7, 0x4488ff, 0.22);
-    strokeBolt(main, 4, color, 0.55);
-    // Núcleo branco
+    strokeBolt(main, 9, 0x2244aa, 0.18);
+    strokeBolt(main, 7, 0x4488ff, 0.28);
+    strokeBolt(main, 4, color, 0.65);
     strokeBolt(main, 2, 0xffffff, 0.95);
 
-    // Ramificações curtas
     for (let b = 0; b < branches; b++) {
       const idx = 2 + Math.floor(rand() * Math.max(1, main.length - 4));
       const origin = main[idx];
@@ -1400,17 +1620,18 @@ export class GameScene extends Phaser.Scene {
       const bx = origin.x + Math.cos(ang) * blen;
       const by = origin.y + Math.sin(ang) * blen;
       const branch = buildBolt(origin.x, origin.y, bx, by, 3, 6);
-      strokeBolt(branch, 3, color, 0.4);
-      strokeBolt(branch, 1.5, 0xffffff, 0.75);
+      strokeBolt(branch, 3, color, 0.45);
+      strokeBolt(branch, 1.5, 0xffffff, 0.8);
     }
 
-    // Flash no impacto
-    g.fillStyle(0xffffff, 0.55 * fade);
-    g.fillCircle(x2, y2, 5 + rand() * 3);
-    g.fillStyle(color, 0.35 * fade);
-    g.fillCircle(x2, y2, 10);
-    g.fillStyle(0xffffff, 0.4 * fade);
-    g.fillCircle(x1, y1, 3);
+    g.fillStyle(0xffffff, 0.65 * fade);
+    g.fillCircle(x2, y2, 6 + rand() * 4);
+    g.fillStyle(color, 0.4 * fade);
+    g.fillCircle(x2, y2, 14);
+    g.fillStyle(0xffffff, 0.35 * fade);
+    g.fillCircle(x2, y2, 22);
+    g.fillStyle(0xffffff, 0.5 * fade);
+    g.fillCircle(x1, y1, 4);
   }
 
   drawPentagram(e) {
@@ -1451,10 +1672,301 @@ export class GameScene extends Phaser.Scene {
     g.fillCircle(e.x, e.y, 3);
   }
 
+  drawNova(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xff8844;
+    const baseR = e.radius || 80;
+    const expand = 0.25 + 0.85 * Math.min(1, p * 1.35);
+    const r = baseR * expand;
+
+    g.fillStyle(color, 0.22 * fade * (1 - p * 0.5));
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0xffee88, 0.12 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, r * 0.45);
+
+    for (let i = 0; i < 3; i++) {
+      const rr = r * (0.55 + i * 0.2);
+      const alpha = (0.75 - i * 0.18) * fade;
+      g.lineStyle(3 - i, i === 0 ? 0xffee88 : color, alpha);
+      g.strokeCircle(e.x, e.y, rr);
+    }
+
+    // Línguas de fogo radiais
+    const flames = 10;
+    for (let i = 0; i < flames; i++) {
+      const ang = (i / flames) * Math.PI * 2 + p * 2.2;
+      const len = r * (0.7 + 0.3 * Math.sin(p * 8 + i));
+      g.lineStyle(2.5, 0xffaa44, 0.55 * fade);
+      g.lineBetween(e.x, e.y, e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len);
+      g.fillStyle(0xffee88, 0.45 * fade);
+      g.fillCircle(e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len, 3);
+    }
+  }
+
+  drawHeal(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x55ff88;
+    const r = (e.radius || 42) * (0.7 + 0.3 * Math.sin(p * Math.PI));
+
+    g.fillStyle(color, 0.12 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.lineStyle(2, color, 0.7 * fade);
+    g.strokeCircle(e.x, e.y, r * (0.6 + 0.4 * p));
+
+    // Cruzes de cura subindo
+    for (let i = 0; i < 4; i++) {
+      const ang = (i / 4) * Math.PI * 2 + p * 1.5;
+      const orbit = 16 + i * 4;
+      const cx = e.x + Math.cos(ang) * orbit;
+      const cy = e.y + Math.sin(ang) * orbit - p * 28;
+      const s = 5 + (i % 2) * 2;
+      g.lineStyle(2.5, 0xffffff, 0.85 * fade);
+      g.lineBetween(cx - s, cy, cx + s, cy);
+      g.lineBetween(cx, cy - s, cx, cy + s);
+      g.lineStyle(1.5, color, 0.9 * fade);
+      g.lineBetween(cx - s, cy, cx + s, cy);
+      g.lineBetween(cx, cy - s, cx, cy + s);
+    }
+
+    g.fillStyle(0xffffff, 0.35 * fade);
+    g.fillCircle(e.x, e.y, 4);
+  }
+
+  drawBarrier(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x88aaff;
+    const r = (e.radius || 40) * (0.85 + 0.2 * p);
+    const rot = p * 2.4;
+
+    g.fillStyle(color, 0.14 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.lineStyle(3, color, 0.85 * fade);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(1.5, 0xffffff, 0.45 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.78);
+
+    // Hexágono rúnico
+    g.lineStyle(2, 0xffffff, 0.7 * fade);
+    g.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const a = rot + (i / 6) * Math.PI * 2;
+      const px = e.x + Math.cos(a) * r * 0.72;
+      const py = e.y + Math.sin(a) * r * 0.72;
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+
+    for (let i = 0; i < 6; i++) {
+      const a = rot + (i / 6) * Math.PI * 2;
+      g.fillStyle(0xffffff, 0.55 * fade);
+      g.fillCircle(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r, 2.5);
+    }
+  }
+
+  drawBlink(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xaa88ff;
+    const phase = e.phase || 'in';
+    const expand = phase === 'out' ? 1 + p * 0.8 : Math.max(0.15, 1 - p);
+    const r = (e.radius || 36) * expand;
+
+    g.fillStyle(color, 0.18 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.lineStyle(3, color, 0.8 * fade);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(1.5, 0xffffff, 0.55 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.55);
+
+    // Portal em espiral
+    g.lineStyle(2, 0xffffff, 0.4 * fade);
+    g.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24;
+      const a = t * Math.PI * 4 + p * 6;
+      const rr = r * (0.15 + 0.75 * t);
+      const px = e.x + Math.cos(a) * rr;
+      const py = e.y + Math.sin(a) * rr;
+      if (i === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+
+    if (e.x2 != null && e.y2 != null && phase === 'out') {
+      g.lineStyle(2, color, 0.35 * fade * (1 - p));
+      g.lineBetween(e.x, e.y, e.x2, e.y2);
+    }
+  }
+
+  drawImpact(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xffffff;
+    const r = (e.radius || 24) * (0.4 + 0.9 * p);
+    const spell = e.spellId || '';
+
+    g.fillStyle(color, 0.28 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0xffffff, 0.35 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, r * 0.35);
+    g.lineStyle(2.5, color, 0.7 * fade);
+    g.strokeCircle(e.x, e.y, r);
+
+    const rays = spell === 'ice_shard' ? 8 : 10;
+    for (let i = 0; i < rays; i++) {
+      const a = (i / rays) * Math.PI * 2 + p;
+      const len = r * (0.7 + 0.5 * p);
+      g.lineStyle(2, spell === 'ice_shard' ? 0xffffff : color, 0.55 * fade);
+      g.lineBetween(
+        e.x + Math.cos(a) * r * 0.2,
+        e.y + Math.sin(a) * r * 0.2,
+        e.x + Math.cos(a) * len,
+        e.y + Math.sin(a) * len
+      );
+    }
+  }
+
+  drawFreeze(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xaaddff;
+    const r = (e.radius || 200) * (0.35 + 0.65 * Math.min(1, p * 1.6));
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    g.fillStyle(color, 0.1 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.lineStyle(3, color, 0.7 * fade);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(1.5, 0xffffff, 0.4 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.7);
+
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + p * 0.4;
+      const len = r * (0.55 + rand() * 0.4);
+      g.lineStyle(2, 0xffffff, 0.55 * fade);
+      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+      // Cristais nas pontas
+      const cx = e.x + Math.cos(a) * len;
+      const cy = e.y + Math.sin(a) * len;
+      g.fillStyle(0xffffff, 0.7 * fade);
+      g.fillTriangle(
+        cx,
+        cy - 6,
+        cx - 4,
+        cy + 4,
+        cx + 4,
+        cy + 4
+      );
+    }
+
+    // Flocos
+    for (let i = 0; i < 8; i++) {
+      const a = rand() * Math.PI * 2;
+      const d = r * (0.2 + rand() * 0.7);
+      g.fillStyle(0xffffff, 0.45 * fade);
+      g.fillCircle(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, 2);
+    }
+  }
+
+  drawApocalypse(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xff2200;
+    const r = e.radius || 200;
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    // Chão em brasa
+    g.fillStyle(color, 0.16 * fade);
+    g.fillCircle(e.x, e.y, r * (0.5 + 0.5 * Math.min(1, p * 1.2)));
+    g.lineStyle(3, 0xff6600, 0.65 * fade);
+    g.strokeCircle(e.x, e.y, r * Math.min(1, p * 1.3));
+
+    // Meteoros caindo
+    const meteors = 7;
+    for (let i = 0; i < meteors; i++) {
+      const ang = rand() * Math.PI * 2;
+      const dist = r * (0.15 + rand() * 0.75);
+      const tx = e.x + Math.cos(ang) * dist;
+      const ty = e.y + Math.sin(ang) * dist;
+      const fall = Math.min(1, Math.max(0, (p - i * 0.08) * 2.2));
+      const sx = tx - 40;
+      const sy = ty - 120 + fall * 120;
+      g.lineStyle(3, 0xffaa33, 0.7 * fade * fall);
+      g.lineBetween(sx, sy - 28, tx, ty);
+      g.fillStyle(0xffee88, 0.8 * fade * fall);
+      g.fillCircle(sx, sy - 28, 5);
+      g.fillStyle(color, 0.45 * fade * fall);
+      g.fillCircle(tx, ty, 8 + fall * 10);
+      g.lineStyle(2, 0xff8800, 0.5 * fade * fall);
+      g.strokeCircle(tx, ty, 16 * fall);
+    }
+
+    // Rachaduras
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.3;
+      const len = r * (0.4 + rand() * 0.5) * Math.min(1, p * 1.4);
+      g.lineStyle(2, 0xff4400, 0.4 * fade);
+      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+    }
+  }
+
+  drawStorm(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xffdd33;
+    const r = (e.radius || 320) * (0.4 + 0.6 * Math.min(1, p * 1.5));
+
+    g.fillStyle(0x224466, 0.12 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.lineStyle(2, color, 0.45 * fade);
+    g.strokeCircle(e.x, e.y, r);
+
+    // Nuvem de tempestade
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + p * 3;
+      const cx = e.x + Math.cos(a) * 28;
+      const cy = e.y - 36 + Math.sin(a * 2) * 6;
+      g.fillStyle(0x556688, 0.35 * fade);
+      g.fillEllipse(cx, cy, 36, 16);
+    }
+    g.fillStyle(color, 0.25 * fade);
+    g.fillCircle(e.x, e.y - 36, 8);
+  }
+
+  drawPoisonBurst(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x88ff44;
+    const r = (e.radius || 90) * (0.3 + 0.7 * p);
+
+    g.fillStyle(color, 0.2 * fade * (1 - p * 0.4));
+    g.fillCircle(e.x, e.y, r);
+    for (let i = 0; i < 3; i++) {
+      g.lineStyle(2, color, (0.6 - i * 0.15) * fade);
+      g.strokeCircle(e.x, e.y, r * (0.5 + i * 0.2));
+    }
+  }
+
   renderEffects() {
     this.effectGraphics.clear();
     const seenBlood = new Set();
     const seenBones = new Set();
+    const activeBursts = new Set();
 
     for (const e of this.state.effects || []) {
       if (e.type === 'blood') {
@@ -1496,6 +2008,23 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
+      const burstKey = `${e.type}:${e.spellId || ''}:${Math.round(e.x)}:${Math.round(e.y)}:${e.seed ?? 0}:${e.phase || ''}`;
+      if (
+        e.type === 'impact' ||
+        e.type === 'nova' ||
+        e.type === 'heal' ||
+        e.type === 'blink' ||
+        e.type === 'barrier' ||
+        e.type === 'freeze' ||
+        e.type === 'apocalypse' ||
+        e.type === 'storm' ||
+        e.type === 'poison_burst' ||
+        e.type === 'lightning'
+      ) {
+        activeBursts.add(burstKey);
+        this.burstOnce(burstKey, () => this.burstSpellParticles(e));
+      }
+
       if (e.type === 'pentagram') {
         this.drawPentagram(e);
       } else if (e.type === 'lightning') {
@@ -1514,13 +2043,28 @@ export class GameScene extends Phaser.Scene {
           Math.abs(dx) > 0 ? 36 : 14,
           Math.abs(dy) > 0 ? 36 : 14
         );
-      } else if (e.type === 'nova' || e.type === 'blink' || e.type === 'heal' || e.type === 'barrier') {
-        this.effectGraphics.lineStyle(2, e.color || 0xffffff, 0.7);
-        this.effectGraphics.strokeCircle(e.x, e.y, e.radius || 30);
-        this.effectGraphics.fillStyle(e.color || 0xffffff, 0.12);
-        this.effectGraphics.fillCircle(e.x, e.y, e.radius || 24);
+      } else if (e.type === 'nova') {
+        this.drawNova(e);
+      } else if (e.type === 'heal') {
+        this.drawHeal(e);
+      } else if (e.type === 'barrier') {
+        this.drawBarrier(e);
+      } else if (e.type === 'blink') {
+        this.drawBlink(e);
+      } else if (e.type === 'impact') {
+        this.drawImpact(e);
+      } else if (e.type === 'freeze') {
+        this.drawFreeze(e);
+      } else if (e.type === 'apocalypse') {
+        this.drawApocalypse(e);
+      } else if (e.type === 'storm') {
+        this.drawStorm(e);
+      } else if (e.type === 'poison_burst') {
+        this.drawPoisonBurst(e);
       }
     }
+
+    this.pruneBurstSeen(activeBursts);
 
     for (const [id, s] of this.bloodSprites) {
       if (!seenBlood.has(id)) {

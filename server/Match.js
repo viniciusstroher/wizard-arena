@@ -947,7 +947,7 @@ export class Match {
           entityId: eid(),
           ownerId: player.id,
           team: 'player',
-          kind: spellInst.id === 'firebolt' ? 'fireball' : 'orb',
+          kind: spellInst.id === 'firebolt' ? 'fireball' : 'ice_shard',
           spellId: spellInst.id,
           x: player.x,
           y: player.y,
@@ -971,11 +971,13 @@ export class Match {
             y1: player.y,
             x2: target.x,
             y2: target.y,
-            life: 0.28,
+            life: 0.38,
+            maxLife: 0.38,
             color: stats.color,
             seed: (Math.random() * 1e9) | 0,
-            branches: 2,
+            branches: 3,
           });
+          this.spawnSpellImpact(target.x, target.y, 'arc_lightning', stats.color, 26);
         }
         break;
       }
@@ -983,16 +985,26 @@ export class Match {
         this.applyNova(player, stats.radius, stats.damage, player.id);
         this.effects.push({
           type: 'nova',
+          spellId: 'flame_nova',
           x: player.x,
           y: player.y,
           radius: stats.radius,
-          life: 0.25,
+          life: 0.65,
+          maxLife: 0.65,
           color: stats.color,
         });
         break;
       case 'mend':
         player.hp = Math.min(player.maxHp, player.hp + stats.heal);
-        this.effects.push({ type: 'heal', x: player.x, y: player.y, life: 0.4, color: stats.color });
+        this.effects.push({
+          type: 'heal',
+          x: player.x,
+          y: player.y,
+          life: 0.75,
+          maxLife: 0.75,
+          color: stats.color,
+          radius: 42,
+        });
         break;
       case 'poison_cloud':
         this.aoes.push({
@@ -1005,10 +1017,23 @@ export class Match {
           tick: stats.tick,
           tickAcc: 0,
           life: stats.duration,
+          maxLife: stats.duration,
+          color: stats.color,
+          spellId: 'poison_cloud',
+        });
+        this.effects.push({
+          type: 'poison_burst',
+          x: player.x + dirX * 80,
+          y: player.y + dirY * 80,
+          radius: stats.radius,
+          life: 0.45,
+          maxLife: 0.45,
           color: stats.color,
         });
         break;
       case 'blink': {
+        const fromX = player.x;
+        const fromY = player.y;
         const distBlink = Math.min(stats.range, Math.hypot(aimDx, aimDy));
         player.x = clamp(
           player.x + dirX * distBlink,
@@ -1023,23 +1048,56 @@ export class Match {
         player.vx = 0;
         player.vy = 0;
         this.resolveRockCollision(player, CONFIG.PLAYER_RADIUS);
-        this.effects.push({ type: 'blink', x: player.x, y: player.y, life: 0.2, color: stats.color });
+        this.effects.push({
+          type: 'blink',
+          phase: 'out',
+          x: fromX,
+          y: fromY,
+          x2: player.x,
+          y2: player.y,
+          life: 0.5,
+          maxLife: 0.5,
+          color: stats.color,
+          radius: 36,
+        });
+        this.effects.push({
+          type: 'blink',
+          phase: 'in',
+          x: player.x,
+          y: player.y,
+          x2: fromX,
+          y2: fromY,
+          life: 0.55,
+          maxLife: 0.55,
+          color: stats.color,
+          radius: 36,
+        });
         break;
       }
       case 'barrier':
         player.shield = stats.shield;
         player.shieldTimer = stats.duration;
-        this.effects.push({ type: 'barrier', x: player.x, y: player.y, life: 0.35, color: stats.color });
+        this.effects.push({
+          type: 'barrier',
+          x: player.x,
+          y: player.y,
+          life: 0.7,
+          maxLife: 0.7,
+          color: stats.color,
+          radius: 40,
+        });
         break;
       case 'apocalypse':
         this.applyNova(player, stats.radius, stats.damage, player.id);
         this.effects.push({
-          type: 'nova',
+          type: 'apocalypse',
           x: player.x,
           y: player.y,
           radius: stats.radius,
-          life: 0.5,
+          life: 1.35,
+          maxLife: 1.35,
           color: stats.color,
+          seed: (Math.random() * 1e9) | 0,
         });
         spellInst.usedThisRound = true;
         break;
@@ -1053,28 +1111,44 @@ export class Match {
           if (dist(player, m) <= stats.radius) m.stunTimer = stats.duration;
         }
         this.effects.push({
-          type: 'nova',
+          type: 'freeze',
           x: player.x,
           y: player.y,
           radius: stats.radius,
-          life: 0.4,
+          life: 1.1,
+          maxLife: 1.1,
           color: stats.color,
+          seed: (Math.random() * 1e9) | 0,
         });
         spellInst.usedThisRound = true;
         break;
       case 'storm_call': {
         const hostiles = this.listHostiles(player).filter((h) => dist(player, h) <= stats.range);
+        this.effects.push({
+          type: 'storm',
+          x: player.x,
+          y: player.y,
+          radius: stats.range,
+          life: 0.85,
+          maxLife: 0.85,
+          color: stats.color,
+          seed: (Math.random() * 1e9) | 0,
+        });
         for (const h of hostiles) {
           this.damageHostile(h, stats.damage, player.id);
           this.effects.push({
             type: 'lightning',
             x1: player.x,
-            y1: player.y,
+            y1: player.y - 40,
             x2: h.x,
             y2: h.y,
-            life: 0.2,
+            life: 0.4,
+            maxLife: 0.4,
             color: stats.color,
+            seed: (Math.random() * 1e9) | 0,
+            branches: 4,
           });
+          this.spawnSpellImpact(h.x, h.y, 'storm_call', stats.color, 30);
         }
         spellInst.usedThisRound = true;
         break;
@@ -1140,6 +1214,20 @@ export class Match {
       if (!m.alive) continue;
       if (dist(origin, m) <= radius) this.damageEntity(m, damage, sourceId, false, true);
     }
+  }
+
+  spawnSpellImpact(x, y, spellId, color, radius = 24) {
+    this.effects.push({
+      type: 'impact',
+      spellId: spellId || 'orb',
+      x,
+      y,
+      radius,
+      life: 0.4,
+      maxLife: 0.4,
+      color: color || 0xffffff,
+      seed: (Math.random() * 1e9) | 0,
+    });
   }
 
   tick(dt) {
@@ -1424,40 +1512,52 @@ export class Match {
       proj.x += proj.vx * dt;
       proj.y += proj.vy * dt;
       proj.life -= dt;
+      let ended = false;
       if (this.projectileHitsRock(prevX, prevY, proj.x, proj.y, proj.radius)) {
-        proj.life = 0;
-        continue;
+        ended = true;
       }
       let hit = false;
-      const fromMonster = proj.team === 'monster';
-      for (const p of this.players.values()) {
-        if (!p.alive) continue;
-        if (!fromMonster && p.id === proj.ownerId) continue;
-        if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
-          // Dano de monstro não conta como kill de jogador
-          const sourceId = fromMonster ? null : proj.ownerId;
-          this.damageEntity(p, proj.damage, sourceId, true, true);
-          this.applyProjectileKnockback(p, proj);
-          if (proj.slow) {
-            p.slow = Math.max(p.slow, proj.slow);
-            p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
-          }
-          hit = true;
-          break;
-        }
-      }
-      if (!hit && !fromMonster) {
-        for (const m of this.monsters) {
-          if (!m.alive) continue;
-          if (dist(proj, m) <= proj.radius + m.radius) {
-            this.damageEntity(m, proj.damage, proj.ownerId, false, true);
-            this.applyProjectileKnockback(m, proj);
+      if (!ended) {
+        const fromMonster = proj.team === 'monster';
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          if (!fromMonster && p.id === proj.ownerId) continue;
+          if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
+            // Dano de monstro não conta como kill de jogador
+            const sourceId = fromMonster ? null : proj.ownerId;
+            this.damageEntity(p, proj.damage, sourceId, true, true);
+            this.applyProjectileKnockback(p, proj);
+            if (proj.slow) {
+              p.slow = Math.max(p.slow, proj.slow);
+              p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
+            }
             hit = true;
             break;
           }
         }
+        if (!hit && !fromMonster) {
+          for (const m of this.monsters) {
+            if (!m.alive) continue;
+            if (dist(proj, m) <= proj.radius + m.radius) {
+              this.damageEntity(m, proj.damage, proj.ownerId, false, true);
+              this.applyProjectileKnockback(m, proj);
+              hit = true;
+              break;
+            }
+          }
+        }
       }
-      if (hit) proj.life = 0;
+      if (hit || ended) {
+        const spellId = proj.spellId || proj.kind || 'orb';
+        const impactR =
+          spellId === 'firebolt' || spellId === 'fireball'
+            ? 30
+            : spellId === 'ice_shard'
+              ? 26
+              : 18;
+        this.spawnSpellImpact(proj.x, proj.y, spellId, proj.color, impactR);
+        proj.life = 0;
+      }
     }
     this.projectiles = this.projectiles.filter((p) => p.life > 0);
 
@@ -1600,6 +1700,7 @@ export class Match {
         color: p.color,
         radius: p.radius,
         kind: p.kind || p.spellId || 'orb',
+        spellId: p.spellId || p.kind || 'orb',
         team: p.team || 'player',
       })),
       aoes: this.aoes.map((a) => ({
@@ -1609,6 +1710,8 @@ export class Match {
         radius: a.radius,
         color: a.color,
         life: a.life,
+        maxLife: a.maxLife || a.life,
+        spellId: a.spellId || null,
       })),
       effects: this.effects,
       events: this.events,

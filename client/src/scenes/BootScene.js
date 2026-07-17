@@ -131,6 +131,36 @@ export class BootScene extends Phaser.Scene {
       },
       2
     );
+
+    // Ice shard — cristal pontiagudo (apontando para cima; rotacionado no render)
+    makePixelTexture(
+      this,
+      'proj_ice_shard',
+      [
+        '................',
+        '.......WW.......',
+        '......WCCW......',
+        '.....WCCCCW.....',
+        '....WCCBBCCW....',
+        '...WCBBBBBCW....',
+        '...WCBBBBBBCW...',
+        '...WCBBWWBBCW...',
+        '....WCBBBCW.....',
+        '....WCBBCW......',
+        '.....WCCW.......',
+        '......WCW.......',
+        '.......W........',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        W: 0xe8f7ff,
+        C: 0x8ad8ff,
+        B: 0x3a9fd4,
+      },
+      2
+    );
   }
 
   createSpellIcons() {
