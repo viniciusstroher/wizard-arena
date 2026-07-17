@@ -61,7 +61,144 @@ export class BootScene extends Phaser.Scene {
     this.createMonsterSprites();
     this.createBruxaoSprite();
     this.createArenaBrickTexture();
+    this.createLavaTextures();
     this.scene.start('Lobby');
+  }
+
+  createLavaTextures() {
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    // Tile de lava (fluxo)
+    const tw = 64;
+    const th = 64;
+    g.clear();
+    g.fillStyle(0x3a0800, 1);
+    g.fillRect(0, 0, tw, th);
+    const blobs = [
+      [4, 8, 22, 14, 0x8b1a00],
+      [28, 4, 18, 16, 0xb83b00],
+      [40, 30, 20, 18, 0x7a1500],
+      [8, 36, 24, 16, 0xc44a00],
+      [32, 44, 16, 12, 0x5c1000],
+      [18, 22, 14, 10, 0xe85d04],
+      [48, 12, 12, 10, 0xff7a18],
+      [2, 50, 14, 10, 0xd35400],
+    ];
+    for (const [x, y, w, h, c] of blobs) {
+      g.fillStyle(c, 1);
+      g.fillEllipse(x + w / 2, y + h / 2, w, h);
+    }
+    // Brilhos quentes
+    g.fillStyle(0xffc857, 0.85);
+    g.fillEllipse(22, 28, 8, 5);
+    g.fillEllipse(50, 48, 7, 4);
+    g.fillEllipse(12, 54, 6, 3);
+    g.generateTexture('lava_tile', tw, th);
+
+    // Bolhas de lava (3 frames)
+    const bubbleFrames = [
+      [[8, 8, 4], [8, 8, 2]],
+      [[8, 8, 6], [8, 7, 3], [8, 6, 1]],
+      [[8, 8, 7], [8, 7, 4], [8, 5, 2], [8, 4, 1]],
+    ];
+    bubbleFrames.forEach((rings, i) => {
+      g.clear();
+      for (const [cx, cy, r] of rings) {
+        g.fillStyle(i === rings.length - 1 && r <= 2 ? 0xffe066 : 0xff6b1a, 1);
+        g.fillCircle(cx, cy, r);
+      }
+      if (i === 2) {
+        g.fillStyle(0x3a0800, 1);
+        g.fillCircle(8, 8, 3);
+      }
+      g.generateTexture(`lava_bubble_${i}`, 16, 16);
+    });
+
+    // Gases (fumaça/vapor) — 3 frames
+    makePixelTexture(
+      this,
+      'lava_gas_0',
+      [
+        '........',
+        '...GG...',
+        '..GYYG..',
+        '.GYYYYG.',
+        '..GYYG..',
+        '...GG...',
+        '........',
+        '........',
+      ],
+      { G: 0x6b4a2a, Y: 0xc4a574 },
+      2
+    );
+    makePixelTexture(
+      this,
+      'lava_gas_1',
+      [
+        '....G...',
+        '...GYG..',
+        '..GYYYG.',
+        '.GYYYYG.',
+        '..GYYG..',
+        '...GY...',
+        '....G...',
+        '........',
+      ],
+      { G: 0x5a3d22, Y: 0xb89560 },
+      2
+    );
+    makePixelTexture(
+      this,
+      'lava_gas_2',
+      [
+        '...G.G..',
+        '..GYGYG.',
+        '.GYYYYG.',
+        '..GYYG..',
+        '...GYG..',
+        '....G...',
+        '........',
+        '........',
+      ],
+      { G: 0x4a321c, Y: 0xa88855 },
+      2
+    );
+
+    // Cratera / poça de lava (decoração)
+    makePixelTexture(
+      this,
+      'lava_pool',
+      [
+        '................',
+        '......DDDD......',
+        '....DDRRRRDD....',
+        '...DRROOOORRD...',
+        '..DRROYYYORRD...',
+        '..DROYYYYYORD...',
+        '.DRROYYYYYORRD..',
+        '.DROYYYYYYYORD..',
+        '.DROYYYYYYYORD..',
+        '.DRROYYYYYORRD..',
+        '..DROYYYYYORD...',
+        '..DRROYYYORRD...',
+        '...DRROOOORRD...',
+        '....DDRRRRDD....',
+        '......DDDD......',
+        '................',
+      ],
+      {
+        D: 0x2a0600,
+        R: 0x8b1a00,
+        O: 0xe85d04,
+        Y: 0xffc857,
+      },
+      2
+    );
+
+    g.destroy();
+    for (const key of ['lava_tile', 'lava_bubble_0', 'lava_bubble_1', 'lava_bubble_2']) {
+      this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
   }
 
   createArenaBrickTexture() {

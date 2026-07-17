@@ -21,11 +21,15 @@ export class GameScene extends Phaser.Scene {
     this.eventScroll = 0;
     this.disconnectConfirmOpen = false;
     this.leaving = false;
+    this.lavaFx = [];
   }
 
   create() {
     this.socket = getSocket();
-    this.cameras.main.setBackgroundColor('#0b1020');
+    this.cameras.main.setBackgroundColor('#1a0500');
+
+    this.lavaFloor = this.add.tileSprite(640, 360, 1280, 720, 'lava_tile').setDepth(-2);
+    this.createLavaEffects();
 
     this.arenaFloor = this.add.tileSprite(640, 360, 640, 640, 'arena_brick').setDepth(0);
     this.arenaMaskGfx = this.make.graphics({ x: 0, y: 0, add: false });
@@ -480,9 +484,133 @@ export class GameScene extends Phaser.Scene {
     return this.state?.players?.find((p) => p.id === this.playerId);
   }
 
+  createLavaEffects() {
+    if (!this.anims.exists('lava_bubble')) {
+      this.anims.create({
+        key: 'lava_bubble',
+        frames: [
+          { key: 'lava_bubble_0' },
+          { key: 'lava_bubble_1' },
+          { key: 'lava_bubble_2' },
+          { key: 'lava_bubble_1' },
+        ],
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
+    if (!this.anims.exists('lava_gas')) {
+      this.anims.create({
+        key: 'lava_gas',
+        frames: [{ key: 'lava_gas_0' }, { key: 'lava_gas_1' }, { key: 'lava_gas_2' }, { key: 'lava_gas_1' }],
+        frameRate: 5,
+        repeat: -1,
+      });
+    }
+
+    const cx = 640;
+    const cy = 360;
+    const minR = 340; // fora da arena inicial
+    const maxR = 520;
+    const poolCount = 10 + Math.floor(Math.random() * 8);
+    const bubbleCount = 18 + Math.floor(Math.random() * 14);
+    const gasCount = 14 + Math.floor(Math.random() * 12);
+
+    const placeOutside = () => {
+      const angle = Math.random() * Math.PI * 2;
+      const r = minR + Math.random() * (maxR - minR);
+      return { x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+    };
+
+    for (let i = 0; i < poolCount; i++) {
+      const { x, y } = placeOutside();
+      const s = this.add
+        .image(x, y, 'lava_pool')
+        .setDepth(-1)
+        .setScale(0.7 + Math.random() * 1.1)
+        .setAlpha(0.75 + Math.random() * 0.25)
+        .setRotation(Math.random() * Math.PI);
+      this.lavaFx.push({ sprite: s, kind: 'pool', homeX: x, homeY: y });
+      this.tweens.add({
+        targets: s,
+        scaleX: s.scaleX * 1.08,
+        scaleY: s.scaleY * 0.92,
+        duration: 700 + Math.random() * 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    }
+
+    for (let i = 0; i < bubbleCount; i++) {
+      const { x, y } = placeOutside();
+      const s = this.add.sprite(x, y, 'lava_bubble_0').setDepth(-1).setScale(0.9 + Math.random() * 1.4);
+      s.play('lava_bubble');
+      s.anims.timeScale = 0.55 + Math.random() * 0.9;
+      this.lavaFx.push({ sprite: s, kind: 'bubble', homeX: x, homeY: y });
+      this.tweens.add({
+        targets: s,
+        y: y - 6 - Math.random() * 10,
+        alpha: { from: 0.55, to: 1 },
+        duration: 500 + Math.random() * 700,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+        delay: Math.random() * 800,
+      });
+    }
+
+    for (let i = 0; i < gasCount; i++) {
+      const { x, y } = placeOutside();
+      const s = this.add
+        .sprite(x, y, 'lava_gas_0')
+        .setDepth(-1)
+        .setScale(1.2 + Math.random() * 1.8)
+        .setAlpha(0);
+      s.play('lava_gas');
+      s.anims.timeScale = 0.5 + Math.random() * 1.1;
+      this.lavaFx.push({ sprite: s, kind: 'gas', homeX: x, homeY: y });
+
+      const rise = 28 + Math.random() * 40;
+      const dur = 1400 + Math.random() * 1600;
+      this.tweens.add({
+        targets: s,
+        y: y - rise,
+        alpha: { from: 0, to: 0.55 },
+        duration: dur,
+        repeat: -1,
+        ease: 'Quad.easeOut',
+        delay: Math.random() * 1200,
+        onRepeat: () => {
+          s.x = x + (Math.random() - 0.5) * 12;
+          s.y = y;
+          s.setAlpha(0);
+        },
+        onUpdate: (tween) => {
+          // somece no topo do trajeto
+          if (tween.progress > 0.55) {
+            s.setAlpha(Math.max(0, 0.55 * (1 - (tween.progress - 0.55) / 0.45)));
+          }
+        },
+      });
+    }
+  }
+
+  updateLavaEffects(arena) {
+    this.lavaFloor.tilePositionX += 0.35;
+    this.lavaFloor.tilePositionY += 0.18;
+
+    for (const fx of this.lavaFx) {
+      const dist = Math.hypot(fx.homeX - arena.x, fx.homeY - arena.y);
+      const outside = dist > arena.radius + 8;
+      fx.sprite.setVisible(outside);
+    }
+  }
+
   renderArena() {
     const a = this.state.arena;
     const diameter = Math.max(2, a.radius * 2);
+
+    this.updateLavaEffects(a);
 
     this.arenaFloor.setPosition(a.x, a.y);
     this.arenaFloor.setSize(diameter, diameter);
@@ -493,12 +621,16 @@ export class GameScene extends Phaser.Scene {
 
     this.arenaGraphics.clear();
 
+    // Borda quente da lava sob o anel
+    this.arenaGraphics.lineStyle(10, 0xff6b1a, 0.35);
+    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 6);
+
     // Safe ring
     this.arenaGraphics.lineStyle(4, 0x6b5cff, 0.9);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius);
 
     // Danger outside hint
-    this.arenaGraphics.lineStyle(2, 0xff4a4a, 0.25);
+    this.arenaGraphics.lineStyle(2, 0xff4a4a, 0.35);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 18);
   }
 
