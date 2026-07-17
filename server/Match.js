@@ -441,6 +441,7 @@ export class Match {
     this.phase = 'playing';
     this.roundTime = 0;
     this.scheduleNextMeteor();
+    this.scheduleNextKikoLaugh();
     this.pushEvent({ type: 'round_start', round: this.round });
     this.broadcastState(true);
   }
@@ -449,6 +450,22 @@ export class Match {
     const min = CONFIG.METEOR_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.METEOR_EVENT_MAX_INTERVAL);
     this.meteorTimer = min + Math.random() * (max - min);
+  }
+
+  scheduleNextKikoLaugh() {
+    const min = CONFIG.KIKO_LAUGH_MIN_INTERVAL;
+    const max = Math.max(min, CONFIG.KIKO_LAUGH_MAX_INTERVAL);
+    this.kikoLaughTimer = min + Math.random() * (max - min);
+  }
+
+  tickKikoLaugh(dt) {
+    if (CONFIG.KIKO_LAUGH_CHANCE <= 0) return;
+    this.kikoLaughTimer -= dt;
+    if (this.kikoLaughTimer > 0) return;
+    if (Math.random() < CONFIG.KIKO_LAUGH_CHANCE) {
+      this.pushEvent({ type: 'kiko_laugh' });
+    }
+    this.scheduleNextKikoLaugh();
   }
 
   /** Escolhe um ponto na plataforma segura para o meteoro. */
