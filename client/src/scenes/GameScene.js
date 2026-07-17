@@ -26,6 +26,7 @@ export class GameScene extends Phaser.Scene {
     this.matchEndOpen = false;
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
+    this.moveDust = null;
   }
 
   create() {
@@ -45,6 +46,7 @@ export class GameScene extends Phaser.Scene {
     this.arenaGraphics = this.add.graphics().setDepth(1);
     this.aoeGraphics = this.add.graphics();
     this.effectGraphics = this.add.graphics();
+    this.createMoveDust();
 
     this.createHud();
     this.createEventBoard();
@@ -592,6 +594,49 @@ export class GameScene extends Phaser.Scene {
     return this.state?.players?.find((p) => p.id === this.playerId);
   }
 
+  createMoveDust() {
+    this.moveDust = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x8b6a3c, 0x9a7a48, 0x6b4e2e, 0xa08050],
+        speed: { min: 18, max: 48 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 1.1, end: 0 },
+        alpha: { start: 0.7, end: 0 },
+        lifespan: { min: 280, max: 520 },
+        gravityY: -12,
+        frequency: -1,
+        emitting: false,
+      })
+      .setDepth(3);
+  }
+
+  /** Poeira no extremo oposto ao vetor de velocidade (rastro atrás do movimento). */
+  emitMoveDust(sprite, x, y, vx = 0, vy = 0) {
+    if (!this.moveDust) return;
+    const speed = Math.hypot(vx || 0, vy || 0);
+    if (!Number.isFinite(speed) || speed < 25) return;
+
+    const now = this.time.now;
+    const gap = speed > 120 ? 14 : 22;
+    if (now - (sprite.lastDustAt || 0) < gap) return;
+    sprite.lastDustAt = now;
+
+    const nx = vx / speed;
+    const ny = vy / speed;
+    // Extremidade do vetor de aceleração: atrás do personagem, nos pés
+    const dustX = x - nx * 12;
+    const dustY = y - ny * 10 + 8;
+    const backAngle = Phaser.Math.RadToDeg(Math.atan2(ny, nx)) + 180;
+
+    this.moveDust.setEmitterAngle({ min: backAngle - 50, max: backAngle + 50 });
+    this.moveDust.setParticleSpeed({
+      min: 20 + speed * 0.12,
+      max: 50 + speed * 0.22,
+    });
+    const count = speed > 140 ? 5 : speed > 90 ? 4 : 3;
+    this.moveDust.emitParticleAt(dustX, dustY, count);
+  }
+
   createLavaEffects() {
     if (!this.anims.exists('lava_bubble')) {
       this.anims.create({
@@ -825,6 +870,7 @@ export class GameScene extends Phaser.Scene {
       s.setScale(p.id === this.playerId ? 1.15 : 1);
       if (p.stun) s.setAngle(Math.sin(this.time.now / 40) * 8);
       else s.setAngle(0);
+      if (p.alive) this.emitMoveDust(s, p.x, p.y, p.vx, p.vy);
 
       s.nameTag.setText(p.name + (p.alive ? '' : ' ✝'));
       s.nameTag.setPosition(p.x, p.y - 28);
@@ -871,6 +917,7 @@ export class GameScene extends Phaser.Scene {
       if (s.texture.key !== tex) s.setTexture(tex);
       s.clearTint();
       s.setPosition(m.x, m.y);
+      this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
       s.nameTag.setText(m.type);
       s.nameTag.setPosition(m.x, m.y - 26);
       s.hpBg.setPosition(m.x, m.y - 18);
