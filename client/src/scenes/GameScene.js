@@ -2157,6 +2157,10 @@ export class GameScene extends Phaser.Scene {
     this.aoeGraphics.clear();
     const t = this.time.now / 1000;
     for (const a of this.state.aoes) {
+      if (a.spellId === 'flame_nova') {
+        this.drawGroundFireAoe(a, t);
+        continue;
+      }
       const maxLife = a.maxLife || a.life || 1;
       const lifeFade = Math.min(1, a.life / Math.min(1.2, maxLife));
       const pulse = 0.9 + 0.1 * Math.sin(t * 5 + a.x * 0.01);
@@ -2210,6 +2214,72 @@ export class GameScene extends Phaser.Scene {
     }
     for (const id of this.aoeFxAt.keys()) {
       if (!(this.state.aoes || []).some((a) => a.entityId === id)) this.aoeFxAt.delete(id);
+    }
+  }
+
+  /** Fogo no chão em forma radial (Flame Nova). */
+  drawGroundFireAoe(a, t) {
+    const g = this.aoeGraphics;
+    const maxLife = a.maxLife || a.life || 1;
+    const lifeFade = Math.min(1, a.life / Math.max(0.35, maxLife * 0.35)) * Math.min(1, a.life);
+    const lifeRatio = Math.max(0, Math.min(1, a.life / maxLife));
+    const pulse = 0.92 + 0.08 * Math.sin(t * 7 + a.x * 0.02);
+    const r = (a.radius || 110) * pulse * (0.85 + 0.15 * lifeRatio);
+    const color = a.color || 0xff8844;
+
+    // Brasa no chão
+    g.fillStyle(0x4a1200, 0.35 * lifeFade);
+    g.fillCircle(a.x, a.y, r * 1.02);
+    g.fillStyle(color, 0.16 * lifeFade);
+    g.fillCircle(a.x, a.y, r);
+    g.fillStyle(0xff5522, 0.12 * lifeFade);
+    g.fillCircle(a.x, a.y, r * 0.55);
+    g.fillStyle(0xffee66, 0.1 * lifeFade);
+    g.fillCircle(a.x, a.y, r * 0.22);
+
+    // Raios de fogo do centro para fora
+    const rays = 16;
+    for (let i = 0; i < rays; i++) {
+      const ang = (i / rays) * Math.PI * 2 + t * 0.55 + Math.sin(t * 3 + i) * 0.08;
+      const len = r * (0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 9 + i * 1.7)));
+      const ex = a.x + Math.cos(ang) * len;
+      const ey = a.y + Math.sin(ang) * len;
+      g.lineStyle(3.2, 0xff4422, 0.5 * lifeFade);
+      g.lineBetween(a.x, a.y, ex, ey);
+      g.lineStyle(1.6, 0xffee66, 0.65 * lifeFade);
+      g.lineBetween(a.x, a.y, a.x + Math.cos(ang) * len * 0.7, a.y + Math.sin(ang) * len * 0.7);
+      g.fillStyle(0xffee88, 0.55 * lifeFade);
+      g.fillCircle(ex, ey, 2.5 + (i % 3));
+    }
+
+    // Anéis ondulantes
+    for (let ring = 0; ring < 3; ring++) {
+      const rr = r * (0.35 + ring * 0.28);
+      const rot = t * (1.4 + ring * 0.5) * (ring % 2 === 0 ? 1 : -1);
+      g.lineStyle(2 - ring * 0.35, ring === 0 ? 0xffee66 : color, (0.5 - ring * 0.1) * lifeFade);
+      g.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const ang = rot + (i / 24) * Math.PI * 2;
+        const wobble = 1 + 0.1 * Math.sin(ang * 4 + t * 6);
+        const px = a.x + Math.cos(ang) * rr * wobble;
+        const py = a.y + Math.sin(ang) * rr * wobble;
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.closePath();
+      g.strokePath();
+    }
+
+    if (this.fireballFx && a.entityId != null) {
+      const now = this.time.now;
+      const last = this.aoeFxAt.get(a.entityId) || 0;
+      if (now - last > 55) {
+        this.aoeFxAt.set(a.entityId, now);
+        const ang = Math.random() * Math.PI * 2;
+        const dist = Math.random() * r * 0.85;
+        this.fireballFx.emitParticleAt(a.x + Math.cos(ang) * dist, a.y + Math.sin(ang) * dist, 1);
+        if (Math.random() < 0.45) this.sparkFx?.emitParticleAt(a.x + Math.cos(ang) * dist, a.y + Math.sin(ang) * dist, 1);
+      }
     }
   }
 
@@ -2352,30 +2422,40 @@ export class GameScene extends Phaser.Scene {
     const p = this.effectProgress(e);
     const color = e.color || 0xff8844;
     const baseR = e.radius || 80;
-    const expand = 0.25 + 0.85 * Math.min(1, p * 1.35);
+    // Erupção radial no chão — abre do centro para fora
+    const expand = 0.2 + 0.9 * Math.min(1, p * 1.5);
     const r = baseR * expand;
 
-    g.fillStyle(color, 0.22 * fade * (1 - p * 0.5));
+    g.fillStyle(0x3a0a00, 0.28 * fade);
+    g.fillCircle(e.x, e.y, r * 1.05);
+    g.fillStyle(color, 0.2 * fade * (1 - p * 0.45));
     g.fillCircle(e.x, e.y, r);
-    g.fillStyle(0xffee88, 0.12 * fade * (1 - p));
-    g.fillCircle(e.x, e.y, r * 0.45);
+    g.fillStyle(0xff5522, 0.16 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, r * 0.5);
+    g.fillStyle(0xffee66, 0.18 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, r * 0.2);
 
-    for (let i = 0; i < 3; i++) {
-      const rr = r * (0.55 + i * 0.2);
-      const alpha = (0.75 - i * 0.18) * fade;
-      g.lineStyle(3 - i, i === 0 ? 0xffee88 : color, alpha);
-      g.strokeCircle(e.x, e.y, rr);
+    const flames = 18;
+    for (let i = 0; i < flames; i++) {
+      const ang = (i / flames) * Math.PI * 2 + p * 1.4;
+      const len = r * (0.55 + 0.45 * Math.sin(p * 10 + i * 1.3));
+      g.lineStyle(3.5, 0xff4422, 0.6 * fade);
+      g.lineBetween(e.x, e.y, e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len);
+      g.lineStyle(1.8, 0xffee66, 0.75 * fade);
+      g.lineBetween(
+        e.x,
+        e.y,
+        e.x + Math.cos(ang) * len * 0.72,
+        e.y + Math.sin(ang) * len * 0.72
+      );
+      g.fillStyle(0xffee88, 0.55 * fade);
+      g.fillCircle(e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len, 3);
     }
 
-    // Línguas de fogo radiais
-    const flames = 10;
-    for (let i = 0; i < flames; i++) {
-      const ang = (i / flames) * Math.PI * 2 + p * 2.2;
-      const len = r * (0.7 + 0.3 * Math.sin(p * 8 + i));
-      g.lineStyle(2.5, 0xffaa44, 0.55 * fade);
-      g.lineBetween(e.x, e.y, e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len);
-      g.fillStyle(0xffee88, 0.45 * fade);
-      g.fillCircle(e.x + Math.cos(ang) * len, e.y + Math.sin(ang) * len, 3);
+    for (let i = 0; i < 3; i++) {
+      const rr = r * (0.4 + i * 0.25);
+      g.lineStyle(2.2 - i * 0.4, i === 0 ? 0xffee66 : color, (0.7 - i * 0.15) * fade);
+      g.strokeCircle(e.x, e.y, rr);
     }
   }
 
@@ -3073,6 +3153,13 @@ export class GameScene extends Phaser.Scene {
         icon: 'spell_poison_cloud',
         color: 0x88ff44,
         timer: me.poisonTimer,
+      });
+    }
+    if (me.alive && (me.burnTimer || 0) > 0) {
+      effects.push({
+        icon: 'spell_flame_nova',
+        color: 0xff8844,
+        timer: me.burnTimer,
       });
     }
     for (let i = 0; i < this.statusSlots.length; i++) {

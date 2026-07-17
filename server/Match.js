@@ -236,6 +236,11 @@ export class Match {
       poisonTick: 1,
       poisonTickAcc: 0,
       poisonOwnerId: null,
+      burnTimer: 0,
+      burnDamage: 0,
+      burnTick: 1,
+      burnTickAcc: 0,
+      burnOwnerId: null,
       stunTimer: 0,
       dashTimer: 0,
       dashCooldown: 0,
@@ -394,6 +399,10 @@ export class Match {
       p.poisonDamage = 0;
       p.poisonTickAcc = 0;
       p.poisonOwnerId = null;
+      p.burnTimer = 0;
+      p.burnDamage = 0;
+      p.burnTickAcc = 0;
+      p.burnOwnerId = null;
       p.stunTimer = 0;
       p.knockbackTimer = 0;
       p.knockbackDx = 0;
@@ -1338,6 +1347,11 @@ export class Match {
       poisonTick: 1,
       poisonTickAcc: 0,
       poisonOwnerId: null,
+      burnTimer: 0,
+      burnDamage: 0,
+      burnTick: 1,
+      burnTickAcc: 0,
+      burnOwnerId: null,
     });
   }
 
@@ -1373,6 +1387,95 @@ export class Match {
       target.poisonTickAcc = 0;
       target.poisonOwnerId = null;
     }
+  }
+
+  /** Aplica/renova queimadura (duração sempre no máximo). */
+  applyBurn(target, ownerId, damage, tick, duration) {
+    if (!target?.alive) return;
+    const wasBurning = (target.burnTimer || 0) > 0;
+    target.burnTimer = duration;
+    target.burnDamage = damage;
+    target.burnTick = tick > 0 ? tick : 1;
+    target.burnOwnerId = ownerId;
+    // Renovar não pausa o DoT; na 1ª aplicação o 1º tick vem após `tick` segundos
+    if (!wasBurning) target.burnTickAcc = 0;
+  }
+
+  /** Processa DoT de queimadura em jogador ou monstro. */
+  tickBurn(target, dt, isPlayer) {
+    if (!target.alive || !(target.burnTimer > 0)) return;
+    target.burnTickAcc += dt;
+    const tick = target.burnTick > 0 ? target.burnTick : 1;
+    while (target.burnTickAcc >= tick && target.alive && target.burnTimer > 0) {
+      target.burnTickAcc -= tick;
+      this.damageEntity(target, target.burnDamage, target.burnOwnerId, isPlayer, true);
+    }
+    target.burnTimer = Math.max(0, target.burnTimer - dt);
+    if (target.burnTimer <= 0 || !target.alive) {
+      target.burnTimer = 0;
+      target.burnDamage = 0;
+      target.burnTickAcc = 0;
+      target.burnOwnerId = null;
+    }
+  }
+
+  /**
+   * Flame Nova: dano inicial + queimadura + fogo no chão.
+   * @param {object} origin posição {x,y}
+   * @param {string|number} ownerId
+   * @param {object} stats stats da magia
+   * @param {number} [burstDamage] dano inicial (default stats.damage)
+   * @param {boolean} [hitMonsters=true]
+   */
+  applyFlameNova(origin, ownerId, stats, burstDamage = null, hitMonsters = true) {
+    const radius = stats.radius || 110;
+    const burst = burstDamage != null ? burstDamage : stats.damage || 0;
+    const burnDmg = stats.burnDamage ?? 1;
+    const burnTick = stats.burnTick ?? 1;
+    const burnDuration = stats.burnDuration ?? 10;
+    const groundLife = stats.duration ?? 4;
+
+    for (const p of this.players.values()) {
+      if (!p.alive || p.id === ownerId) continue;
+      if (dist(origin, p) <= radius) {
+        this.damageEntity(p, burst, ownerId, true, true);
+        this.applyBurn(p, ownerId, burnDmg, burnTick, burnDuration);
+      }
+    }
+    if (hitMonsters) {
+      for (const m of this.monsters) {
+        if (!m.alive) continue;
+        if (dist(origin, m) <= radius) {
+          this.damageEntity(m, burst, ownerId, false, true);
+          this.applyBurn(m, ownerId, burnDmg, burnTick, burnDuration);
+        }
+      }
+    }
+
+    this.aoes.push({
+      entityId: eid(),
+      ownerId,
+      x: origin.x,
+      y: origin.y,
+      radius,
+      damage: burnDmg,
+      tick: burnTick,
+      burnDuration,
+      life: groundLife,
+      maxLife: groundLife,
+      color: stats.color || 0xff8844,
+      spellId: 'flame_nova',
+    });
+    this.effects.push({
+      type: 'nova',
+      spellId: 'flame_nova',
+      x: origin.x,
+      y: origin.y,
+      radius,
+      life: 0.55,
+      maxLife: 0.55,
+      color: stats.color || 0xff8844,
+    });
   }
 
   /** Magias usadas por monstros caster (beholder / dragão / lich). */
@@ -1432,22 +1535,13 @@ export class Match {
       }
       case 'flame_nova': {
         const radius = monster.novaRadius || stats.radius || 110;
-        for (const p of this.players.values()) {
-          if (!p.alive) continue;
-          if (dist(monster, p) <= radius) {
-            this.damageEntity(p, Math.round(monster.damage * 1.15), monster.entityId, true, true);
-          }
-        }
-        this.effects.push({
-          type: 'nova',
-          spellId: 'flame_nova',
-          x: monster.x,
-          y: monster.y,
-          radius,
-          life: 0.65,
-          maxLife: 0.65,
-          color: stats.color,
-        });
+        this.applyFlameNova(
+          monster,
+          monster.entityId,
+          { ...stats, radius },
+          Math.round(monster.damage * 1.15),
+          false
+        );
         monster.attackCd = (monster.attackCooldown || 1.1) * 1.2;
         monster.novaCd = monster.novaCooldown || 4;
         break;
@@ -1629,17 +1723,7 @@ export class Match {
         break;
       }
       case 'flame_nova':
-        this.applyNova(player, stats.radius, stats.damage, player.id);
-        this.effects.push({
-          type: 'nova',
-          spellId: 'flame_nova',
-          x: player.x,
-          y: player.y,
-          radius: stats.radius,
-          life: 0.65,
-          maxLife: 0.65,
-          color: stats.color,
-        });
+        this.applyFlameNova(player, player.id, stats, stats.damage, true);
         break;
       case 'mend':
         player.hp = Math.min(player.maxHp, player.hp + stats.heal);
@@ -2011,6 +2095,7 @@ export class Match {
       if (!p.alive) continue;
 
       this.tickPoison(p, dt, true);
+      this.tickBurn(p, dt, true);
       p.stunTimer = Math.max(0, p.stunTimer - dt);
       p.slowTimer = Math.max(0, p.slowTimer - dt);
       if (p.slowTimer <= 0) p.slow = 0;
@@ -2100,6 +2185,7 @@ export class Match {
     for (const m of this.monsters) {
       if (!m.alive) continue;
       this.tickPoison(m, dt, false);
+      this.tickBurn(m, dt, false);
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
       m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
@@ -2293,21 +2379,40 @@ export class Match {
     }
     this.projectiles = this.projectiles.filter((p) => p.life > 0);
 
-    // AoEs — poison cloud aplica/renova o status (dano vem do DoT)
+    // AoEs — poison / flame_nova aplicam ou renovam status no chão
     for (const aoe of this.aoes) {
       aoe.life -= dt;
-      const duration = aoe.poisonDuration || 5;
       const tick = aoe.tick || 1;
+      if (aoe.spellId === 'flame_nova') {
+        const burnDuration = aoe.burnDuration || 10;
+        for (const p of this.players.values()) {
+          if (!p.alive || p.id === aoe.ownerId) continue;
+          if (dist(aoe, p) <= aoe.radius) {
+            this.applyBurn(p, aoe.ownerId, aoe.damage, tick, burnDuration);
+          }
+        }
+        // Fogo de jogador também queima monstros no chão
+        if (this.players.has(aoe.ownerId)) {
+          for (const m of this.monsters) {
+            if (!m.alive) continue;
+            if (dist(aoe, m) <= aoe.radius) {
+              this.applyBurn(m, aoe.ownerId, aoe.damage, tick, burnDuration);
+            }
+          }
+        }
+        continue;
+      }
+      const poisonDuration = aoe.poisonDuration || 5;
       for (const p of this.players.values()) {
         if (!p.alive || p.id === aoe.ownerId) continue;
         if (dist(aoe, p) <= aoe.radius) {
-          this.applyPoison(p, aoe.ownerId, aoe.damage, tick, duration);
+          this.applyPoison(p, aoe.ownerId, aoe.damage, tick, poisonDuration);
         }
       }
       for (const m of this.monsters) {
         if (!m.alive) continue;
         if (dist(aoe, m) <= aoe.radius) {
-          this.applyPoison(m, aoe.ownerId, aoe.damage, tick, duration);
+          this.applyPoison(m, aoe.ownerId, aoe.damage, tick, poisonDuration);
         }
       }
     }
@@ -2368,6 +2473,7 @@ export class Match {
       slow: p.slow,
       slowTimer: +Math.max(0, p.slowTimer || 0).toFixed(2),
       poisonTimer: +Math.max(0, p.poisonTimer || 0).toFixed(2),
+      burnTimer: +Math.max(0, p.burnTimer || 0).toFixed(2),
       stun: p.stunTimer > 0,
       dashing: p.dashTimer > 0,
       dashDx: p.dashDx,
