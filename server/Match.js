@@ -324,7 +324,21 @@ export class Match {
     this.shrinksDone = 0;
     this.monsterSpawnTimer = 1;
     this.xpPassiveTimer = 0;
-    this.monsters = [];
+    if (CONFIG.MONSTER_PERSIST_ROUNDS) {
+      this.monsters = this.monsters.filter((m) => m.alive);
+      for (const m of this.monsters) {
+        m.vx = 0;
+        m.vy = 0;
+        m.attackCd = 0;
+        m.novaCd = 0;
+        m.stunTimer = 0;
+        m.knockbackTimer = 0;
+        m.knockbackDx = 0;
+        m.knockbackDy = 0;
+      }
+    } else {
+      this.monsters = [];
+    }
     this.projectiles = [];
     this.aoes = [];
     this.effects = [];
@@ -333,6 +347,21 @@ export class Match {
     this.events = [];
     this.winnerId = null;
     this.generateRocks();
+    if (CONFIG.MONSTER_PERSIST_ROUNDS && this.monsters.length) {
+      for (const m of this.monsters) {
+        const radius = m.radius || CONFIG.MONSTER_RADIUS;
+        this.resolveRockCollision(m, radius);
+        const dx = m.x - CONFIG.ARENA_CENTER_X;
+        const dy = m.y - CONFIG.ARENA_CENTER_Y;
+        const d = Math.hypot(dx, dy);
+        const maxR = Math.max(0, this.arenaRadius - radius);
+        if (d > maxR && d > 0) {
+          m.x = CONFIG.ARENA_CENTER_X + (dx / d) * maxR;
+          m.y = CONFIG.ARENA_CENTER_Y + (dy / d) * maxR;
+          this.resolveRockCollision(m, radius);
+        }
+      }
+    }
   }
 
   /** Posiciona e reseta os jogadores nos spawns do round. */

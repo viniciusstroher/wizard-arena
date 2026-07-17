@@ -12,6 +12,15 @@ function envInt(key, fallback, min = 1) {
   return Number.isFinite(n) ? Math.max(min, n) : fallback;
 }
 
+function envBool(key, fallback) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  const v = String(raw).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(v)) return true;
+  if (['0', 'false', 'no', 'off'].includes(v)) return false;
+  return fallback;
+}
+
 const ARENA_START_RADIUS = 320;
 const ARENA_MIN_RADIUS = 80;
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
@@ -65,6 +74,8 @@ export const CONFIG = {
   MONSTER_HP: 40,
   MONSTER_DAMAGE: 8,
   MONSTER_SPEED: 95,
+  /** Se true, monstros vivos permanecem no próximo round. */
+  MONSTER_PERSIST_ROUNDS: envBool('MONSTER_PERSIST_ROUNDS', false),
   /**
    * Inércia dos monstros (segundos para aproximar da velocidade alvo).
    * 0 = movimento instantâneo; valores maiores = mais deslizamento.
