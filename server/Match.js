@@ -849,10 +849,57 @@ export class Match {
         projectileRadius: 4,
         projectileColor: 0xc8e6a0,
         attackCooldown: 1.05,
+        weight: 10,
+      },
+      // Beholder — olho arcano que lança Arc Lightning
+      beholder: {
+        hpMul: 2.4,
+        speedMul: 0.55,
+        dmgMul: 1.25,
+        radius: 20,
+        color: 0x9b59b6,
+        attack: 'caster',
+        spells: ['arc_lightning'],
+        range: 170,
+        preferRange: 130,
+        attackCooldown: 1.35,
+        weight: 3,
+      },
+      // Dragão — Firebolt à distância + Flame Nova de perto
+      dragon: {
+        hpMul: 3.8,
+        speedMul: 0.5,
+        dmgMul: 1.55,
+        radius: 28,
+        color: 0xe74c3c,
+        attack: 'caster',
+        spells: ['firebolt', 'flame_nova'],
+        range: 300,
+        preferRange: 170,
+        projectileSpeed: 480,
+        projectileRadius: 10,
+        projectileColor: 0xff5533,
+        attackCooldown: 1.1,
+        novaRadius: 120,
+        novaCooldown: 4.2,
+        weight: 2,
       },
     };
+    // Pesos: bosses (beholder/dragon) aparecem menos
+    for (const id of Object.keys(types)) {
+      if (types[id].weight == null) types[id].weight = 10;
+    }
     const ids = Object.keys(types);
-    const type = ids[Math.floor(Math.random() * ids.length)];
+    const totalWeight = ids.reduce((sum, id) => sum + types[id].weight, 0);
+    let roll = Math.random() * totalWeight;
+    let type = ids[0];
+    for (const id of ids) {
+      roll -= types[id].weight;
+      if (roll <= 0) {
+        type = id;
+        break;
+      }
+    }
     const def = types[type];
 
     let x = CONFIG.ARENA_CENTER_X;
@@ -879,6 +926,7 @@ export class Match {
       damage: Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul),
       attackCd: 0,
       attack: def.attack || 'melee',
+      spells: def.spells || null,
       projectile: def.projectile || null,
       range: def.range || CONFIG.MONSTER_ATTACK_RANGE,
       preferRange: def.preferRange || 0,
@@ -886,12 +934,93 @@ export class Match {
       projectileRadius: def.projectileRadius || 6,
       projectileColor: def.projectileColor || def.color,
       attackCooldown: def.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN,
+      novaRadius: def.novaRadius || 110,
+      novaCooldown: def.novaCooldown || 4,
+      novaCd: 0,
       radius: def.radius,
       color: def.color,
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
     });
+  }
+
+  /** Magias usadas por monstros caster (beholder / dragão). */
+  monsterCast(monster, spellId, target) {
+    const stats = spellStats(spellId, 1);
+    if (!stats) return;
+
+    switch (spellId) {
+      case 'arc_lightning': {
+        const range = stats.range || 160;
+        if (!target || dist(monster, target) > range) return;
+        this.damageEntity(target, monster.damage, null, true, true);
+        this.effects.push({
+          type: 'lightning',
+          x1: monster.x,
+          y1: monster.y,
+          x2: target.x,
+          y2: target.y,
+          life: 0.38,
+          maxLife: 0.38,
+          color: stats.color,
+          seed: (Math.random() * 1e9) | 0,
+          branches: 3,
+        });
+        this.spawnSpellImpact(target.x, target.y, 'arc_lightning', stats.color, 26);
+        monster.attackCd = monster.attackCooldown || 1.4;
+        break;
+      }
+      case 'firebolt': {
+        if (!target) return;
+        const dx = target.x - monster.x;
+        const dy = target.y - monster.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const speed = monster.projectileSpeed || stats.speed || 480;
+        const range = monster.range || stats.range || 300;
+        this.projectiles.push({
+          entityId: eid(),
+          ownerId: monster.entityId,
+          team: 'monster',
+          kind: 'fireball',
+          spellId: 'firebolt',
+          x: monster.x,
+          y: monster.y,
+          vx: (dx / len) * speed,
+          vy: (dy / len) * speed,
+          damage: monster.damage,
+          radius: monster.projectileRadius || stats.radius || 10,
+          life: range / speed,
+          color: monster.projectileColor || stats.color,
+        });
+        monster.attackCd = monster.attackCooldown || 1.1;
+        break;
+      }
+      case 'flame_nova': {
+        const radius = monster.novaRadius || stats.radius || 110;
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          if (dist(monster, p) <= radius) {
+            this.damageEntity(p, Math.round(monster.damage * 1.15), null, true, true);
+          }
+        }
+        this.effects.push({
+          type: 'nova',
+          spellId: 'flame_nova',
+          x: monster.x,
+          y: monster.y,
+          radius,
+          life: 0.65,
+          maxLife: 0.65,
+          color: stats.color,
+        });
+        monster.attackCd = (monster.attackCooldown || 1.1) * 1.2;
+        monster.novaCd = monster.novaCooldown || 4;
+        break;
+      }
+      default:
+        return;
+    }
   }
 
   /** Empurra o alvo na direção da trajetória do projétil (magias em área não usam isto). */
@@ -1469,6 +1598,7 @@ export class Match {
       if (!m.alive) continue;
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
+      m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
       if (m.stunTimer > 0) {
         m.vx = 0;
         m.vy = 0;
@@ -1526,6 +1656,44 @@ export class Match {
           }
           if (nearestD <= shootRange && m.attackCd <= 0) {
             this.monsterShoot(m, nearest);
+          }
+        } else if (m.attack === 'caster') {
+          const spells = m.spells || [];
+          const shootRange = m.range || 180;
+          const prefer = m.preferRange || shootRange * 0.7;
+          const novaR = m.novaRadius || 110;
+          const lightningR = spellStats('arc_lightning')?.range || 160;
+
+          if (nearestD > shootRange) {
+            targetVx = (dx / len) * m.speed;
+            targetVy = (dy / len) * m.speed;
+          } else if (
+            spells.includes('flame_nova') &&
+            nearestD < novaR * 0.45 &&
+            (m.novaCd || 0) > 0
+          ) {
+            // Nova em CD e jogador colado — recua
+            targetVx = (-dx / len) * m.speed * 0.75;
+            targetVy = (-dy / len) * m.speed * 0.75;
+          } else if (nearestD < prefer * 0.6) {
+            targetVx = (-dx / len) * m.speed * 0.65;
+            targetVy = (-dy / len) * m.speed * 0.65;
+          }
+
+          if (m.attackCd <= 0) {
+            let spell = null;
+            if (
+              spells.includes('flame_nova') &&
+              nearestD <= novaR &&
+              (m.novaCd || 0) <= 0
+            ) {
+              spell = 'flame_nova';
+            } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
+              spell = 'arc_lightning';
+            } else if (spells.includes('firebolt') && nearestD <= shootRange) {
+              spell = 'firebolt';
+            }
+            if (spell) this.monsterCast(m, spell, nearest);
           }
         } else if (nearestD > meleeRange) {
           targetVx = (dx / len) * m.speed;

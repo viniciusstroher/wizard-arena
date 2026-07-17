@@ -1414,5 +1414,69 @@ export class BootScene extends Phaser.Scene {
         M: 0x6b4e2e,
       }
     );
+
+    // Beholder — olho central + pedúnculos
+    makePixelTexture(
+      this,
+      'monster_beholder',
+      [
+        '................',
+        '..E..E....E..E..',
+        '..PE.P....P.EP..',
+        '...PPPPPPPPPP...',
+        '..PPYYYYYYYYPP..',
+        '.PPYWWWWWWWWYPP.',
+        '.PPYWBBBBBBWYPP.',
+        '.PPYWBYYYYBWYPP.',
+        '.PPYWBBBBBBWYPP.',
+        '..PPYWWWWWWYPP..',
+        '..PPPYYYYYYPPP..',
+        '...PPPDDDDPPP...',
+        '....PPPPPPPP....',
+        '.....P....P.....',
+        '................',
+        '................',
+      ],
+      {
+        P: 0x7d3c98,
+        Y: 0xf4d03f,
+        W: 0xfdfefe,
+        B: 0x1a1a2e,
+        D: 0x5b2c6f,
+        E: 0xe74c3c,
+      }
+    );
+
+    // Dragon — corpo vermelho + asas + chifres
+    makePixelTexture(
+      this,
+      'monster_dragon',
+      [
+        '................',
+        '..H..........H..',
+        '.HR..........RH.',
+        '..RRW......WRR..',
+        '.WRRRRRRRRRRRRW.',
+        'WRRRYBRRRRBYRRRW',
+        '.RRRRRRRRRRRRR..',
+        '..RRRDDDDRRR....',
+        '.WWRRRRRRRRWW...',
+        'WWRR......RRWW..',
+        '.RR........RR...',
+        '.R.R......R.R...',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        R: 0xc0392b,
+        D: 0x7b241c,
+        Y: 0xf1c40f,
+        B: 0x1a1a1a,
+        W: 0xe67e22,
+        H: 0x922b21,
+      }
+    );
   }
 }

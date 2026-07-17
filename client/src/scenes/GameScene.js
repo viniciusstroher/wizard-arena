@@ -1408,6 +1408,8 @@ export class GameScene extends Phaser.Scene {
       giant_spider: 'aranha gigante',
       bat: 'morcego',
       elf: 'elfo',
+      beholder: 'beholder',
+      dragon: 'dragão',
     };
     return labels[type] || type;
   }
