@@ -126,6 +126,7 @@ export class Match {
   removePlayer(socketId) {
     const p = this.players.get(socketId);
     if (!p) return;
+    const leftName = p.name;
     this.players.delete(socketId);
     this.bots = this.bots.filter((b) => b.playerId !== socketId);
 
@@ -142,6 +143,9 @@ export class Match {
       this.broadcastLobby();
       return;
     }
+
+    this.pushEvent({ type: 'player_left', playerId: socketId, name: leftName });
+    this.broadcastState(true);
     this.checkRoundEnd();
   }
 

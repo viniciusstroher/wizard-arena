@@ -17,6 +17,10 @@ export class GameScene extends Phaser.Scene {
     this.effectGraphics = null;
     this.levelUpOpen = false;
     this.choiceCards = [];
+    this.eventLog = [];
+    this.eventScroll = 0;
+    this.disconnectConfirmOpen = false;
+    this.leaving = false;
   }
 
   create() {
@@ -28,6 +32,8 @@ export class GameScene extends Phaser.Scene {
     this.effectGraphics = this.add.graphics();
 
     this.createHud();
+    this.createEventBoard();
+    this.createDisconnectUi();
     this.cursors = this.input.keyboard.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
       down: Phaser.Input.Keyboard.KeyCodes.S,
@@ -42,8 +48,13 @@ export class GameScene extends Phaser.Scene {
 
     this.castSlot = -1;
     this.input.on('pointerdown', () => {
+      if (this.disconnectConfirmOpen || this.leaving) return;
       // Clique também lança a magia do slot 0 se nenhum número for pressionado
       if (this.castSlot < 0) this.castSlot = 0;
+    });
+
+    this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
+      this.onEventBoardWheel(dy);
     });
 
     this.socket.off('game_state');
@@ -53,6 +64,7 @@ export class GameScene extends Phaser.Scene {
       if (ev.type === 'countdown') {
         this.bannerText.setText(`Começa em ${ev.seconds}`);
         this.bannerText.setAlpha(1);
+        this.pushBoardEvent(`Partida começa em ${ev.seconds}s`);
       }
     });
 
@@ -157,7 +169,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.scoreboard = this.add
-      .text(width - 20, 20, '', {
+      .text(width - 20, 62, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#d8ceef',
@@ -170,8 +182,245 @@ export class GameScene extends Phaser.Scene {
     this.levelUpLayer = this.add.container(0, 0).setDepth(300).setScrollFactor(0).setVisible(false);
   }
 
+  createEventBoard() {
+    const boardW = 300;
+    const boardH = 168;
+    const x = 16;
+    // Acima dos slots de magia (y ≈ height - 70)
+    const y = this.scale.height - 275;
+
+    this.eventBoardMaxVisible = 10;
+    this.eventBoardLineH = 14;
+    this.eventBoardBounds = { x, y, w: boardW, h: boardH };
+
+    this.eventBoardBg = this.add
+      .rectangle(x, y, boardW, boardH, 0x0e0a1a, 0.82)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x6b5cff, 0.45)
+      .setScrollFactor(0)
+      .setDepth(100);
+
+    this.eventBoardTitle = this.add
+      .text(x + 10, y + 6, 'Eventos', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        color: '#a99bc8',
+      })
+      .setScrollFactor(0)
+      .setDepth(101);
+
+    this.eventBoardHint = this.add
+      .text(x + boardW - 10, y + 6, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#7a6e96',
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(101);
+
+    this.eventBoardLines = [];
+    for (let i = 0; i < this.eventBoardMaxVisible; i++) {
+      const line = this.add
+        .text(x + 10, y + 24 + i * this.eventBoardLineH, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '12px',
+          color: '#e8dfff',
+        })
+        .setScrollFactor(0)
+        .setDepth(101);
+      this.eventBoardLines.push(line);
+    }
+
+    this.pushBoardEvent('Partida iniciada');
+  }
+
+  createDisconnectUi() {
+    const { width } = this.scale;
+    const btnW = 120;
+    const btnH = 32;
+    const x = width - 20 - btnW / 2;
+    const y = 36;
+
+    this.disconnectBtn = this.add.container(x, y).setScrollFactor(0).setDepth(110);
+    const bg = this.add.rectangle(0, 0, btnW, btnH, 0xc0392b, 0.95).setStrokeStyle(1, 0xffffff, 0.2);
+    const label = this.add
+      .text(0, 0, 'Desconectar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    this.disconnectBtn.add([bg, label]);
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover', () => bg.setScale(1.04));
+    bg.on('pointerout', () => bg.setScale(1));
+    bg.on('pointerup', () => this.openDisconnectConfirm());
+
+    this.disconnectModal = this.add.container(0, 0).setDepth(400).setScrollFactor(0).setVisible(false);
+  }
+
+  openDisconnectConfirm() {
+    if (this.disconnectConfirmOpen || this.leaving) return;
+    this.disconnectConfirmOpen = true;
+
+    const { width, height } = this.scale;
+    this.disconnectModal.removeAll(true);
+    this.disconnectModal.setVisible(true);
+
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.65);
+    const panel = this.add.rectangle(width / 2, height / 2, 380, 180, 0x161228, 0.98).setStrokeStyle(2, 0x6b5cff);
+    const title = this.add
+      .text(width / 2, height / 2 - 48, 'Desconectar da partida?', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '22px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5);
+    const subtitle = this.add
+      .text(width / 2, height / 2 - 12, 'Tem certeza que deseja sair?', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#a99bc8',
+      })
+      .setOrigin(0.5);
+
+    const yesBg = this.add.rectangle(width / 2 - 80, height / 2 + 48, 130, 40, 0xc0392b, 1).setStrokeStyle(1, 0xffffff, 0.15);
+    const yesLabel = this.add
+      .text(width / 2 - 80, height / 2 + 48, 'Sim', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    yesBg.setInteractive({ useHandCursor: true });
+    yesBg.on('pointerover', () => yesBg.setScale(1.04));
+    yesBg.on('pointerout', () => yesBg.setScale(1));
+    yesBg.on('pointerup', () => this.confirmDisconnect());
+
+    const noBg = this.add.rectangle(width / 2 + 80, height / 2 + 48, 130, 40, 0x443866, 1).setStrokeStyle(1, 0xffffff, 0.15);
+    const noLabel = this.add
+      .text(width / 2 + 80, height / 2 + 48, 'Não', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    noBg.setInteractive({ useHandCursor: true });
+    noBg.on('pointerover', () => noBg.setScale(1.04));
+    noBg.on('pointerout', () => noBg.setScale(1));
+    noBg.on('pointerup', () => this.closeDisconnectConfirm());
+
+    this.disconnectModal.add([dim, panel, title, subtitle, yesBg, yesLabel, noBg, noLabel]);
+  }
+
+  closeDisconnectConfirm() {
+    this.disconnectConfirmOpen = false;
+    this.disconnectModal.removeAll(true);
+    this.disconnectModal.setVisible(false);
+  }
+
+  confirmDisconnect() {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.closeDisconnectConfirm();
+    this.pushBoardEvent('Você desconectou da partida');
+    this.socket.emit('leave_lobby');
+    this.time.delayedCall(450, () => {
+      this.scene.start('Lobby');
+    });
+  }
+
+  pushBoardEvent(message) {
+    if (!message) return;
+    this.eventLog.push(message);
+    if (this.eventLog.length > 80) {
+      this.eventLog.splice(0, this.eventLog.length - 80);
+    }
+    this.eventScroll = 0;
+    this.refreshEventBoard();
+  }
+
+  onEventBoardWheel(dy) {
+    if (this.eventLog.length <= this.eventBoardMaxVisible) return;
+    const pointer = this.input.activePointer;
+    const b = this.eventBoardBounds;
+    if (!b) return;
+    if (pointer.x < b.x || pointer.x > b.x + b.w || pointer.y < b.y || pointer.y > b.y + b.h) {
+      return;
+    }
+    const maxScroll = this.eventLog.length - this.eventBoardMaxVisible;
+    if (dy > 0) this.eventScroll = Math.min(maxScroll, this.eventScroll + 1);
+    else if (dy < 0) this.eventScroll = Math.max(0, this.eventScroll - 1);
+    this.refreshEventBoard();
+  }
+
+  refreshEventBoard() {
+    if (!this.eventBoardLines) return;
+    const max = this.eventBoardMaxVisible;
+    const total = this.eventLog.length;
+    const overflow = total > max;
+    const maxScroll = overflow ? total - max : 0;
+    this.eventScroll = Phaser.Math.Clamp(this.eventScroll, 0, maxScroll);
+
+    const end = total - this.eventScroll;
+    const start = Math.max(0, end - max);
+    const slice = this.eventLog.slice(start, end);
+
+    for (let i = 0; i < max; i++) {
+      this.eventBoardLines[i].setText(slice[i] || '');
+    }
+
+    if (this.eventBoardHint) {
+      this.eventBoardHint.setText(overflow ? `↕ ${total}` : '');
+    }
+  }
+
+  playerName(id) {
+    const p = this.state?.players?.find((pl) => pl.id === id);
+    return p?.name || 'Jogador';
+  }
+
+  formatGameEvent(ev) {
+    switch (ev.type) {
+      case 'countdown':
+        return `Começa em ${ev.seconds}s`;
+      case 'round_start':
+        return `Round ${ev.round} iniciado`;
+      case 'round_win':
+        return `${this.playerName(ev.playerId)} venceu o round ${ev.round}`;
+      case 'player_kill':
+        return `${this.playerName(ev.killerId)} eliminou ${this.playerName(ev.victimId)}`;
+      case 'player_death':
+        return ev.reason === 'time'
+          ? `${this.playerName(ev.playerId)} morreu (tempo)`
+          : `${this.playerName(ev.playerId)} morreu`;
+      case 'monster_kill':
+        return `${this.playerName(ev.killerId)} derrotou um monstro`;
+      case 'level_up':
+        return `${this.playerName(ev.playerId)} subiu para Lv ${ev.level}`;
+      case 'phoenix':
+        return `${this.playerName(ev.playerId)} renasceu (Fênix)`;
+      case 'arena_shrink':
+        return 'A arena está encolhendo!';
+      case 'match_end': {
+        const winner = this.state?.players?.find((p) => p.id === ev.winnerId);
+        return winner ? `${winner.name} venceu a partida!` : 'Partida encerrada';
+      }
+      case 'player_left':
+        if (ev.playerId === this.playerId) return null;
+        return `${ev.name || 'Jogador'} saiu da partida`;
+      default:
+        return null;
+    }
+  }
+
   onState(state) {
     this.state = state;
+    for (const ev of state.events || []) {
+      const msg = this.formatGameEvent(ev);
+      if (msg) this.pushBoardEvent(msg);
+    }
     if (state.phase === 'ended') {
       const winner = state.players.find((p) => p.id === state.winnerId);
       this.bannerText.setText(winner ? `${winner.name} venceu!` : 'Tempo esgotado — todos morreram');
@@ -183,9 +432,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   update() {
-    if (!this.state) return;
+    if (!this.state || this.leaving) return;
 
-    this.sendInput();
+    if (!this.disconnectConfirmOpen) {
+      this.sendInput();
+    }
     this.renderArena();
     this.renderPlayers();
     this.renderMonsters();
