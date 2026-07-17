@@ -643,6 +643,36 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  spawnLevelUpPopup(x, y, level) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !(level > 0)) return;
+    const startY = y - 40;
+    const label = this.add
+      .text(x, startY, `Lv ${level}!`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '18px',
+        color: '#ffd166',
+        stroke: '#1a0500',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(56)
+      .setAlpha(1)
+      .setScale(0.85);
+
+    this.tweens.add({
+      targets: label,
+      y: startY - 52,
+      alpha: 0,
+      scale: 1.3,
+      duration: 1300,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
+
+    this.magicFx?.emitParticleAt(x, y - 10, 12);
+    this.healFx?.emitParticleAt(x, y - 10, 8);
+  }
+
   playDeathSound() {
     if (!this.cache.audio.exists('player_death')) return;
     this.sound.play('player_death', { volume: 0.85 });
@@ -680,6 +710,22 @@ export class GameScene extends Phaser.Scene {
         if (isSelf && ev.amount > 0) {
           this.playHurtSound();
         }
+      }
+      if (ev.type === 'level_up' || ev.type === 'monster_level_up') {
+        let x = ev.x;
+        let y = ev.y;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+          if (ev.type === 'level_up') {
+            const p = state.players?.find((pl) => pl.id === ev.playerId);
+            x = p?.x;
+            y = p?.y;
+          } else {
+            const m = state.monsters?.find((mon) => mon.entityId === ev.monsterId);
+            x = m?.x;
+            y = m?.y;
+          }
+        }
+        this.spawnLevelUpPopup(x, y, ev.level);
       }
       // Fallback: ossos de monstro pelo evento (caso o effect do servidor atrase)
       if (ev.type === 'monster_kill' && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {

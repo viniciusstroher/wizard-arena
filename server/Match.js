@@ -644,7 +644,13 @@ export class Match {
       if (player.xpToNext <= 0) player.xpToNext = 100 + player.level * 40;
       player.pendingLevelUps += 1;
       leveled = true;
-      this.pushEvent({ type: 'level_up', playerId: player.id, level: player.level });
+      this.pushEvent({
+        type: 'level_up',
+        playerId: player.id,
+        level: player.level,
+        x: +player.x.toFixed(1),
+        y: +player.y.toFixed(1),
+      });
     }
     if (leveled) {
       if (!player.spellChoices) {
@@ -671,6 +677,8 @@ export class Match {
         type: 'monster_level_up',
         monsterId: monster.entityId,
         level: monster.level,
+        x: +monster.x.toFixed(1),
+        y: +monster.y.toFixed(1),
       });
     }
   }
