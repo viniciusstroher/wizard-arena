@@ -1152,13 +1152,16 @@ export class GameScene extends Phaser.Scene {
       const s = this.ensureActor(this.monsterSprites, m.entityId, tex, 15);
       if (s.texture.key !== tex) s.setTexture(tex);
       s.clearTint();
+      const scale = (m.radius || 14) / 14;
+      s.setScale(scale);
       s.setPosition(m.x, m.y);
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
+      const tagY = m.y - 26 * scale;
       s.nameTag.setText(m.type);
-      s.nameTag.setPosition(m.x, m.y - 26);
-      s.hpBg.setPosition(m.x, m.y - 18);
+      s.nameTag.setPosition(m.x, tagY);
+      s.hpBg.setPosition(m.x, tagY + 8);
       const ratio = m.maxHp ? m.hp / m.maxHp : 0;
-      s.hpFg.setPosition(m.x - 16 + 16 * ratio, m.y - 18);
+      s.hpFg.setPosition(m.x - 16 + 16 * ratio, tagY + 8);
       s.hpFg.width = 32 * ratio;
       s.hpFg.setFillStyle(0xe67e22);
     }

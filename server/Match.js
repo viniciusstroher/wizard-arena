@@ -645,10 +645,18 @@ export class Match {
 
   spawnMonster() {
     if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
-    const types = ['imp', 'slime', 'wraith'];
-    const type = types[Math.floor(Math.random() * types.length)];
-    const hpMul = type === 'wraith' ? 1.3 : type === 'slime' ? 1.5 : 1;
-    const speedMul = type === 'imp' ? 1.25 : type === 'wraith' ? 1.1 : 0.8;
+    const types = {
+      imp: { hpMul: 1, speedMul: 1.25, dmgMul: 1, radius: 14, color: 0xff4422 },
+      slime: { hpMul: 1.5, speedMul: 0.8, dmgMul: 1, radius: 16, color: 0x44ff66 },
+      wraith: { hpMul: 1.3, speedMul: 1.1, dmgMul: 1, radius: 14, color: 0x8866ff },
+      // Fast, fragile skirmisher
+      goblin: { hpMul: 0.7, speedMul: 1.45, dmgMul: 0.75, radius: 12, color: 0xa8c734 },
+      // Slow, tanky bruiser
+      orc: { hpMul: 2.2, speedMul: 0.65, dmgMul: 1.75, radius: 20, color: 0x3d8b4a },
+    };
+    const ids = Object.keys(types);
+    const type = ids[Math.floor(Math.random() * ids.length)];
+    const def = types[type];
 
     let x = CONFIG.ARENA_CENTER_X;
     let y = CONFIG.ARENA_CENTER_Y;
@@ -657,7 +665,7 @@ export class Match {
       const r = this.arenaRadius * (0.35 + Math.random() * 0.5);
       x = CONFIG.ARENA_CENTER_X + Math.cos(angle) * r;
       y = CONFIG.ARENA_CENTER_Y + Math.sin(angle) * r;
-      if (!this.isBlockedByRock(x, y, CONFIG.MONSTER_RADIUS)) break;
+      if (!this.isBlockedByRock(x, y, def.radius)) break;
     }
 
     this.monsters.push({
@@ -667,14 +675,14 @@ export class Match {
       y,
       vx: 0,
       vy: 0,
-      hp: Math.round(CONFIG.MONSTER_HP * hpMul),
-      maxHp: Math.round(CONFIG.MONSTER_HP * hpMul),
+      hp: Math.round(CONFIG.MONSTER_HP * def.hpMul),
+      maxHp: Math.round(CONFIG.MONSTER_HP * def.hpMul),
       alive: true,
-      speed: CONFIG.MONSTER_SPEED * speedMul,
-      damage: CONFIG.MONSTER_DAMAGE,
+      speed: CONFIG.MONSTER_SPEED * def.speedMul,
+      damage: Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul),
       attackCd: 0,
-      radius: CONFIG.MONSTER_RADIUS,
-      color: type === 'imp' ? 0xff4422 : type === 'slime' ? 0x44ff66 : 0x8866ff,
+      radius: def.radius,
+      color: def.color,
     });
   }
 
@@ -1108,9 +1116,13 @@ export class Match {
         }
       }
 
+      const attackRange =
+        CONFIG.MONSTER_ATTACK_RANGE +
+        Math.max(0, (m.radius || CONFIG.MONSTER_RADIUS) - CONFIG.MONSTER_RADIUS);
+
       let targetVx = 0;
       let targetVy = 0;
-      if (nearest && nearestD > CONFIG.MONSTER_ATTACK_RANGE) {
+      if (nearest && nearestD > attackRange) {
         const dx = nearest.x - m.x;
         const dy = nearest.y - m.y;
         const len = Math.hypot(dx, dy) || 1;
@@ -1287,6 +1299,7 @@ export class Match {
         vy: +m.vy.toFixed(1),
         hp: m.hp,
         maxHp: m.maxHp,
+        radius: m.radius,
         color: m.color,
       })),
       projectiles: this.projectiles.map((p) => ({

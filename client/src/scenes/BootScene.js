@@ -1075,5 +1075,67 @@ export class BootScene extends Phaser.Scene {
         C: 0x5dade2,
       }
     );
+
+    // Goblin — small green skirmisher with big ears
+    makePixelTexture(
+      this,
+      'monster_goblin',
+      [
+        '................',
+        '.EE..........EE.',
+        '.EGG........GGE.',
+        '..EGGGGGGGGGGE..',
+        '..EGGWYGGYWGE...',
+        '...EGGGGGGGGE...',
+        '...EGGDMMDGGE...',
+        '....EGGGGGGE....',
+        '.....EG..GE.....',
+        '....EGG..GGE....',
+        '...EGG....GGE...',
+        '..EGG......GGE..',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        E: 0x6b8e23,
+        G: 0x9acd32,
+        D: 0x556b2f,
+        Y: 0xf1c40f,
+        W: 0xf5f5dc,
+        M: 0x8b4513,
+      }
+    );
+
+    // Orc — bulky green bruiser with tusks
+    makePixelTexture(
+      this,
+      'monster_orc',
+      [
+        '................',
+        '....OOOOOOOO....',
+        '...OOLLLLLLOO...',
+        '..OOLWLLLWLOO...',
+        '..OOLLLLLLLOO...',
+        '..OOTLLLLLTTOO..',
+        '...OLLLLLLLO....',
+        '..OOLLLLLLLOO...',
+        '.OOOLLLLLLLOOO..',
+        '.OOL......LOO...',
+        '.OO........OO...',
+        'OO..........OO..',
+        'OO..........OO..',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        O: 0x1e5c2a,
+        L: 0x3d8b4a,
+        W: 0xf5eef8,
+        T: 0xf5f5dc,
+      }
+    );
   }
 }
