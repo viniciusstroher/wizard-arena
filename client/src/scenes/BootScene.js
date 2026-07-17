@@ -63,8 +63,8 @@ export class BootScene extends Phaser.Scene {
 
     this.createWizardSprites();
     this.createMonsterSprites();
-    this.createBruxaoSprite();
-    this.createArenaBrickTexture();
+    this.createManaPotionSprite();
+    this.createArenaDirtTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createBloodSprites();
@@ -72,69 +72,184 @@ export class BootScene extends Phaser.Scene {
   }
 
   createRockSprites() {
-    // Pedra pequena
+    // D=sombra, L=base, M=meio, H=highlight, C=fenda
+    const grey = { D: 0x2a2a32, L: 0x555562, M: 0x7a7a88, H: 0xb0b0bc, C: 0x3a3a44 };
+    const slate = { D: 0x1e2a32, L: 0x4a5c68, M: 0x6e8490, H: 0xa8bcc4, C: 0x2e3e48 };
+    const basalt = { D: 0x1a1a22, L: 0x3e3e4a, M: 0x5c5c6a, H: 0x8e8e9c, C: 0x282834 };
+    const granite = { D: 0x2e2828, L: 0x6a5e5a, M: 0x8e8078, H: 0xc4b4a4, C: 0x3e3634 };
+    const moss = { D: 0x243028, L: 0x4a5a48, M: 0x6e7e62, H: 0xa0b088, C: 0x2e3a30 };
+
+    // Pedras pequenas: seixo / lasca alongada / ponta
     makePixelTexture(
       this,
-      'rock_stone',
+      'rock_stone_0',
       [
-        '........',
-        '..DDDD..',
-        '.DLLLLD.',
-        '.DLHHLD.',
-        '.DLLLLD.',
-        '..DDDD..',
-        '........',
-        '........',
+        '..........',
+        '...DDD....',
+        '..DLHMD...',
+        '.DLMMMMLD.',
+        '.DLMMCMDD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
       ],
-      { D: 0x4a4a52, L: 0x7a7a84, H: 0xa8a8b0 },
+      grey,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_stone_1',
+      [
+        '..........',
+        '..DDDDDD..',
+        '.DLMHMMLD.',
+        '.DLMMMCLD.',
+        '..DDDDDD..',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      slate,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_stone_2',
+      [
+        '..........',
+        '....DD....',
+        '...DLHD...',
+        '..DLMMMD..',
+        '.DLMMMCLD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      granite,
       3
     );
 
-    // Rocha média
+    // Rochas médias: bloco / torre / musgo largo
     makePixelTexture(
       this,
-      'rock_rock',
+      'rock_rock_0',
       [
-        '............',
-        '....DDDD....',
-        '..DDLLLLDD..',
-        '.DLLHHHHLLD.',
-        '.DLHHHHHHLD.',
-        '.DLLHHHHLLD.',
-        '..DDLLLLDD..',
-        '....DDDD....',
-        '............',
-        '............',
-        '............',
-        '............',
+        '..............',
+        '...DDDDDDD....',
+        '..DLMHMMLD....',
+        '.DLMMMMMMCD...',
+        '.DLMHMMMMMLD..',
+        '.DDLMMMMMLD...',
+        '..DDLCLLDD....',
+        '...DDDDDD.....',
+        '..............',
+        '..............',
       ],
-      { D: 0x3d3d45, L: 0x6e6e78, H: 0x9a9aa4 },
+      grey,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_rock_1',
+      [
+        '..............',
+        '.....DD.......',
+        '....DLHD......',
+        '...DLMMMD.....',
+        '..DLMHMMLD....',
+        '.DLMMMMMCLD...',
+        '.DLMHMMMMLD...',
+        '..DLMMMMLD....',
+        '...DDDDDD.....',
+        '..............',
+      ],
+      basalt,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_rock_2',
+      [
+        '..............',
+        '..DDDDDDDDD...',
+        '.DLMHMHMMMLD..',
+        '.DLMMMMMCMLD..',
+        '..DLMMMMMLD...',
+        '...DDLCLDD....',
+        '....DDDD......',
+        '..............',
+        '..............',
+        '..............',
+      ],
+      moss,
       3
     );
 
-    // Pedrão
+    // Pedrões: irregular / largo / rachado
     makePixelTexture(
       this,
-      'rock_boulder',
+      'rock_boulder_0',
       [
         '................',
-        '......DDDD......',
-        '....DDLLLLDD....',
-        '...DLLHHHHLLD...',
-        '..DLHHHHHHHHLD..',
-        '.DLHHHHHHHHHHLD.',
-        '.DLHHHHHHHHHHLD.',
-        '.DLLHHHHHHHHLLD.',
-        '..DLHHHHHHHHLD..',
-        '...DLLHHHHLLD...',
-        '....DDLLLLDD....',
-        '......DDDD......',
+        '....DDDDDD......',
+        '..DDLMHMMLDD....',
+        '.DLMMMMMMMMLD...',
+        '.DLMHMMMMMHMLD..',
+        'DLMMMMMCMMMMLD..',
+        'DLMHMMMMMMMMLD..',
+        '.DDLMMMMMMMLD...',
+        '..DLMMMMMMLD....',
+        '...DDLCLLDD.....',
+        '....DDDD.D......',
+        '................',
+        '................',
+        '................',
+      ],
+      slate,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_boulder_1',
+      [
+        '................',
+        '...DDDDDDDDD....',
+        '.DDLMHMHMMMLD...',
+        'DLMMMMMMMMMMLD..',
+        'DLMHMMMMMHMMLD..',
+        'DLMMMMMCMMMMLD..',
+        'DDLMHMMMMMMMLD..',
+        '.DLMMMMMMMMLD...',
+        '..DDLCLLLDD.....',
+        '...DDDDDDD......',
         '................',
         '................',
         '................',
         '................',
       ],
-      { D: 0x2f2f36, L: 0x5c5c66, H: 0x8a8a96 },
+      basalt,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_boulder_2',
+      [
+        '................',
+        '.....DDDDD......',
+        '...DDLHMMLD.....',
+        '..DLMHMMMMLD....',
+        '.DLMMMMMCMMMLD..',
+        '.DLMHMMMMMHMLD..',
+        '.DLMMMMMMMMMLD..',
+        '..DLMMMCMMLD....',
+        '...DLMMMMLD.....',
+        '....DDLCLDD.....',
+        '.....DDDD.......',
+        '.......D........',
+        '................',
+        '................',
+      ],
+      granite,
       3
     );
   }
@@ -191,9 +306,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   createLavaTextures() {
-    // Fundo: sprite importado (preload lava_tile)
+    // Fundo: tile seamless (lava.png) — LINEAR evita costuras duras ao repetir
     if (this.textures.exists('lava_tile')) {
-      this.textures.get('lava_tile').setFilter(Phaser.Textures.FilterMode.NEAREST);
+      this.textures.get('lava_tile').setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
 
     const g = this.make.graphics({ x: 0, y: 0, add: false });
@@ -299,94 +414,169 @@ export class BootScene extends Phaser.Scene {
     );
 
     g.destroy();
-    for (const key of ['lava_tile', 'lava_bubble_0', 'lava_bubble_1', 'lava_bubble_2']) {
+    for (const key of ['lava_bubble_0', 'lava_bubble_1', 'lava_bubble_2']) {
       this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
   }
 
-  createArenaBrickTexture() {
+  createArenaDirtTexture() {
+    // Tile 64×64 seamless — terra batida com manchas, pedrinhas e rachaduras
     const tw = 64;
-    const th = 32;
+    const th = 64;
     const g = this.make.graphics({ x: 0, y: 0, add: false });
 
-    // Argamassa
-    g.fillStyle(0xcfd3da, 1);
-    g.fillRect(0, 0, tw, th);
+    const tones = [
+      0x6b4e2e, // terra escura
+      0x7a5a34, // terra média
+      0x8b6a3c, // terra clara
+      0x5c4026, // sombra
+      0x9a7a48, // pó seco
+      0x4a3420, // fenda
+      0x6e5a38, // pedrinha
+      0x8a744c, // seixo claro
+      0x5a6a3a, // musgo / erva seca
+      0xa08050, // areia
+    ];
 
-    const brickW = 30;
-    const brickH = 14;
-
-    const drawBrick = (x, y, w = brickW) => {
-      if (w <= 0) return;
-      g.fillStyle(0xf4f6fa, 1);
-      g.fillRect(x, y, w, brickH);
-      g.fillStyle(0xffffff, 0.9);
-      g.fillRect(x, y, w, 2);
-      g.fillStyle(0xe2e6ee, 1);
-      g.fillRect(x, y + brickH - 2, w, 2);
+    // Hash determinístico (tiling-friendly com coords wrap)
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
     };
 
-    // Fileira 1 — alinhada
-    drawBrick(1, 1);
-    drawBrick(33, 1);
-    // Fileira 2 — deslocada (padrão tijolo, tile contínuo)
-    drawBrick(0, 17, 15);
-    drawBrick(17, 17);
-    drawBrick(49, 17, 15);
+    const wrap = (v, m) => ((v % m) + m) % m;
+
+    // Valor suave 0..1 com wrap (value noise 8×8 cells)
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 19, tw), wrap(y + 11, th));
+        const n3 = valueAt(wrap(x + 37, tw), wrap(y + 23, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.28) tone = tones[3]; // sombra
+        else if (n1 < 0.45) tone = tones[0];
+        else if (n1 < 0.62) tone = tones[1];
+        else if (n1 < 0.78) tone = tones[2];
+        else if (n1 < 0.9) tone = tones[4];
+        else tone = tones[9]; // areia
+
+        // Manchas mais claras / escuras
+        if (n2 > 0.82) tone = tones[4];
+        if (n2 < 0.18) tone = tones[3];
+
+        // Speckle fino de grão
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+
+        // Rachaduras (linhas escuras) — padrão que envolve o tile
+        const crack =
+          Math.abs(n3 - n1) < 0.045 && (hash(wrap(x + y, tw), wrap(y * 3, th)) & 3) !== 0;
+        if (crack && n1 > 0.32 && n1 < 0.78) tone = tones[5];
+
+        // Pedrinhas
+        if ((h & 127) === 21) tone = tones[6];
+        if ((h & 127) === 42) tone = tones[7];
+
+        // Toques de erva seca / musgo
+        if (n2 > 0.88 && (h & 7) === 3) tone = tones[8];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Manchas maiores (toroidal) — pedaços de terra diferente
+    const patches = [
+      { x: 8, y: 12, r: 7, c: 0x8b6a3c },
+      { x: 40, y: 20, r: 6, c: 0x5c4026 },
+      { x: 22, y: 44, r: 8, c: 0x7a5a34 },
+      { x: 52, y: 50, r: 5, c: 0x9a7a48 },
+      { x: 58, y: 8, r: 4, c: 0x6b4e2e },
+      { x: 12, y: 56, r: 5, c: 0xa08050 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    // Pedrinhas / cascalho em clusters
+    const pebbles = [
+      [10, 18], [11, 19], [28, 8], [45, 30], [46, 31], [33, 52],
+      [60, 40], [3, 35], [18, 38], [50, 12], [7, 48], [38, 42],
+    ];
+    for (const [px, py] of pebbles) {
+      g.fillStyle(0x6e5a38, 1);
+      g.fillRect(px, py, 2, 1);
+      g.fillStyle(0x8a744c, 1);
+      g.fillRect(px, py, 1, 1);
+    }
 
     g.generateTexture('arena_brick', tw, th);
     g.destroy();
     this.textures.get('arena_brick').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
-  /** Title mascot: Ronaldinho smile + Gandalf robe/beard. */
-  createBruxaoSprite() {
+  /** Title decoration: blue mana potion flask. */
+  createManaPotionSprite() {
     makePixelTexture(
       this,
-      'bruxao',
+      'mana_potion',
       [
-        '........................',
-        '..........HH............',
-        '.........HHHH...........',
-        '........HHHHHH..........',
-        '.......HHHHHHHH.........',
-        '......HHHHHHHHHH........',
-        '.....HHHHBBBBHHHH.......',
-        '......HHFFFFFFHH........',
-        '.....SFFFFFFFFFFS.......',
-        '....SSNENFFFFNENSS......', // sobrancelhas + olhos
-        '....SSFFFFFFFFFFSS......',
-        '....SSDDDDDDDDDDSS......', // sorriso largo
-        '....SS.DDDGGDDD.SS......', // gap estilo Ronaldinho
-        '.....SFFFFFFFFFFS.......',
-        '......FFFFFFFFFFF.......',
-        '......FFFFFFFFFFF.......',
-        '.....RFFFFFFFFFFFR......',
-        '....RRFFFFFFFFFFFRR.....',
-        '...RRRR.FFFFFF.RRRR.....',
-        '..RRRRR........RRRRR.C..',
-        '..RRRR..........RRRR.C..',
-        '..RRRR..........RRRR.C..',
-        '..RRRR..........RRRR.C..',
-        '..RRR............RRR.C..',
-        '..LLL............LLL.Y..',
-        '........................',
-        '........................',
-        '........................',
+        '................',
+        '......KKKK......',
+        '......KCCK......',
+        '......KCCK......',
+        '.....GGGGGG.....',
+        '....G......G....',
+        '...G..LLLL..G...',
+        '...G.LMMMML.G...',
+        '..G.LMMMMMML.G..',
+        '..G.LMMMMMML.G..',
+        '..G.LMMMMMML.G..',
+        '..G.LMMMMMML.G..',
+        '..G..LMMMML..G..',
+        '...G..LLLL..G...',
+        '....G......G....',
+        '.....GGGGGG.....',
+        '................',
       ],
       {
-        H: 0xb8c4d4, // chapéu cinza Gandalf
-        B: 0x6e4a2e, // faixa do chapéu
-        S: 0xc68642, // pele Ronaldinho
-        N: 0x5c3a1e, // sobrancelha
-        E: 0x1a1a1a, // olhos
-        D: 0xfff8e7, // dentes
-        G: 0x2a1a10, // gap do sorriso
-        F: 0xe8eef5, // barba / cabelo branco
-        R: 0x6b7280, // robe cinza
-        C: 0x8b5a2b, // cajado
-        Y: 0xf1c40f, // ponta do cajado
-        L: 0x3d3d3d, // botas
+        K: 0x5a3a1a, // rolha / rolha escura
+        C: 0x8b5a2b, // rolha clara
+        G: 0xc8e8ff, // vidro
+        L: 0x3a7cff, // mana (claro)
+        M: 0x1e4fd6, // mana (escuro)
       },
       3
     );

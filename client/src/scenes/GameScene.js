@@ -30,7 +30,10 @@ export class GameScene extends Phaser.Scene {
     this.socket = getSocket();
     this.cameras.main.setBackgroundColor('#1a0500');
 
-    this.lavaFloor = this.add.tileSprite(640, 360, 1280, 720, 'lava_tile').setDepth(-2);
+    this.lavaFloor = this.add
+      .tileSprite(640, 360, 1280, 720, 'lava_tile')
+      .setDepth(-2)
+      .setTileScale(1.35, 1.35);
     this.createLavaEffects();
 
     this.arenaFloor = this.add.tileSprite(640, 360, 640, 640, 'arena_brick').setDepth(0);
@@ -441,7 +444,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(_time, delta) {
+    if (this.lavaFloor) {
+      const t = delta * 0.012;
+      this.lavaFloor.tilePositionX += t;
+      this.lavaFloor.tilePositionY += t * 0.55;
+    }
+
     if (!this.state || this.leaving) return;
 
     if (!this.disconnectConfirmOpen) {
@@ -609,23 +618,36 @@ export class GameScene extends Phaser.Scene {
   renderRocks() {
     const rocks = this.state.rocks || [];
     const seen = new Set();
-    const tex = {
-      stone: 'rock_stone',
-      rock: 'rock_rock',
-      boulder: 'rock_boulder',
+    const variants = {
+      stone: ['rock_stone_0', 'rock_stone_1', 'rock_stone_2'],
+      rock: ['rock_rock_0', 'rock_rock_1', 'rock_rock_2'],
+      boulder: ['rock_boulder_0', 'rock_boulder_1', 'rock_boulder_2'],
+    };
+
+    const hashId = (id) => {
+      let h = 0;
+      const s = String(id);
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return h;
     };
 
     for (const rock of rocks) {
       seen.add(rock.id);
       let s = this.rockSprites.get(rock.id);
       if (!s) {
-        const key = tex[rock.type] || 'rock_rock';
+        const list = variants[rock.type] || variants.rock;
+        const h = hashId(rock.id);
+        const key = list[h % list.length];
         if (!this.textures.exists(key)) continue;
+        const baseScale = rock.type === 'boulder' ? 1.2 : rock.type === 'rock' ? 1.08 : 1;
+        const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
         s = this.add
           .image(rock.x, rock.y, key)
           .setDepth(5)
-          .setOrigin(0.5, 0.65)
-          .setScale(rock.type === 'boulder' ? 1.15 : rock.type === 'rock' ? 1.05 : 1);
+          .setOrigin(0.5, 0.7)
+          .setScale(baseScale * scaleJitter)
+          .setFlipX((h & 1) === 1)
+          .setRotation((((h >>> 3) % 21) - 10) * 0.02);
         this.rockSprites.set(rock.id, s);
       } else {
         s.setPosition(rock.x, rock.y);

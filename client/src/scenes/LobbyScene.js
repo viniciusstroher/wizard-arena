@@ -41,14 +41,14 @@ export class LobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const bruxao = this.add
-      .image(title.x + title.width / 2 + 8, title.y + 6, 'bruxao')
+    const manaPotion = this.add
+      .image(title.x + title.width / 2 + 8, title.y + 6, 'mana_potion')
       .setOrigin(0, 0.5)
       .setScale(1.15);
 
     this.tweens.add({
-      targets: bruxao,
-      y: bruxao.y - 6,
+      targets: manaPotion,
+      y: manaPotion.y - 6,
       duration: 900,
       yoyo: true,
       repeat: -1,
