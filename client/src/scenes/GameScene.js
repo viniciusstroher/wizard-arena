@@ -3013,6 +3013,13 @@ export class GameScene extends Phaser.Scene {
         timer: me.slowTimer,
       });
     }
+    if (me.alive && (me.poisonTimer || 0) > 0) {
+      effects.push({
+        icon: 'spell_poison_cloud',
+        color: 0x88ff44,
+        timer: me.poisonTimer,
+      });
+    }
     for (let i = 0; i < this.statusSlots.length; i++) {
       const slot = this.statusSlots[i];
       const eff = effects[i];

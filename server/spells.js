@@ -64,14 +64,19 @@ export const SPELLS = {
   poison_cloud: {
     id: 'poison_cloud',
     name: 'Poison Cloud',
-    description: 'Nuvem tóxica que causa dano ao longo do tempo.',
+    description: 'Nuvem tóxica: ao pisar, aplica veneno (3 de dano/s por 5s). Reentrar renova o efeito.',
     type: 'basic',
     cooldown: 3.0,
     manaCost: 0,
-    damage: 8,
+    /** Dano por tick do veneno aplicado. */
+    damage: 3,
+    /** Intervalo entre ticks do veneno (segundos). */
+    tick: 1,
+    /** Duração da nuvem no chão (segundos). */
     duration: 4,
+    /** Duração do status de veneno ao pisar (segundos). */
+    poisonDuration: 5,
     radius: 90,
-    tick: 0.5,
     color: 0x88ff44,
   },
   blink: {

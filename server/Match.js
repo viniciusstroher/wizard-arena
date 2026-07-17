@@ -230,6 +230,11 @@ export class Match {
       shieldTimer: 0,
       slow: 0,
       slowTimer: 0,
+      poisonTimer: 0,
+      poisonDamage: 0,
+      poisonTick: 1,
+      poisonTickAcc: 0,
+      poisonOwnerId: null,
       stunTimer: 0,
       dashTimer: 0,
       dashCooldown: 0,
@@ -384,6 +389,10 @@ export class Match {
       p.shieldTimer = 0;
       p.slow = 0;
       p.slowTimer = 0;
+      p.poisonTimer = 0;
+      p.poisonDamage = 0;
+      p.poisonTickAcc = 0;
+      p.poisonOwnerId = null;
       p.stunTimer = 0;
       p.knockbackTimer = 0;
       p.knockbackDx = 0;
@@ -1304,7 +1313,46 @@ export class Match {
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
+      poisonTimer: 0,
+      poisonDamage: 0,
+      poisonTick: 1,
+      poisonTickAcc: 0,
+      poisonOwnerId: null,
     });
+  }
+
+  /** Aplica/renova veneno (duração sempre no máximo). */
+  applyPoison(target, ownerId, damage, tick, duration) {
+    if (!target?.alive) return;
+    const wasPoisoned = (target.poisonTimer || 0) > 0;
+    target.poisonTimer = duration;
+    target.poisonDamage = damage;
+    target.poisonTick = tick > 0 ? tick : 1;
+    target.poisonOwnerId = ownerId;
+    // Só zera o acumulador na primeira aplicação — renovar não pausa o DoT
+    if (!wasPoisoned) {
+      target.poisonTickAcc = 0;
+      const isPlayer = !!(target.id && this.players.has(target.id));
+      this.damageEntity(target, damage, ownerId, isPlayer, true);
+    }
+  }
+
+  /** Processa DoT de veneno em jogador ou monstro. */
+  tickPoison(target, dt, isPlayer) {
+    if (!target.alive || !(target.poisonTimer > 0)) return;
+    target.poisonTickAcc += dt;
+    const tick = target.poisonTick > 0 ? target.poisonTick : 1;
+    while (target.poisonTickAcc >= tick && target.alive && target.poisonTimer > 0) {
+      target.poisonTickAcc -= tick;
+      this.damageEntity(target, target.poisonDamage, target.poisonOwnerId, isPlayer, true);
+    }
+    target.poisonTimer = Math.max(0, target.poisonTimer - dt);
+    if (target.poisonTimer <= 0 || !target.alive) {
+      target.poisonTimer = 0;
+      target.poisonDamage = 0;
+      target.poisonTickAcc = 0;
+      target.poisonOwnerId = null;
+    }
   }
 
   /** Magias usadas por monstros caster (beholder / dragão / lich). */
@@ -1550,8 +1598,8 @@ export class Match {
           y: player.y + dirY * 80,
           radius: stats.radius,
           damage: stats.damage,
-          tick: stats.tick,
-          tickAcc: 0,
+          tick: stats.tick || 1,
+          poisonDuration: stats.poisonDuration || 5,
           life: stats.duration,
           maxLife: stats.duration,
           color: stats.color,
@@ -1899,6 +1947,7 @@ export class Match {
     for (const p of this.players.values()) {
       if (!p.alive) continue;
 
+      this.tickPoison(p, dt, true);
       p.stunTimer = Math.max(0, p.stunTimer - dt);
       p.slowTimer = Math.max(0, p.slowTimer - dt);
       if (p.slowTimer <= 0) p.slow = 0;
@@ -1987,6 +2036,7 @@ export class Match {
     // Monsters AI
     for (const m of this.monsters) {
       if (!m.alive) continue;
+      this.tickPoison(m, dt, false);
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
       m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
@@ -2177,19 +2227,21 @@ export class Match {
     }
     this.projectiles = this.projectiles.filter((p) => p.life > 0);
 
-    // AoEs
+    // AoEs — poison cloud aplica/renova o status (dano vem do DoT)
     for (const aoe of this.aoes) {
       aoe.life -= dt;
-      aoe.tickAcc += dt;
-      while (aoe.tickAcc >= aoe.tick) {
-        aoe.tickAcc -= aoe.tick;
-        for (const p of this.players.values()) {
-          if (!p.alive || p.id === aoe.ownerId) continue;
-          if (dist(aoe, p) <= aoe.radius) this.damageEntity(p, aoe.damage, aoe.ownerId, true, true);
+      const duration = aoe.poisonDuration || 5;
+      const tick = aoe.tick || 1;
+      for (const p of this.players.values()) {
+        if (!p.alive || p.id === aoe.ownerId) continue;
+        if (dist(aoe, p) <= aoe.radius) {
+          this.applyPoison(p, aoe.ownerId, aoe.damage, tick, duration);
         }
-        for (const m of this.monsters) {
-          if (!m.alive) continue;
-          if (dist(aoe, m) <= aoe.radius) this.damageEntity(m, aoe.damage, aoe.ownerId, false, true);
+      }
+      for (const m of this.monsters) {
+        if (!m.alive) continue;
+        if (dist(aoe, m) <= aoe.radius) {
+          this.applyPoison(m, aoe.ownerId, aoe.damage, tick, duration);
         }
       }
     }
@@ -2249,6 +2301,7 @@ export class Match {
       shieldTimer: +Math.max(0, p.shieldTimer || 0).toFixed(2),
       slow: p.slow,
       slowTimer: +Math.max(0, p.slowTimer || 0).toFixed(2),
+      poisonTimer: +Math.max(0, p.poisonTimer || 0).toFixed(2),
       stun: p.stunTimer > 0,
       dashing: p.dashTimer > 0,
       dashDx: p.dashDx,
