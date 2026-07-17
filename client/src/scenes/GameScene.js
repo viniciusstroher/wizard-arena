@@ -58,6 +58,8 @@ export class GameScene extends Phaser.Scene {
     this.pendingDash = null;
     this.lastHurtSoundAt = 0;
     this.battleMusic = null;
+    /** Ordenação do placar: 'damage' | 'kills' */
+    this.scoreboardSort = 'damage';
   }
 
   create() {
@@ -327,18 +329,172 @@ export class GameScene extends Phaser.Scene {
       this.spellSlots.push(slot);
     }
 
-    this.scoreboard = this.add
-      .text(width - 20, 62, '', {
+    this.createScoreboard(width);
+
+    this.levelUpLayer = this.add.container(0, 0).setDepth(300).setScrollFactor(0).setVisible(false);
+  }
+
+  createScoreboard(width) {
+    const panelW = 280;
+    const panelX = width - 12 - panelW;
+    const panelY = 12;
+    const maxRows = 8;
+
+    this.scoreboardPanel = this.add
+      .rectangle(panelX, panelY, panelW, 80, 0x161228, 0.98)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0x6b5cff)
+      .setScrollFactor(0)
+      .setDepth(99);
+
+    this.scoreboardTitle = this.add
+      .text(panelX + 12, panelY + 10, 'Placar', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '15px',
+        color: '#f4e8ff',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
+
+    const makeSortBtn = (x, label, mode) => {
+      const btn = this.add.container(x, panelY + 18).setScrollFactor(0).setDepth(102);
+      const bg = this.add.rectangle(0, 0, 64, 22, 0x1a1430, 0.95).setStrokeStyle(1, 0x6b5cff);
+      const text = this.add
+        .text(0, 0, label, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '11px',
+          color: '#c4b5e0',
+        })
+        .setOrigin(0.5);
+      btn.add([bg, text]);
+      btn.bg = bg;
+      btn.label = text;
+      btn.mode = mode;
+      bg.setInteractive({ useHandCursor: true });
+      bg.on('pointerup', () => {
+        if (this.scoreboardSort === mode) return;
+        this.scoreboardSort = mode;
+        this.refreshScoreboardSortButtons();
+        this.updateScoreboard();
+      });
+      return btn;
+    };
+
+    // Botões alinhados à direita do painel (centro do rect = posição do container)
+    this.scoreboardSortBtns = [
+      makeSortBtn(panelX + panelW - 114, 'Dano', 'damage'),
+      makeSortBtn(panelX + panelW - 44, 'Mortes', 'kills'),
+    ];
+
+    this.scoreboardHeader = this.add
+      .text(panelX + 12, panelY + 36, 'Jogador', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '13px',
-        color: '#d8ceef',
-        align: 'right',
+        fontSize: '10px',
+        color: '#7a6d9a',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
+    this.scoreboardHeaderStats = this.add
+      .text(panelX + panelW - 12, panelY + 36, 'K/M   Dmg  Pts', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '10px',
+        color: '#7a6d9a',
       })
       .setOrigin(1, 0)
       .setScrollFactor(0)
-      .setDepth(100);
+      .setDepth(102);
 
-    this.levelUpLayer = this.add.container(0, 0).setDepth(300).setScrollFactor(0).setVisible(false);
+    this.scoreboardRows = [];
+    for (let i = 0; i < maxRows; i++) {
+      const y = panelY + 52 + i * 18;
+      const name = this.add
+        .text(panelX + 12, y, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '12px',
+          color: '#d8ceef',
+        })
+        .setScrollFactor(0)
+        .setDepth(102)
+        .setVisible(false);
+      const stats = this.add
+        .text(panelX + panelW - 12, y, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '12px',
+          color: '#d8ceef',
+        })
+        .setOrigin(1, 0)
+        .setScrollFactor(0)
+        .setDepth(102)
+        .setVisible(false);
+      this.scoreboardRows.push({ name, stats });
+    }
+
+    this.scoreboardLayout = { panelX, panelY, panelW, maxRows, rowH: 18 };
+    this.refreshScoreboardSortButtons();
+  }
+
+  refreshScoreboardSortButtons() {
+    if (!this.scoreboardSortBtns) return;
+    for (const btn of this.scoreboardSortBtns) {
+      const active = btn.mode === this.scoreboardSort;
+      btn.bg.setFillStyle(active ? 0x6b5cff : 0x1a1430, 0.95);
+      btn.bg.setStrokeStyle(1, active ? 0xffffff : 0x6b5cff, active ? 0.35 : 1);
+      btn.label.setColor(active ? '#ffffff' : '#c4b5e0');
+    }
+  }
+
+  updateScoreboard() {
+    if (!this.state?.players || !this.scoreboardRows) return;
+
+    const { panelX, panelY, panelW, maxRows, rowH } = this.scoreboardLayout;
+    const sortBy = this.scoreboardSort;
+
+    const ranked = [...this.state.players].sort((a, b) => {
+      if (sortBy === 'damage') {
+        return (
+          (b.damageDealt || 0) - (a.damageDealt || 0) ||
+          (b.kills || 0) - (a.kills || 0) ||
+          (a.deaths || 0) - (b.deaths || 0) ||
+          (b.score || 0) - (a.score || 0)
+        );
+      }
+      // Mortes = abates (kills) — maior → menor
+      return (
+        (b.kills || 0) - (a.kills || 0) ||
+        (b.damageDealt || 0) - (a.damageDealt || 0) ||
+        (a.deaths || 0) - (b.deaths || 0) ||
+        (b.score || 0) - (a.score || 0)
+      );
+    });
+
+    const count = Math.min(ranked.length, maxRows);
+    for (let i = 0; i < maxRows; i++) {
+      const row = this.scoreboardRows[i];
+      const p = ranked[i];
+      if (!p) {
+        row.name.setVisible(false);
+        row.stats.setVisible(false);
+        continue;
+      }
+      const mine = p.id === this.playerId;
+      const color = mine ? '#f1c40f' : p.alive ? '#d8ceef' : '#7a6d9a';
+      const y = panelY + 52 + i * rowH;
+      row.name
+        .setText(`${p.alive ? '●' : '○'} ${(p.name || '?').slice(0, 12)}`)
+        .setColor(color)
+        .setPosition(panelX + 12, y)
+        .setVisible(true);
+      row.stats
+        .setText(`${p.kills || 0}/${p.deaths || 0}   ${p.damageDealt || 0}  ${p.score || 0}`)
+        .setColor(color)
+        .setPosition(panelX + panelW - 12, y)
+        .setVisible(true);
+    }
+
+    const panelH = 52 + count * rowH + 12;
+    this.scoreboardPanel.setPosition(panelX, panelY);
+    this.scoreboardPanel.setSize(panelW, Math.max(72, panelH));
+    this.scoreboardPanel.setStrokeStyle(2, 0x6b5cff);
   }
 
   createEventBoard() {
@@ -2909,19 +3065,7 @@ export class GameScene extends Phaser.Scene {
     dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
     dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
 
-    const board = [...this.state.players]
-      .sort(
-        (a, b) =>
-          (b.score || 0) - (a.score || 0) ||
-          (b.kills || 0) - (a.kills || 0) ||
-          (a.deaths || 0) - (b.deaths || 0)
-      )
-      .map(
-        (p) =>
-          `${p.alive ? '●' : '○'} ${p.name}  ${p.kills || 0}/${p.deaths || 0}  ${p.score || 0}pts`
-      )
-      .join('\n');
-    this.scoreboard.setText(board);
+    this.updateScoreboard();
   }
 
   handleBanners() {
