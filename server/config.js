@@ -116,6 +116,8 @@ export const CONFIG = {
   XP_PER_SECOND: envNumber('XP_PER_SECOND', 5),
   /** XP passivo por segundo para bots vivos (durante a partida). */
   BOT_XP_PER_SECOND: envNumber('BOT_XP_PER_SECOND', 5),
+  /** Se false, bots ficam parados e não atacam (ainda escolhem magia no level-up). */
+  BOT_AI_ENABLED: envBool('BOT_AI_ENABLED', true),
   /**
    * Tempo máximo (segundos) na tela de escolha de magia.
    * Ao expirar, escolhe automaticamente. 0 = sem limite.

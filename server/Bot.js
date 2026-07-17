@@ -1,5 +1,7 @@
 /** IA simples para preencher o lobby e testar PvP. */
 
+import { CONFIG } from './config.js';
+
 export class BotController {
   constructor(match, playerId) {
     this.match = match;
@@ -8,6 +10,21 @@ export class BotController {
     this.strafe = Math.random() < 0.5 ? 1 : -1;
     this.retargetTimer = 0;
     this.target = null;
+  }
+
+  idleInput(player) {
+    this.match.setInput(this.playerId, {
+      up: false,
+      down: false,
+      left: false,
+      right: false,
+      aimX: player.x,
+      aimY: player.y,
+      castSlot: -1,
+      barrier: false,
+      mend: false,
+      blink: false,
+    });
   }
 
   update(dt) {
@@ -29,6 +46,11 @@ export class BotController {
       return;
     }
     if (this.match.phase !== 'playing') return;
+
+    if (!CONFIG.BOT_AI_ENABLED) {
+      this.idleInput(player);
+      return;
+    }
 
     this.retargetTimer -= dt;
     this.castTimer -= dt;
