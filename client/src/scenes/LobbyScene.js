@@ -60,13 +60,14 @@ export class LobbyScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const panelX = width / 2;
     const panelY = height / 2 + 20;
-    const btnW = 200;
-    const btnGap = 16;
+    const btnW = 260;
+    const btnH = 44;
+    const btnGap = 12;
 
-    this.add.rectangle(panelX, panelY, 680, 520, 0x161228, 0.92).setStrokeStyle(2, 0x6b5cff);
+    this.add.rectangle(panelX, panelY, 680, 560, 0x161228, 0.92).setStrokeStyle(2, 0x6b5cff);
 
     this.add
-      .text(panelX, panelY - 170, 'Lobby', {
+      .text(panelX, panelY - 190, 'Lobby', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '22px',
         color: '#e8dfff',
@@ -74,7 +75,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(panelX, panelY - 128, 'Seu nome', {
+      .text(panelX, panelY - 148, 'Seu nome', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -103,14 +104,14 @@ export class LobbyScene extends Phaser.Scene {
       'text-align: center',
     ].join(';');
 
-    this.nameInput = this.add.dom(panelX, panelY - 90, inputEl).setOrigin(0.5);
+    this.nameInput = this.add.dom(panelX, panelY - 110, inputEl).setOrigin(0.5);
     this.nameInput.addListener('keydown');
     this.nameInput.on('keydown', (event) => {
       if (event.key === 'Enter') this.joinLobby();
     });
 
     this.statusText = this.add
-      .text(panelX, panelY - 36, 'Digite seu nome e entre no lobby.', {
+      .text(panelX, panelY - 56, 'Digite seu nome e entre no lobby.', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#c4b5e0',
@@ -120,7 +121,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.playersText = this.add
-      .text(panelX, panelY + 40, '', {
+      .text(panelX, panelY + 20, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '16px',
         color: '#eee6ff',
@@ -129,26 +130,118 @@ export class LobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const rowY = panelY + 145;
-    this.joinBtn = this.makeButton(panelX - (btnW + btnGap) / 2, rowY, 'Entrar', 0x6b5cff, () => this.joinLobby(), btnW);
-    this.readyBtn = this.makeButton(panelX + (btnW + btnGap) / 2, rowY, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
+    const btnStartY = panelY + 110;
+    const step = btnH + btnGap;
+    this.joinBtn = this.makeButton(panelX, btnStartY, 'Entrar', 0x6b5cff, () => this.joinLobby(), btnW);
+    this.readyBtn = this.makeButton(panelX, btnStartY + step, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
-    this.botsBtn = this.makeButton(panelX, panelY + 205, '+ Bot (testar solo)', 0xff8c42, () => this.addBot(), 260);
+    this.botsBtn = this.makeButton(
+      panelX,
+      btnStartY + step * 2,
+      '+ Bot (testar solo)',
+      0xff8c42,
+      () => this.addBot(),
+      btnW
+    );
     this.setButtonEnabled(this.botsBtn, false);
 
+    this.controlsBtn = this.makeButton(
+      panelX,
+      btnStartY + step * 3,
+      'Comandos',
+      0x443866,
+      () => this.openControlsModal(),
+      btnW
+    );
+
+    this.controlsModalOpen = false;
+    this.controlsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
+
     this.hint = this.add
-      .text(
-        panelX,
-        height - 36,
-        'Mín. 2 jogadores ready para iniciar · WASD mover · Mouse mirar · 1-4 magias · R ultimate',
-        {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '13px',
-          color: '#7a6e96',
-        }
-      )
+      .text(panelX, height - 36, 'Mín. 2 jogadores ready para iniciar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#7a6e96',
+      })
       .setOrigin(0.5);
+  }
+
+  openControlsModal() {
+    if (this.controlsModalOpen) return;
+    this.controlsModalOpen = true;
+
+    const { width, height } = this.scale;
+    this.controlsModal.removeAll(true);
+    this.controlsModal.setVisible(true);
+
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.65);
+    dim.setInteractive();
+    dim.on('pointerup', () => this.closeControlsModal());
+
+    const panel = this.add
+      .rectangle(width / 2, height / 2, 420, 360, 0x161228, 0.98)
+      .setStrokeStyle(2, 0x6b5cff);
+
+    const title = this.add
+      .text(width / 2, height / 2 - 140, 'Comandos', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '26px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5);
+
+    const lines = [
+      ['WASD', 'Mover'],
+      ['Mouse', 'Mirar'],
+      ['Clique / 1', 'Magia slot 1'],
+      ['2 – 4', 'Magias 2 a 4'],
+      ['R', 'Ultimate'],
+    ];
+
+    const rows = [];
+    const startY = height / 2 - 85;
+    lines.forEach(([key, action], i) => {
+      const y = startY + i * 36;
+      const keyText = this.add
+        .text(width / 2 - 150, y, key, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '16px',
+          color: '#b8a6ff',
+        })
+        .setOrigin(0, 0.5);
+      const actionText = this.add
+        .text(width / 2 + 20, y, action, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '16px',
+          color: '#e8dfff',
+        })
+        .setOrigin(0, 0.5);
+      rows.push(keyText, actionText);
+    });
+
+    const closeBg = this.add
+      .rectangle(width / 2, height / 2 + 130, 140, 40, 0x6b5cff, 1)
+      .setStrokeStyle(1, 0xffffff, 0.15);
+    const closeLabel = this.add
+      .text(width / 2, height / 2 + 130, 'Fechar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    closeBg.setInteractive({ useHandCursor: true });
+    closeBg.on('pointerover', () => closeBg.setScale(1.04));
+    closeBg.on('pointerout', () => closeBg.setScale(1));
+    closeBg.on('pointerup', () => this.closeControlsModal());
+
+    this.controlsModal.add([dim, panel, title, ...rows, closeBg, closeLabel]);
+  }
+
+  closeControlsModal() {
+    this.controlsModalOpen = false;
+    this.controlsModal.removeAll(true);
+    this.controlsModal.setVisible(false);
   }
 
   makeButton(x, y, label, color, onClick, width = 180) {
