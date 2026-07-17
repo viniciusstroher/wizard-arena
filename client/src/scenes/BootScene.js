@@ -539,6 +539,48 @@ export class BootScene extends Phaser.Scene {
         ],
         palette: { Y: 0xffdd33, L: 0xffffff },
       },
+      electric_bolt: {
+        rows: [
+          '................',
+          '.......WW.......',
+          '......WLLW......',
+          '.....WLLYW......',
+          '....WLLY........',
+          '...WLLYYWW......',
+          '....WWLLLYW.....',
+          '.....WLLYW......',
+          '....WLLY........',
+          '...WLLLLW.......',
+          '....WWLYW.......',
+          '.....WLY........',
+          '......WW........',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { W: 0x7cf0ff, L: 0xffffff, Y: 0xb388ff },
+      },
+      electric_storm: {
+        rows: [
+          '................',
+          '..CC.CCC.CC.CC..',
+          '.CYYCCCYYYCCYC..',
+          '.CYCCCCYCCCCYC..',
+          '..C..W.C..W.C...',
+          '.....W....W.....',
+          '....WLW..WLW....',
+          '...WLLW.WLLW....',
+          '....WLW..W.W....',
+          '.....W....W.....',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { C: 0x3a4a6a, Y: 0x556688, W: 0x7cf0ff, L: 0xffffff },
+      },
       dash: {
         rows: [
           '................',
@@ -1758,6 +1800,40 @@ export class BootScene extends Phaser.Scene {
         D: 0xaa2200,
         W: 0xfff5d6,
         B: 0x1a1a1a,
+      }
+    );
+
+    // Demon — chifres, asas e olhos elétricos
+    registerMonsterSprite(
+      this,
+      'demon',
+      [
+        '................',
+        '.H..........H...',
+        '.HR........RH...',
+        '..R.WWWWWW.R....',
+        '..WRRRRRRRRW....',
+        '.WRRBEYYEBRRW...',
+        '.WRRRRRRRRRRW...',
+        '..WRRDDDDRRW....',
+        '.WWRRRRRRRRWW...',
+        'WWRR......RRWW..',
+        '.RR........RR...',
+        '.R.R......R.R...',
+        '..L........L....',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        H: 0x4a0a12,
+        R: 0x8b1a2b,
+        D: 0x3d0a14,
+        W: 0x2a0a18,
+        B: 0x1a0508,
+        E: 0x7cf0ff,
+        Y: 0xffffff,
+        L: 0x5a1020,
       }
     );
   }

@@ -164,6 +164,35 @@ export const SPELLS = {
     coneAngle: 38,
     color: 0xff6622,
   },
+  /** Exclusiva de demon — raio do céu no alvo. */
+  electric_bolt: {
+    id: 'electric_bolt',
+    name: 'Electric Bolt',
+    description: 'Raio que cai do céu no alvo. Uso exclusivo de demônios.',
+    type: 'basic',
+    playerUsable: false,
+    cooldown: 1.35,
+    manaCost: 0,
+    damage: 24,
+    range: 240,
+    color: 0x7cf0ff,
+  },
+  /** Exclusiva de demon — tempestade com vários raios caindo. */
+  electric_storm: {
+    id: 'electric_storm',
+    name: 'Electric Storm',
+    description: 'Tempestade elétrica: vários raios caem na área. Uso exclusivo de demônios.',
+    type: 'basic',
+    playerUsable: false,
+    cooldown: 4.5,
+    manaCost: 0,
+    damage: 16,
+    range: 200,
+    radius: 130,
+    /** Quantidade de raios visuais na tempestade. */
+    boltCount: 7,
+    color: 0x88bbff,
+  },
 };
 
 export const ULTIMATES = {

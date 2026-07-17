@@ -1647,9 +1647,20 @@ export class GameScene extends Phaser.Scene {
     } else if (spell === 'ice_shard' || e.type === 'freeze') {
       this.iceFx?.emitParticleAt(x, y, 16);
       this.sparkFx?.emitParticleAt(x, y, 6);
-    } else if (spell === 'arc_lightning' || spell === 'storm_call' || e.type === 'lightning') {
+    } else if (
+      spell === 'arc_lightning' ||
+      spell === 'storm_call' ||
+      spell === 'electric_bolt' ||
+      spell === 'electric_storm' ||
+      e.type === 'lightning' ||
+      e.type === 'sky_lightning' ||
+      e.type === 'electric_storm'
+    ) {
       this.sparkFx?.emitParticleAt(e.x1 ?? x, e.y1 ?? y, 10);
-      this.sparkFx?.emitParticleAt(e.x2 ?? x, e.y2 ?? y, 14);
+      this.sparkFx?.emitParticleAt(e.x2 ?? x, e.y2 ?? y, 16);
+      if (e.type === 'sky_lightning' || e.type === 'electric_storm') {
+        this.sparkFx?.emitParticleAt(e.x2 ?? e.x ?? x, e.y2 ?? e.y ?? y, 20);
+      }
     } else if (spell === 'skull_bolt') {
       this.necroFx?.emitParticleAt(x, y, 16);
       this.sparkFx?.emitParticleAt(x, y, 6);
@@ -2247,6 +2258,7 @@ export class GameScene extends Phaser.Scene {
       dragon: 'dragão',
       lich: 'lich',
       fire_elemental: 'elemental de fogo',
+      demon: 'demônio',
     };
     return labels[type] || type;
   }
@@ -2616,6 +2628,114 @@ export class GameScene extends Phaser.Scene {
     g.fillCircle(x2, y2, 22);
     g.fillStyle(core, 0.5 * fade);
     g.fillCircle(x1, y1, 4);
+  }
+
+  /** Raio caindo do céu — brilho vertical, impacto no chão e flash. */
+  drawSkyLightning(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x7cf0ff;
+    const x2 = e.x2 ?? e.x ?? 0;
+    const y2 = e.y2 ?? e.y ?? 0;
+    const x1 = e.x1 ?? x2;
+    const y1 = e.y1 ?? y2 - 320;
+
+    // Coluna de luz no céu (antes / durante o raio)
+    const columnFade = fade * (0.35 + 0.65 * (1 - Math.abs(p - 0.35)));
+    g.fillStyle(0x2244aa, 0.08 * columnFade);
+    g.fillRect(x2 - 10, y1, 20, y2 - y1);
+    g.fillStyle(color, 0.1 * columnFade);
+    g.fillRect(x2 - 4, y1, 8, y2 - y1);
+
+    this.drawLightningBolt({
+      ...e,
+      type: 'lightning',
+      x1,
+      y1,
+      x2,
+      y2,
+      color,
+      branches: e.branches ?? 4,
+    });
+
+    // Impacto no solo
+    const crack = 18 + 22 * fade;
+    g.lineStyle(2.5, color, 0.55 * fade);
+    g.lineBetween(x2 - crack, y2 + 2, x2 + crack, y2 + 2);
+    g.lineStyle(1.5, 0xffffff, 0.7 * fade);
+    g.lineBetween(x2 - crack * 0.55, y2 + 2, x2 + crack * 0.55, y2 + 2);
+
+    g.fillStyle(0xffffff, 0.35 * fade);
+    g.fillCircle(x2, y2, 10 + 8 * (1 - p));
+    g.fillStyle(color, 0.22 * fade);
+    g.fillCircle(x2, y2, 28 + 12 * (1 - p));
+    g.lineStyle(2, color, 0.5 * fade);
+    g.strokeCircle(x2, y2, 20 + 16 * p);
+
+    // Flash do céu no topo
+    if (e.flash !== false) {
+      g.fillStyle(0xffffff, 0.18 * fade * (1 - p));
+      g.fillEllipse(x1, y1 + 12, 48, 18);
+      g.fillStyle(color, 0.2 * fade);
+      g.fillEllipse(x1, y1 + 12, 28, 10);
+    }
+  }
+
+  /** Nuvem de tempestade elétrica + anel de área. */
+  drawElectricStorm(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const prog = this.effectProgress(e);
+    const color = e.color || 0x88bbff;
+    const r = (e.radius || 130) * (0.55 + 0.45 * Math.min(1, prog * 1.8));
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    // Solo carregado
+    g.fillStyle(0x102038, 0.28 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(color, 0.08 * fade);
+    g.fillCircle(e.x, e.y, r * 0.7);
+    g.lineStyle(2.5, color, 0.55 * fade);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(1.5, 0xffffff, 0.35 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.82);
+
+    // Anéis elétricos pulsando
+    for (let i = 0; i < 3; i++) {
+      const t = (prog * 2 + i * 0.33) % 1;
+      g.lineStyle(2, color, (0.45 - t * 0.35) * fade);
+      g.strokeCircle(e.x, e.y, r * (0.25 + t * 0.75));
+    }
+
+    // Nuvens densas acima da área
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * Math.PI * 2 + prog * 2.2;
+      const distN = 10 + (i % 3) * 18;
+      const cx = e.x + Math.cos(a) * distN;
+      const cy = e.y - 48 - Math.sin(a * 1.7) * 8;
+      g.fillStyle(0x1a2438, 0.45 * fade);
+      g.fillEllipse(cx, cy, 44 + (i % 3) * 6, 18);
+      g.fillStyle(0x3a4a6a, 0.35 * fade);
+      g.fillEllipse(cx + 6, cy - 4, 30, 12);
+    }
+
+    // Centelhas na nuvem
+    for (let i = 0; i < 5; i++) {
+      const sx = e.x + (rand() - 0.5) * 70;
+      const sy = e.y - 52 + (rand() - 0.5) * 16;
+      g.fillStyle(0xffffff, 0.55 * fade * (0.5 + rand() * 0.5));
+      g.fillCircle(sx, sy, 1.5 + rand() * 2);
+      g.fillStyle(color, 0.4 * fade);
+      g.fillCircle(sx, sy, 3 + rand() * 2);
+    }
+
+    // Núcleo da tempestade
+    g.fillStyle(color, 0.35 * fade);
+    g.fillCircle(e.x, e.y - 50, 10);
+    g.fillStyle(0xffffff, 0.5 * fade);
+    g.fillCircle(e.x, e.y - 50, 4);
   }
 
   drawPentagram(e) {
@@ -3238,8 +3358,10 @@ export class GameScene extends Phaser.Scene {
         e.type === 'freeze' ||
         e.type === 'apocalypse' ||
         e.type === 'storm' ||
+        e.type === 'electric_storm' ||
         e.type === 'poison_burst' ||
         e.type === 'lightning' ||
+        e.type === 'sky_lightning' ||
         e.type === 'meteor_strike'
       ) {
         activeBursts.add(burstKey);
@@ -3248,6 +3370,8 @@ export class GameScene extends Phaser.Scene {
 
       if (e.type === 'pentagram') {
         this.drawPentagram(e);
+      } else if (e.type === 'sky_lightning') {
+        this.drawSkyLightning(e);
       } else if (e.type === 'lightning') {
         this.drawLightningBolt(e);
       } else if (e.type === 'dash') {
@@ -3286,6 +3410,8 @@ export class GameScene extends Phaser.Scene {
         this.drawMeteorStrike(e);
       } else if (e.type === 'storm') {
         this.drawStorm(e);
+      } else if (e.type === 'electric_storm') {
+        this.drawElectricStorm(e);
       } else if (e.type === 'poison_burst') {
         this.drawPoisonBurst(e);
       }

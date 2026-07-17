@@ -20,6 +20,7 @@ export class LobbyScene extends Phaser.Scene {
     this.volumeSlider = null;
 
     this.drawBackground();
+    this.createAmbientWizards();
     this.buildUI();
     this.bindSocket();
     this.startLobbyMusic();
@@ -27,6 +28,7 @@ export class LobbyScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.closeSettingsModal();
       this.stopLobbyMusic();
+      this.destroyAmbientWizards();
     });
   }
 
@@ -268,8 +270,176 @@ export class LobbyScene extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(_time, delta) {
     this.drawTopFlames();
+    this.updateAmbientWizards(delta);
+  }
+
+  /** Magos do jogo vagando atrás do menu, em camadas de profundidade. */
+  createAmbientWizards() {
+    const types = ['crimson', 'azure', 'emerald', 'amber', 'necromancer'].filter((t) =>
+      this.textures.exists(`wizard_${t}`)
+    );
+    if (!types.length) {
+      this.ambientWizards = [];
+      return;
+    }
+
+    const { width, height } = this.scale;
+    const count = 10;
+    this.ambientWizards = [];
+
+    for (let i = 0; i < count; i++) {
+      this.ambientWizards.push(this.spawnAmbientWizard(types, width, height, true));
+    }
+  }
+
+  destroyAmbientWizards() {
+    if (!this.ambientWizards) return;
+    for (const w of this.ambientWizards) {
+      w.sprite?.destroy();
+    }
+    this.ambientWizards = null;
+  }
+
+  spawnAmbientWizard(types, width, height, instant = false) {
+    const type = Phaser.Utils.Array.GetRandom(types);
+    const tex = `wizard_${type}`;
+    // z: 0 = longe (fundo), 1 = perto (ainda atrás do menu)
+    const z = Phaser.Math.FloatBetween(0.08, 1);
+    const scale = Phaser.Math.Linear(0.55, 2.35, z);
+    const alpha = Phaser.Math.Linear(0.12, 0.5, z);
+    // Mais longe = mais escuro / azulado (atmosfera)
+    const shade = Phaser.Math.Linear(0.35, 1, z);
+    const tint = Phaser.Display.Color.GetColor(
+      Math.floor(140 * shade + 40 * (1 - shade)),
+      Math.floor(150 * shade + 55 * (1 - shade)),
+      Math.floor(190 * shade + 90 * (1 - shade))
+    );
+
+    // Evita o centro do menu um pouco; favorece laterais e fundo
+    let x;
+    let y;
+    if (Math.random() < 0.65) {
+      x = Math.random() < 0.5
+        ? Phaser.Math.Between(40, Math.floor(width * 0.28))
+        : Phaser.Math.Between(Math.floor(width * 0.72), width - 40);
+      y = Phaser.Math.Between(Math.floor(height * 0.22), height - 50);
+    } else {
+      x = Phaser.Math.Between(60, width - 60);
+      y = Phaser.Math.Between(Math.floor(height * 0.55), height - 40);
+    }
+
+    const sprite = this.add
+      .sprite(x, y, tex)
+      .setScale(scale)
+      .setAlpha(instant ? alpha : 0)
+      .setTint(tint)
+      .setDepth(0.05 + z * 0.55)
+      .setFlipX(Math.random() < 0.5);
+
+    const speed = Phaser.Math.Linear(12, 38, z);
+    const angle = Math.random() * Math.PI * 2;
+    const wizard = {
+      sprite,
+      type,
+      tex,
+      z,
+      x,
+      y,
+      baseScale: scale,
+      baseAlpha: alpha,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed * 0.55,
+      bobPhase: Math.random() * Math.PI * 2,
+      bobAmp: Phaser.Math.Linear(0.6, 2.2, z),
+      life: Phaser.Math.Between(9000, 18000),
+      fadingOut: false,
+      types,
+    };
+
+    if (!instant) {
+      this.tweens.add({
+        targets: sprite,
+        alpha,
+        duration: 700,
+        ease: 'Sine.easeOut',
+      });
+    }
+
+    const walkKey = `${tex}_walk`;
+    if (this.anims.exists(walkKey)) {
+      sprite.play(walkKey);
+      sprite.anims.timeScale = Phaser.Math.Linear(0.45, 0.95, z);
+    }
+
+    return wizard;
+  }
+
+  updateAmbientWizards(delta) {
+    const list = this.ambientWizards;
+    if (!list?.length) return;
+
+    const { width, height } = this.scale;
+    const dt = delta / 1000;
+    const types = list[0].types;
+
+    for (let i = 0; i < list.length; i++) {
+      const w = list[i];
+      const s = w.sprite;
+      if (!s?.active) continue;
+
+      w.life -= delta;
+
+      // Troca de direção ocasional
+      if (Math.random() < 0.008) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Phaser.Math.Linear(12, 38, w.z);
+        w.vx = Math.cos(angle) * speed;
+        w.vy = Math.sin(angle) * speed * 0.55;
+      }
+
+      w.x += w.vx * dt;
+      w.y += w.vy * dt;
+
+      const margin = 28;
+      if (w.x < margin || w.x > width - margin) {
+        w.vx *= -1;
+        w.x = Phaser.Math.Clamp(w.x, margin, width - margin);
+      }
+      if (w.y < height * 0.18 || w.y > height - 36) {
+        w.vy *= -1;
+        w.y = Phaser.Math.Clamp(w.y, height * 0.18, height - 36);
+      }
+
+      if (Math.abs(w.vx) > 4) s.setFlipX(w.vx < 0);
+
+      w.bobPhase += dt * (2.2 + w.z);
+      const bob = Math.sin(w.bobPhase) * w.bobAmp;
+      s.setPosition(w.x, w.y + bob);
+
+      // Respiração leve de escala (profundidade viva)
+      const breathe = 1 + Math.sin(w.bobPhase * 0.55) * 0.02;
+      s.setScale(w.baseScale * breathe);
+
+      if (!w.fadingOut && w.life <= 0) {
+        w.fadingOut = true;
+        this.tweens.add({
+          targets: s,
+          alpha: 0,
+          duration: 650,
+          ease: 'Sine.easeIn',
+          onComplete: () => {
+            if (!this.ambientWizards) return;
+            s.destroy();
+            const idx = this.ambientWizards.indexOf(w);
+            if (idx >= 0) {
+              this.ambientWizards[idx] = this.spawnAmbientWizard(types, width, height, false);
+            }
+          },
+        });
+      }
+    }
   }
 
   /** Flocos de luz/magia caindo do topo até ~10% da altura. */
@@ -317,6 +487,7 @@ export class LobbyScene extends Phaser.Scene {
     const btnW = 280;
     const btnH = 48;
     const btnGap = 8;
+    const uiDepth = 10;
 
     this.add
       .text(panelX, panelY - 210, 'Lobby', {
@@ -324,7 +495,8 @@ export class LobbyScene extends Phaser.Scene {
         fontSize: '22px',
         color: '#e8dfff',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
 
     this.add
       .text(panelX, panelY - 168, 'Seu nome', {
@@ -332,7 +504,8 @@ export class LobbyScene extends Phaser.Scene {
         fontSize: '14px',
         color: '#9a8bb8',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
 
     const inputEl = document.createElement('input');
     inputEl.type = 'text';
@@ -356,7 +529,7 @@ export class LobbyScene extends Phaser.Scene {
       'text-align: center',
     ].join(';');
 
-    this.nameInput = this.add.dom(panelX, panelY - 130, inputEl).setOrigin(0.5);
+    this.nameInput = this.add.dom(panelX, panelY - 130, inputEl).setOrigin(0.5).setDepth(uiDepth);
     this.nameInput.addListener('keydown');
     this.nameInput.on('keydown', (event) => {
       if (event.key === 'Enter') this.joinLobby();
@@ -370,7 +543,8 @@ export class LobbyScene extends Phaser.Scene {
         align: 'center',
         wordWrap: { width: 440 },
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
 
     // Lista fixa (~4 linhas); scroll automático se passar de 4 jogadores
     const listEl = document.createElement('div');
@@ -392,7 +566,7 @@ export class LobbyScene extends Phaser.Scene {
       'scrollbar-color: #6b5cff #1a1430',
     ].join(';');
     this.playersListEl = listEl;
-    this.playersListDom = this.add.dom(panelX, panelY + 8, listEl).setOrigin(0.5);
+    this.playersListDom = this.add.dom(panelX, panelY + 8, listEl).setOrigin(0.5).setDepth(uiDepth);
     listEl.textContent = 'Nenhum jogador ainda';
 
     const btnStartY = panelY + 90;
@@ -429,6 +603,10 @@ export class LobbyScene extends Phaser.Scene {
       btnW
     );
 
+    for (const btn of [this.joinBtn, this.readyBtn, this.botsBtn, this.controlsBtn, this.settingsBtn]) {
+      btn.setDepth(uiDepth);
+    }
+
     this.controlsModalOpen = false;
     this.controlsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
     this.settingsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
@@ -439,7 +617,8 @@ export class LobbyScene extends Phaser.Scene {
         fontSize: '13px',
         color: '#7a6e96',
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
   }
 
   openSettingsModal() {

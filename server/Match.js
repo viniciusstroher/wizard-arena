@@ -1469,6 +1469,23 @@ export class Match {
         novaCooldown: 4.0,
         weight: common,
       },
+      // Demônio — Electric Bolt + Electric Storm (raios do céu)
+      demon: {
+        hpMul: 2.2,
+        speedMul: 0.85,
+        dmgMul: 1.4,
+        radius: 18,
+        color: 0x8b1a2b,
+        attack: 'caster',
+        spells: ['electric_bolt', 'electric_storm'],
+        range: 260,
+        preferRange: 150,
+        attackCooldown: 1.2,
+        /** Reusa novaRadius/novaCooldown para a tempestade elétrica. */
+        novaRadius: 130,
+        novaCooldown: 4.5,
+        weight: boss,
+      },
     };
   }
 
@@ -1763,7 +1780,30 @@ export class Match {
     });
   }
 
-  /** Magias usadas por monstros caster (beholder / dragão / lich). */
+  /** Empurra um raio do céu até o chão (efeito + impacto). */
+  pushSkyLightning(x, y, color, opts = {}) {
+    const jitter = opts.jitter ?? 10;
+    const ox = (Math.random() - 0.5) * 2 * jitter;
+    const skyY = y - (opts.skyHeight ?? 300 + Math.random() * 80);
+    this.effects.push({
+      type: 'sky_lightning',
+      spellId: opts.spellId || 'electric_bolt',
+      x1: x + ox * 0.35,
+      y1: skyY,
+      x2: x + ox,
+      y2: y,
+      x,
+      y,
+      life: opts.life ?? 0.48,
+      maxLife: opts.life ?? 0.48,
+      color: color || 0x7cf0ff,
+      seed: (Math.random() * 1e9) | 0,
+      branches: opts.branches ?? 4,
+      flash: opts.flash !== false,
+    });
+  }
+
+  /** Magias usadas por monstros caster (beholder / dragão / lich / demon). */
   monsterCast(monster, spellId, target) {
     const stats = spellStats(spellId, 1);
     if (!stats) return;
@@ -1787,6 +1827,69 @@ export class Match {
         });
         this.spawnSpellImpact(target.x, target.y, 'arc_lightning', stats.color, 26);
         monster.attackCd = monster.attackCooldown || 1.4;
+        break;
+      }
+      case 'electric_bolt': {
+        const range = stats.range || 240;
+        if (!target || dist(monster, target) > range) return;
+        const dmg = Math.round(monster.damage * 1.1);
+        this.damageEntity(target, dmg, monster.entityId, true, true);
+        this.pushSkyLightning(target.x, target.y, stats.color, {
+          spellId: 'electric_bolt',
+          branches: 5,
+          skyHeight: 320 + Math.random() * 60,
+        });
+        this.spawnSpellImpact(target.x, target.y, 'electric_bolt', stats.color, 30);
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 1.35;
+        break;
+      }
+      case 'electric_storm': {
+        const radius = monster.novaRadius || stats.radius || 130;
+        const cx = target ? target.x : monster.x;
+        const cy = target ? target.y : monster.y;
+        const dmg = Math.round(monster.damage * 0.95);
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          if (dist(p, { x: cx, y: cy }) <= radius) {
+            this.damageEntity(p, dmg, monster.entityId, true, true);
+          }
+        }
+        this.effects.push({
+          type: 'electric_storm',
+          spellId: 'electric_storm',
+          x: cx,
+          y: cy,
+          radius,
+          life: 1.15,
+          maxLife: 1.15,
+          color: stats.color,
+          seed: (Math.random() * 1e9) | 0,
+        });
+        const bolts = Math.max(4, Math.min(12, stats.boltCount || 7));
+        for (let i = 0; i < bolts; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const r = Math.random() * radius * 0.92;
+          const bx = cx + Math.cos(ang) * r;
+          const by = cy + Math.sin(ang) * r;
+          this.pushSkyLightning(bx, by, stats.color, {
+            spellId: 'electric_storm',
+            branches: 3 + (i % 3),
+            skyHeight: 280 + Math.random() * 120,
+            life: 0.4 + Math.random() * 0.25,
+            jitter: 18,
+          });
+        }
+        // Raio extra no centro / alvo principal
+        this.pushSkyLightning(cx, cy, 0xffffff, {
+          spellId: 'electric_storm',
+          branches: 6,
+          skyHeight: 360,
+          life: 0.55,
+          jitter: 4,
+        });
+        this.spawnSpellImpact(cx, cy, 'electric_storm', stats.color, 40);
+        monster.attackCd = (monster.attackCooldown || 1.2) * 1.25;
+        monster.novaCd = monster.novaCooldown || stats.cooldown || 4.5;
         break;
       }
       case 'firebolt':
@@ -2496,11 +2599,11 @@ export class Match {
             targetVx = (dx / len) * m.speed;
             targetVy = (dy / len) * m.speed;
           } else if (
-            spells.includes('flame_nova') &&
+            (spells.includes('flame_nova') || spells.includes('electric_storm')) &&
             nearestD < novaR * 0.45 &&
             (m.novaCd || 0) > 0
           ) {
-            // Nova em CD e jogador colado — recua
+            // Nova/storm em CD e jogador colado — recua
             targetVx = (-dx / len) * m.speed * 0.75;
             targetVy = (-dy / len) * m.speed * 0.75;
           } else if (nearestD < prefer * 0.6) {
@@ -2511,7 +2614,15 @@ export class Match {
           if (m.attackCd <= 0) {
             let spell = null;
             const breathRange = spellStats('firebreath')?.range || 170;
+            const boltRange = spellStats('electric_bolt')?.range || 240;
+            const stormR = m.novaRadius || spellStats('electric_storm')?.radius || novaR;
             if (
+              spells.includes('electric_storm') &&
+              nearestD <= stormR &&
+              (m.novaCd || 0) <= 0
+            ) {
+              spell = 'electric_storm';
+            } else if (
               spells.includes('flame_nova') &&
               nearestD <= novaR &&
               (m.novaCd || 0) <= 0
@@ -2519,6 +2630,8 @@ export class Match {
               spell = 'flame_nova';
             } else if (spells.includes('firebreath') && nearestD <= breathRange) {
               spell = 'firebreath';
+            } else if (spells.includes('electric_bolt') && nearestD <= boltRange) {
+              spell = 'electric_bolt';
             } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
               spell = 'arc_lightning';
             } else if (spells.includes('ice_shard') && nearestD <= shootRange) {
