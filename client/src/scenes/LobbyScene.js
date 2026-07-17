@@ -12,10 +12,38 @@ export class LobbyScene extends Phaser.Scene {
     this.joined = false;
     this.ready = false;
     this.lobby = null;
+    this.lobbyMusic = null;
 
     this.drawBackground();
     this.buildUI();
     this.bindSocket();
+    this.startLobbyMusic();
+
+    this.events.once('shutdown', () => this.stopLobbyMusic());
+  }
+
+  startLobbyMusic() {
+    if (!this.cache.audio.exists('lobby_music')) return;
+    this.stopLobbyMusic();
+    this.lobbyMusic = this.sound.add('lobby_music', { loop: true, volume: 0.55 });
+    const play = () => {
+      if (this.lobbyMusic && !this.lobbyMusic.isPlaying) {
+        this.lobbyMusic.play();
+      }
+    };
+    if (this.sound.locked) {
+      this.sound.once('unlocked', play);
+    } else {
+      play();
+    }
+  }
+
+  stopLobbyMusic() {
+    if (this.lobbyMusic) {
+      this.lobbyMusic.stop();
+      this.lobbyMusic.destroy();
+      this.lobbyMusic = null;
+    }
   }
 
   drawBackground() {
@@ -322,6 +350,7 @@ export class LobbyScene extends Phaser.Scene {
 
   enterGame() {
     if (this.scene.isActive('Game') || this.scene.isSleeping('Game')) return;
+    this.stopLobbyMusic();
     this.scene.start('Game', { playerId: this.socket.id });
   }
 
