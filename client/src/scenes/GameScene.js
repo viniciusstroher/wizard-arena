@@ -64,6 +64,9 @@ export class GameScene extends Phaser.Scene {
     this.aimCursor = null;
     /** Ordenação do placar: 'damage' | 'kills' */
     this.scoreboardSort = 'damage';
+    /** Timestamp até quando o ping de spawn (círculo vermelho) fica ativo. */
+    this.spawnPingUntil = 0;
+    this.spawnPingGraphics = null;
   }
 
   create() {
@@ -85,6 +88,8 @@ export class GameScene extends Phaser.Scene {
     // Acima do chão/rochas, abaixo dos jogadores — AoEs (veneno/fogo) bem visíveis
     this.aoeGraphics = this.add.graphics().setDepth(12);
     this.effectGraphics = this.add.graphics().setDepth(14);
+    // Acima dos jogadores: ping de posição no início do round
+    this.spawnPingGraphics = this.add.graphics().setDepth(30);
     this.createMoveDust();
     this.createLavaBurn();
     this.createArenaFireWall();
@@ -1181,6 +1186,7 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'round_start') {
         this.playRoundStartSound();
+        this.startSpawnPing();
       }
       if (ev.type === 'kiko_laugh') {
         this.playKikoLaugh();
@@ -1263,9 +1269,43 @@ export class GameScene extends Phaser.Scene {
     this.renderProjectiles();
     this.renderAoes();
     this.renderEffects();
+    this.renderSpawnPing();
     this.updateHud();
     this.updateLevelUpUi();
     this.handleBanners();
+  }
+
+  startSpawnPing(durationMs = 2800) {
+    this.spawnPingUntil = this.time.now + durationMs;
+  }
+
+  /** Círculo vermelho piscando na posição do jogador local (início do round). */
+  renderSpawnPing() {
+    const g = this.spawnPingGraphics;
+    if (!g) return;
+    g.clear();
+    if (this.time.now > this.spawnPingUntil) return;
+    const me = this.me();
+    if (!me?.alive) return;
+
+    const remain = this.spawnPingUntil - this.time.now;
+    const fade = Math.min(1, remain / 400);
+    // Pisca ~4x/s
+    const blink = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time.now / 90));
+    const alpha = blink * fade;
+    const pulse = 1 + 0.08 * Math.sin(this.time.now / 70);
+    const r = 28 * pulse;
+
+    g.fillStyle(0xff2200, 0.22 * alpha);
+    g.fillCircle(me.x, me.y, r);
+    g.lineStyle(4, 0xff1100, 0.95 * alpha);
+    g.strokeCircle(me.x, me.y, r);
+    g.lineStyle(2, 0xffccaa, 0.7 * alpha);
+    g.strokeCircle(me.x, me.y, r * 0.72);
+    // Cruzinha no centro
+    g.lineStyle(2.5, 0xffffff, 0.85 * alpha);
+    g.lineBetween(me.x - 10, me.y, me.x + 10, me.y);
+    g.lineBetween(me.x, me.y - 10, me.x, me.y + 10);
   }
 
   heldMoveDir() {
