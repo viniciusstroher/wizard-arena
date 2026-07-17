@@ -591,6 +591,11 @@ export class GameScene extends Phaser.Scene {
       }
       case 'level_up':
         return `${this.playerName(ev.playerId)} subiu para Lv ${ev.level}`;
+      case 'monster_level_up': {
+        const mon = this.state?.monsters?.find((m) => m.entityId === ev.monsterId);
+        const label = mon ? this.monsterLabel(mon.type) : 'Monstro';
+        return `${label} subiu para Lv ${ev.level}`;
+      }
       case 'phoenix':
         return `${this.playerName(ev.playerId)} renasceu (Fênix)`;
       case 'arena_shrink':
@@ -1727,7 +1732,7 @@ export class GameScene extends Phaser.Scene {
       s.setPosition(m.x, m.y);
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
       const tagY = m.y - 26 * scale;
-      s.nameTag.setText(this.monsterLabel(m.type));
+      s.nameTag.setText(`${this.monsterLabel(m.type)} Lv${m.level || 1}`);
       s.nameTag.setPosition(m.x, tagY);
       s.hpBg.setPosition(m.x, tagY + 8);
       const ratio = m.maxHp ? m.hp / m.maxHp : 0;

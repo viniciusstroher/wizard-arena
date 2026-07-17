@@ -79,6 +79,10 @@ export const CONFIG = {
   XP_PLAYER_KILL: 100,
   XP_ROUND_SURVIVE: 40,
   XP_PER_SECOND: envNumber('XP_PER_SECOND', 5),
+  /** XP passivo por segundo para cada monstro vivo. */
+  MONSTER_XP_PER_SECOND: envNumber('MONSTER_XP_PER_SECOND', 3),
+  /** XP que o monstro ganha ao eliminar um jogador. */
+  MONSTER_XP_PLAYER_KILL: envNumber('MONSTER_XP_PLAYER_KILL', 100),
   XP_LEVELS: [0, 50, 120, 220, 350, 520, 720, 960],
 
   ROCK_SPAWN_CLEAR_RADIUS: 170,

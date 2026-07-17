@@ -654,6 +654,32 @@ export class Match {
     }
   }
 
+  grantMonsterXp(monster, amount) {
+    if (!monster?.alive || amount <= 0) return;
+    monster.xp += amount;
+    while (monster.xp >= monster.xpToNext) {
+      monster.xp -= monster.xpToNext;
+      monster.level += 1;
+      monster.xpToNext = xpForLevel(monster.level + 1) - xpForLevel(monster.level);
+      if (monster.xpToNext <= 0) monster.xpToNext = 100 + monster.level * 40;
+      // Escala leve de poder a cada nível
+      const hpGain = Math.max(4, Math.round(monster.maxHp * 0.1));
+      monster.maxHp += hpGain;
+      monster.hp = Math.min(monster.maxHp, monster.hp + hpGain);
+      monster.damage = Math.max(1, Math.round(monster.damage * 1.08));
+      this.pushEvent({
+        type: 'monster_level_up',
+        monsterId: monster.entityId,
+        level: monster.level,
+      });
+    }
+  }
+
+  findMonster(entityId) {
+    if (entityId == null) return null;
+    return this.monsters.find((m) => m.entityId === entityId) || null;
+  }
+
   spawnBlood(x, y) {
     this.effects.push({
       entityId: eid(),
@@ -740,11 +766,19 @@ export class Match {
       this.spawnBones(target.x, target.y);
       target.deaths += 1;
       const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
+      const killerMonster = !killer ? this.findMonster(sourcePlayerId) : null;
       if (killer && killer.id !== target.id) {
         killer.kills += 1;
         killer.score += 1;
         this.grantXp(killer, CONFIG.XP_PLAYER_KILL, 'player_kill');
         this.pushEvent({ type: 'player_kill', killerId: killer.id, victimId: target.id });
+      } else if (killerMonster) {
+        this.grantMonsterXp(killerMonster, CONFIG.MONSTER_XP_PLAYER_KILL);
+        this.pushEvent({
+          type: 'player_death',
+          playerId: target.id,
+          killerMonsterId: killerMonster.entityId,
+        });
       } else {
         this.pushEvent({ type: 'player_death', playerId: target.id });
       }
@@ -1057,6 +1091,9 @@ export class Match {
       hp: Math.round(CONFIG.MONSTER_HP * def.hpMul),
       maxHp: Math.round(CONFIG.MONSTER_HP * def.hpMul),
       alive: true,
+      level: 1,
+      xp: 0,
+      xpToNext: xpForLevel(2) - xpForLevel(1),
       speed: CONFIG.MONSTER_SPEED * def.speedMul,
       damage: Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul),
       attackCd: 0,
@@ -1089,7 +1126,7 @@ export class Match {
       case 'arc_lightning': {
         const range = stats.range || 160;
         if (!target || dist(monster, target) > range) return;
-        this.damageEntity(target, monster.damage, null, true, true);
+        this.damageEntity(target, monster.damage, monster.entityId, true, true);
         this.effects.push({
           type: 'lightning',
           x1: monster.x,
@@ -1140,7 +1177,7 @@ export class Match {
         for (const p of this.players.values()) {
           if (!p.alive) continue;
           if (dist(monster, p) <= radius) {
-            this.damageEntity(p, Math.round(monster.damage * 1.15), null, true, true);
+            this.damageEntity(p, Math.round(monster.damage * 1.15), monster.entityId, true, true);
           }
         }
         this.effects.push({
@@ -1609,14 +1646,22 @@ export class Match {
       return;
     }
 
-    // XP passivo a cada segundo (configurável via XP_PER_SECOND no .env)
-    if (CONFIG.XP_PER_SECOND > 0) {
+    // XP passivo a cada segundo (jogadores e monstros)
+    if (CONFIG.XP_PER_SECOND > 0 || CONFIG.MONSTER_XP_PER_SECOND > 0) {
       this.xpPassiveTimer += dt;
       while (this.xpPassiveTimer >= 1) {
         this.xpPassiveTimer -= 1;
-        for (const p of this.players.values()) {
-          if (!p.alive) continue;
-          this.grantXp(p, CONFIG.XP_PER_SECOND, 'passive');
+        if (CONFIG.XP_PER_SECOND > 0) {
+          for (const p of this.players.values()) {
+            if (!p.alive) continue;
+            this.grantXp(p, CONFIG.XP_PER_SECOND, 'passive');
+          }
+        }
+        if (CONFIG.MONSTER_XP_PER_SECOND > 0) {
+          for (const m of this.monsters) {
+            if (!m.alive) continue;
+            this.grantMonsterXp(m, CONFIG.MONSTER_XP_PER_SECOND);
+          }
         }
       }
     }
@@ -1856,7 +1901,7 @@ export class Match {
           targetVx = (dx / len) * m.speed;
           targetVy = (dy / len) * m.speed;
         } else if (m.attackCd <= 0) {
-          this.damageEntity(nearest, m.damage, null, true, true);
+          this.damageEntity(nearest, m.damage, m.entityId, true, true);
           m.attackCd = m.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
         }
       }
@@ -1886,9 +1931,7 @@ export class Match {
           if (!p.alive) continue;
           if (!fromMonster && p.id === proj.ownerId) continue;
           if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
-            // Dano de monstro não conta como kill de jogador
-            const sourceId = fromMonster ? null : proj.ownerId;
-            this.damageEntity(p, proj.damage, sourceId, true, true);
+            this.damageEntity(p, proj.damage, proj.ownerId, true, true);
             this.applyProjectileKnockback(p, proj);
             if (proj.slow) {
               p.slow = Math.max(p.slow, proj.slow);
@@ -2073,6 +2116,9 @@ export class Match {
         vy: +m.vy.toFixed(1),
         hp: m.hp,
         maxHp: m.maxHp,
+        level: m.level || 1,
+        xp: m.xp || 0,
+        xpToNext: m.xpToNext || 0,
         radius: m.radius,
         color: m.color,
       })),
