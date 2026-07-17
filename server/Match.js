@@ -1291,6 +1291,40 @@ export class Match {
     return type;
   }
 
+  /** Maior nível entre jogadores/bots da partida. */
+  matchMaxPlayerLevel() {
+    let max = 1;
+    for (const p of this.players.values()) {
+      if ((p.level || 1) > max) max = p.level;
+    }
+    return max;
+  }
+
+  /**
+   * Nível de spawn: lv máximo da partida ±2 (mín. 1).
+   * Ex.: max 5 → monstro entre 3 e 7.
+   */
+  rollMonsterSpawnLevel() {
+    const maxLv = this.matchMaxPlayerLevel();
+    const delta = Math.floor(Math.random() * 5) - 2; // -2..+2
+    return Math.max(1, maxLv + delta);
+  }
+
+  /** Aplica a mesma escala de level-up usada em grantMonsterXp (do lv 1 até target). */
+  scaleMonsterToLevel(monster, targetLevel) {
+    const target = Math.max(1, targetLevel | 0);
+    while (monster.level < target) {
+      monster.level += 1;
+      monster.xpToNext = xpForLevel(monster.level + 1) - xpForLevel(monster.level);
+      if (monster.xpToNext <= 0) monster.xpToNext = 100 + monster.level * 40;
+      const hpGain = Math.max(4, Math.round(monster.maxHp * 0.1));
+      monster.maxHp += hpGain;
+      monster.hp = monster.maxHp;
+      monster.damage = Math.max(1, Math.round(monster.damage * 1.08));
+    }
+    monster.xp = 0;
+  }
+
   spawnMonster() {
     if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
     const types = this.monsterTypeDefs();
@@ -1307,7 +1341,7 @@ export class Match {
       if (!this.isBlockedByRock(x, y, def.radius)) break;
     }
 
-    this.monsters.push({
+    const monster = {
       entityId: eid(),
       type,
       x,
@@ -1352,7 +1386,9 @@ export class Match {
       burnTick: 1,
       burnTickAcc: 0,
       burnOwnerId: null,
-    });
+    };
+    this.scaleMonsterToLevel(monster, this.rollMonsterSpawnLevel());
+    this.monsters.push(monster);
   }
 
   /** Aplica/renova veneno (duração sempre no máximo). */
