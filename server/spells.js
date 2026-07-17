@@ -32,13 +32,13 @@ export const SPELLS = {
   arc_lightning: {
     id: 'arc_lightning',
     name: 'Arc Lightning',
-    description: 'Raio instantâneo no alvo mais próximo.',
+    description: 'Raio elétrico no inimigo mais próximo.',
     type: 'basic',
-    cooldown: 0.55,
+    cooldown: 1.4,
     manaCost: 0,
     damage: 22,
-    range: 260,
-    color: 0xffee55,
+    range: 160,
+    color: 0xaadfff,
   },
   flame_nova: {
     id: 'flame_nova',

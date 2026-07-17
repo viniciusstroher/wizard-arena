@@ -1333,6 +1333,86 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Raio em zigue-zague com brilho (seed estável enquanto o efeito vive). */
+  drawLightningBolt(e) {
+    const g = this.effectGraphics;
+    const x1 = e.x1;
+    const y1 = e.y1;
+    const x2 = e.x2;
+    const y2 = e.y2;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const fade = Math.min(1, (e.life || 0.2) / 0.28);
+    const color = e.color || 0xaadfff;
+    const branches = e.branches ?? 1;
+
+    // PRNG determinístico a partir do seed do efeito
+    let seed = (e.seed ?? (Math.floor(x1) * 73856093) ^ (Math.floor(y1) * 19349663) ^ (Math.floor(x2) * 83492791)) >>> 0;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 0xffffffff;
+    };
+
+    const buildBolt = (ax, ay, bx, by, segments, jag) => {
+      const pts = [{ x: ax, y: ay }];
+      const pdx = bx - ax;
+      const pdy = by - ay;
+      const plen = Math.hypot(pdx, pdy) || 1;
+      const pnx = -pdy / plen;
+      const pny = pdx / plen;
+      for (let i = 1; i < segments; i++) {
+        const t = i / segments;
+        const wobble = (rand() - 0.5) * 2 * jag * (1 - Math.abs(t - 0.5) * 0.4);
+        pts.push({
+          x: ax + pdx * t + pnx * wobble,
+          y: ay + pdy * t + pny * wobble,
+        });
+      }
+      pts.push({ x: bx, y: by });
+      return pts;
+    };
+
+    const strokeBolt = (pts, width, col, alpha) => {
+      g.lineStyle(width, col, alpha * fade);
+      g.beginPath();
+      g.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+      g.strokePath();
+    };
+
+    const segs = Math.max(6, Math.round(len / 22));
+    const main = buildBolt(x1, y1, x2, y2, segs, 14);
+
+    // Halo azul externo
+    strokeBolt(main, 7, 0x4488ff, 0.22);
+    strokeBolt(main, 4, color, 0.55);
+    // Núcleo branco
+    strokeBolt(main, 2, 0xffffff, 0.95);
+
+    // Ramificações curtas
+    for (let b = 0; b < branches; b++) {
+      const idx = 2 + Math.floor(rand() * Math.max(1, main.length - 4));
+      const origin = main[idx];
+      const side = rand() < 0.5 ? -1 : 1;
+      const blen = 18 + rand() * 28;
+      const ang = Math.atan2(dy, dx) + side * (0.6 + rand() * 0.7);
+      const bx = origin.x + Math.cos(ang) * blen;
+      const by = origin.y + Math.sin(ang) * blen;
+      const branch = buildBolt(origin.x, origin.y, bx, by, 3, 6);
+      strokeBolt(branch, 3, color, 0.4);
+      strokeBolt(branch, 1.5, 0xffffff, 0.75);
+    }
+
+    // Flash no impacto
+    g.fillStyle(0xffffff, 0.55 * fade);
+    g.fillCircle(x2, y2, 5 + rand() * 3);
+    g.fillStyle(color, 0.35 * fade);
+    g.fillCircle(x2, y2, 10);
+    g.fillStyle(0xffffff, 0.4 * fade);
+    g.fillCircle(x1, y1, 3);
+  }
+
   drawPentagram(e) {
     const maxLife = e.maxLife || 2.2;
     const fade = Math.min(1, e.life / maxLife);
@@ -1419,8 +1499,7 @@ export class GameScene extends Phaser.Scene {
       if (e.type === 'pentagram') {
         this.drawPentagram(e);
       } else if (e.type === 'lightning') {
-        this.effectGraphics.lineStyle(2, e.color || 0xffee55, 0.9);
-        this.effectGraphics.lineBetween(e.x1, e.y1, e.x2, e.y2);
+        this.drawLightningBolt(e);
       } else if (e.type === 'dash') {
         const dx = e.dx || 0;
         const dy = e.dy || 0;

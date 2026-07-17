@@ -155,6 +155,24 @@ export class Match {
     return false;
   }
 
+  /** Segment–circle test so fast projectiles cannot tunnel through rocks. */
+  projectileHitsRock(x0, y0, x1, y1, radius) {
+    for (const rock of this.rocks) {
+      const r = rock.radius + radius;
+      const dx = x1 - x0;
+      const dy = y1 - y0;
+      const len2 = dx * dx + dy * dy;
+      let t = 0;
+      if (len2 > 0) {
+        t = Math.max(0, Math.min(1, ((rock.x - x0) * dx + (rock.y - y0) * dy) / len2));
+      }
+      const px = x0 + t * dx;
+      const py = y0 + t * dy;
+      if (Math.hypot(px - rock.x, py - rock.y) < r) return true;
+    }
+    return false;
+  }
+
   createPlayerState(id, name, isBot = false) {
     const angle = (this.players.size / CONFIG.MAX_PLAYERS) * Math.PI * 2;
     const wizard = randomWizard();
@@ -953,8 +971,10 @@ export class Match {
             y1: player.y,
             x2: target.x,
             y2: target.y,
-            life: 0.15,
+            life: 0.28,
             color: stats.color,
+            seed: (Math.random() * 1e9) | 0,
+            branches: 2,
           });
         }
         break;
@@ -1399,9 +1419,15 @@ export class Match {
 
     // Projectiles
     for (const proj of this.projectiles) {
+      const prevX = proj.x;
+      const prevY = proj.y;
       proj.x += proj.vx * dt;
       proj.y += proj.vy * dt;
       proj.life -= dt;
+      if (this.projectileHitsRock(prevX, prevY, proj.x, proj.y, proj.radius)) {
+        proj.life = 0;
+        continue;
+      }
       let hit = false;
       const fromMonster = proj.team === 'monster';
       for (const p of this.players.values()) {
