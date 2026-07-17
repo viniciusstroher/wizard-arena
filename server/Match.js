@@ -196,6 +196,7 @@ export class Match {
       ultimate: null,
       pendingLevelUps: 0,
       spellChoices: null,
+      choiceSetId: null,
       input: {
         up: false,
         down: false,
@@ -458,21 +459,58 @@ export class Match {
     player.input.dash = null;
   }
 
-  chooseSpell(socketId, choiceIndex) {
+  /** Atribui um novo pacote de escolhas com id único (anti double-click / stale). */
+  assignSpellChoices(player) {
+    player.spellChoices = rollSpellChoices(player, player.level);
+    player.choiceSetId = eid();
+  }
+
+  /**
+   * Aceita index e/ou { spellId, kind, choiceSetId }.
+   * Limpa as escolhas antes de aplicar para evitar aplicar 2x no mesmo pacote
+   * ou aplicar o índice antigo no pacote seguinte.
+   */
+  chooseSpell(socketId, payload) {
     const p = this.players.get(socketId);
-    if (!p || !p.spellChoices) return;
-    const choice = p.spellChoices[choiceIndex];
-    if (!choice) return;
-    if (applySpellChoice(p, choice)) {
-      p.pendingLevelUps = Math.max(0, p.pendingLevelUps - 1);
-      if (p.pendingLevelUps > 0) {
-        p.spellChoices = rollSpellChoices(p, p.level);
-      } else {
-        p.spellChoices = null;
-      }
-      this.maybeResumeFromLevelUp();
-      this.broadcastState(true);
+    if (!p || !p.spellChoices?.length || p.pendingLevelUps <= 0) return;
+
+    const data = typeof payload === 'number' ? { index: payload } : payload || {};
+    if (data.choiceSetId != null && p.choiceSetId != null && data.choiceSetId !== p.choiceSetId) {
+      return; // clique atrasado de um pacote antigo
     }
+
+    let choice = null;
+    if (data.spellId) {
+      choice = p.spellChoices.find(
+        (c) =>
+          c.spellId === data.spellId &&
+          (!data.kind || c.kind === data.kind) &&
+          (data.fromLevel == null || c.fromLevel === data.fromLevel)
+      );
+    }
+    if (!choice && Number.isInteger(data.index)) {
+      choice = p.spellChoices[data.index];
+    }
+    if (!choice) return;
+
+    // Trava atômica: nenhum segundo choose_spell pode usar este pacote.
+    const lockedChoice = choice;
+    p.spellChoices = null;
+    p.choiceSetId = null;
+
+    if (!applySpellChoice(p, lockedChoice)) {
+      // Falha rara — devolve o pacote para o jogador não ficar preso.
+      this.assignSpellChoices(p);
+      this.broadcastState(true);
+      return;
+    }
+
+    p.pendingLevelUps = Math.max(0, p.pendingLevelUps - 1);
+    if (p.pendingLevelUps > 0) {
+      this.assignSpellChoices(p);
+    }
+    this.maybeResumeFromLevelUp();
+    this.broadcastState(true);
   }
 
   maybeResumeFromLevelUp() {
@@ -499,7 +537,7 @@ export class Match {
     }
     if (leveled) {
       if (!player.spellChoices) {
-        player.spellChoices = rollSpellChoices(player, player.level);
+        this.assignSpellChoices(player);
       }
       this.phase = 'levelup';
     }
@@ -1640,6 +1678,7 @@ export class Match {
       score: p.score,
       pendingLevelUps: p.pendingLevelUps,
       spellChoices: p.spellChoices,
+      choiceSetId: p.choiceSetId,
       spells: p.spells.map((s) => ({
         id: s.id,
         level: s.level,

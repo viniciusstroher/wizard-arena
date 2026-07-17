@@ -20,7 +20,13 @@ export class GameScene extends Phaser.Scene {
     this.arenaGraphics = null;
     this.effectGraphics = null;
     this.levelUpOpen = false;
+    this.levelUpSubmitting = false;
+    this.levelUpSubmitAt = 0;
+    this.levelUpChoiceKey = null;
+    this.levelUpSubmittedKey = null;
+    this.levelUpChoices = [];
     this.choiceCards = [];
+    this.levelUpHint = null;
     this.eventLog = [];
     this.eventScroll = 0;
     this.disconnectConfirmOpen = false;
@@ -723,6 +729,28 @@ export class GameScene extends Phaser.Scene {
 
   sendInput() {
     const pointer = this.input.activePointer;
+    const pickingSpell = this.levelUpOpen || this.levelUpSubmitting;
+
+    // Durante escolha de magia: 1/2/3 selecionam o card, sem cast/dash.
+    if (pickingSpell) {
+      if (!this.levelUpSubmitting) {
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.submitLevelUpChoice(0);
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.submitLevelUpChoice(1);
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.submitLevelUpChoice(2);
+      }
+      this.socket.emit('player_input', {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        aimX: pointer.worldX,
+        aimY: pointer.worldY,
+        castSlot: -1,
+        dash: null,
+      });
+      return;
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.selectedSpellSlot = 0;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.selectedSpellSlot = 1;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.selectedSpellSlot = 2;
@@ -2205,16 +2233,52 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  choicesKey(choices, choiceSetId, pendingLevelUps = 0) {
+    const base =
+      choiceSetId != null
+        ? `set:${choiceSetId}`
+        : (choices || [])
+            .map((c) => `${c.kind}:${c.spellId}:${c.fromLevel ?? ''}:${c.toLevel ?? ''}`)
+            .join('|');
+    return `${base}#${pendingLevelUps}`;
+  }
+
   updateLevelUpUi() {
     const me = this.me();
     if (!me) return;
 
-    const needs = me.pendingLevelUps > 0 && me.spellChoices?.length;
+    const choices = me.spellChoices;
+    const needs = me.pendingLevelUps > 0 && choices?.length;
     if (!needs) {
+      this.levelUpSubmitting = false;
+      this.levelUpSubmittedKey = null;
+      this.levelUpChoiceKey = null;
+      this.levelUpChoices = [];
       if (this.levelUpOpen) this.hideLevelUp();
       return;
     }
-    if (!this.levelUpOpen) this.showLevelUp(me.spellChoices);
+
+    const key = this.choicesKey(choices, me.choiceSetId, me.pendingLevelUps);
+
+    // Aguardando confirmação do servidor
+    if (this.levelUpSubmitting) {
+      if (key !== this.levelUpSubmittedKey) {
+        // Novo pacote chegou (ou falha re-rollou) — libera e redesenha
+        this.levelUpSubmitting = false;
+        this.levelUpSubmittedKey = null;
+        this.showLevelUp(choices, key);
+      } else if (this.time.now - this.levelUpSubmitAt > 2500) {
+        // Timeout: redesenha o mesmo pacote para permitir nova tentativa
+        this.levelUpSubmitting = false;
+        this.levelUpSubmittedKey = null;
+        this.showLevelUp(choices, key);
+      }
+      return;
+    }
+
+    if (!this.levelUpOpen || key !== this.levelUpChoiceKey) {
+      this.showLevelUp(choices, key);
+    }
   }
 
   spellIconKey(spellId) {
@@ -2230,32 +2294,94 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  showLevelUp(choices) {
+  submitLevelUpChoice(index) {
+    if (this.levelUpSubmitting || !this.levelUpOpen) return;
+    const me = this.me();
+    const choice = this.levelUpChoices[index];
+    if (!me || !choice || !me.choiceSetId) return;
+
+    this.levelUpSubmitting = true;
+    this.levelUpSubmitAt = this.time.now;
+    this.levelUpSubmittedKey = this.levelUpChoiceKey;
+
+    for (let i = 0; i < this.choiceCards.length; i++) {
+      const card = this.choiceCards[i];
+      card.disableInteractive();
+      card.setAlpha(i === index ? 1 : 0.4);
+      if (i === index && card.list?.[0]) {
+        card.list[0].setStrokeStyle(3, 0xffffff);
+      }
+    }
+    if (this.levelUpHint) {
+      this.levelUpHint.setText('Confirmando escolha…');
+    }
+
+    this.socket.emit('choose_spell', {
+      index,
+      spellId: choice.spellId,
+      kind: choice.kind,
+      fromLevel: choice.fromLevel,
+      choiceSetId: me.choiceSetId,
+    });
+  }
+
+  showLevelUp(choices, key = null) {
+    const me = this.me();
     this.levelUpOpen = true;
+    this.levelUpSubmitting = false;
+    this.levelUpChoices = choices || [];
+    this.levelUpChoiceKey =
+      key ?? this.choicesKey(choices, me?.choiceSetId, me?.pendingLevelUps || 0);
     this.levelUpLayer.removeAll(true);
     this.levelUpLayer.setVisible(true);
+    this.choiceCards = [];
 
     const { width, height } = this.scale;
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.65);
+    const dim = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x000000, 0.65)
+      .setInteractive();
+    const remaining = this.me()?.pendingLevelUps || 1;
     const title = this.add
-      .text(width / 2, 140, 'SUBIU DE NÍVEL — escolha uma magia', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '28px',
-        color: '#f4e8ff',
+      .text(
+        width / 2,
+        120,
+        remaining > 1
+          ? `SUBIU DE NÍVEL — escolha uma magia (${remaining} restantes)`
+          : 'SUBIU DE NÍVEL — escolha uma magia',
+        {
+          fontFamily: 'Georgia, serif',
+          fontSize: '28px',
+          color: '#f4e8ff',
+        }
+      )
+      .setOrigin(0.5);
+    this.levelUpHint = this.add
+      .text(width / 2, 158, 'Clique no card ou pressione 1 · 2 · 3', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#a99bc8',
       })
       .setOrigin(0.5);
 
-    this.levelUpLayer.add([dim, title]);
-    this.choiceCards = [];
+    this.levelUpLayer.add([dim, title, this.levelUpHint]);
 
     choices.forEach((choice, i) => {
-      const x = width / 2 + (i - 1) * 260;
-      const y = height / 2 + 20;
+      const x = width / 2 + (i - 1) * 270;
+      const y = height / 2 + 30;
       const card = this.add.container(x, y);
       const stroke = choice.kind === 'upgrade' ? 0xf1c40f : choice.def?.color || 0x6b5cff;
-      const bg = this.add.rectangle(0, 0, 230, 280, 0x1a1430, 0.98).setStrokeStyle(2, stroke);
+      const bg = this.add.rectangle(0, 0, 240, 300, 0x1a1430, 0.98).setStrokeStyle(2, stroke);
+      const keyHint = this.add
+        .text(-100, -132, `${i + 1}`, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '14px',
+          color: '#ffffff',
+          backgroundColor: '#2a2250',
+          padding: { x: 6, y: 2 },
+        })
+        .setOrigin(0.5);
       const badge = this.add
-        .text(0, -118, choice.label || (choice.kind === 'upgrade' ? 'UPGRADE' : 'NOVA'), {
+        .text(0, -128, choice.label || (choice.kind === 'upgrade' ? 'UPGRADE' : 'NOVA'), {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '12px',
           color: choice.kind === 'upgrade' ? '#f1c40f' : '#a99bc8',
@@ -2263,32 +2389,32 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       const iconKey = this.spellIconKey(choice.spellId || choice.def?.id);
-      const iconBg = this.add.rectangle(0, -62, 72, 72, 0x0e0a1a, 0.95).setStrokeStyle(2, stroke);
+      const iconBg = this.add.rectangle(0, -68, 72, 72, 0x0e0a1a, 0.95).setStrokeStyle(2, stroke);
       const icon =
         iconKey && this.textures.exists(iconKey)
-          ? this.add.image(0, -62, iconKey).setScale(2)
-          : this.add.circle(0, -62, 20, choice.def?.color || 0x6b5cff, 0.9);
+          ? this.add.image(0, -68, iconKey).setScale(2)
+          : this.add.circle(0, -68, 20, choice.def?.color || 0x6b5cff, 0.9);
 
       const name = this.add
-        .text(0, -10, choice.def?.name || choice.spellId, {
+        .text(0, -12, choice.def?.name || choice.spellId, {
           fontFamily: 'Georgia, serif',
           fontSize: '20px',
           color: '#ffffff',
         })
         .setOrigin(0.5);
       const desc = this.add
-        .text(0, 42, choice.def?.description || '', {
+        .text(0, 48, choice.def?.description || '', {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '13px',
           color: '#c4b5e0',
           align: 'center',
-          wordWrap: { width: 200 },
+          wordWrap: { width: 210 },
         })
         .setOrigin(0.5);
       const meta = this.add
         .text(
           0,
-          110,
+          120,
           choice.kind === 'upgrade'
             ? `Lv ${choice.fromLevel} → ${choice.toLevel}`
             : choice.def?.type === 'ultimate'
@@ -2303,14 +2429,19 @@ export class GameScene extends Phaser.Scene {
         )
         .setOrigin(0.5);
 
-      card.add([bg, badge, iconBg, icon, name, desc, meta]);
-      card.setSize(230, 280);
-      card.setInteractive(new Phaser.Geom.Rectangle(-115, -140, 230, 280), Phaser.Geom.Rectangle.Contains);
-      card.on('pointerover', () => bg.setScale(1.03));
+      card.add([bg, keyHint, badge, iconBg, icon, name, desc, meta]);
+      card.setSize(240, 300);
+      card.setInteractive(
+        new Phaser.Geom.Rectangle(-120, -150, 240, 300),
+        Phaser.Geom.Rectangle.Contains
+      );
+      card.on('pointerover', () => {
+        if (!this.levelUpSubmitting) bg.setScale(1.04);
+      });
       card.on('pointerout', () => bg.setScale(1));
-      card.on('pointerup', () => {
-        this.socket.emit('choose_spell', { index: i });
-        this.hideLevelUp();
+      card.on('pointerdown', (pointer) => {
+        if (pointer.rightButtonDown?.()) return;
+        this.submitLevelUpChoice(i);
       });
       this.levelUpLayer.add(card);
       this.choiceCards.push(card);
@@ -2319,6 +2450,12 @@ export class GameScene extends Phaser.Scene {
 
   hideLevelUp() {
     this.levelUpOpen = false;
+    this.levelUpSubmitting = false;
+    this.levelUpChoiceKey = null;
+    this.levelUpSubmittedKey = null;
+    this.levelUpChoices = [];
+    this.levelUpHint = null;
+    this.choiceCards = [];
     this.levelUpLayer.removeAll(true);
     this.levelUpLayer.setVisible(false);
   }

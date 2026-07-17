@@ -13,10 +13,18 @@ export class BotController {
   update(dt) {
     const player = this.match.players.get(this.playerId);
     if (!player || !player.alive) return;
-    if (this.match.phase === 'levelup' && player.spellChoices) {
-      // Escolhe a primeira opção após um pequeno atraso simulado
+    if (this.match.phase === 'levelup' && player.spellChoices?.length) {
+      // Escolhe uma opção após um pequeno atraso simulado
       if (Math.random() < 0.08) {
-        this.match.chooseSpell(this.playerId, Math.floor(Math.random() * player.spellChoices.length));
+        const index = Math.floor(Math.random() * player.spellChoices.length);
+        const choice = player.spellChoices[index];
+        this.match.chooseSpell(this.playerId, {
+          index,
+          spellId: choice.spellId,
+          kind: choice.kind,
+          fromLevel: choice.fromLevel,
+          choiceSetId: player.choiceSetId,
+        });
       }
       return;
     }

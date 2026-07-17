@@ -237,21 +237,24 @@ export function rollSpellChoices(player, forLevel) {
       used.add(`upgrade:${s.id}`);
       continue;
     }
-    // Último recurso: qualquer basic não usada na lista
-    const pool = BASIC_IDS.filter((id) => !used.has(id));
-    if (!pool.length) break;
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    choices.push({
-      kind: owned.includes(pick) ? 'upgrade' : 'new',
-      spellId: pick,
-      fromLevel: owned.includes(pick)
-        ? player.spells.find((s) => s.id === pick).level
-        : 1,
-      toLevel: owned.includes(pick)
-        ? player.spells.find((s) => s.id === pick).level + 1
-        : 1,
+    // Último recurso: upgrade de magia própria ainda não oferecida
+    const ownedPool = owned.filter((id) => {
+      const s = player.spells.find((sp) => sp.id === id);
+      return s && s.level < 5 && !used.has(`upgrade:${id}`);
     });
-    used.add(pick);
+    if (ownedPool.length) {
+      const pick = ownedPool[Math.floor(Math.random() * ownedPool.length)];
+      const s = player.spells.find((sp) => sp.id === pick);
+      choices.push({
+        kind: 'upgrade',
+        spellId: pick,
+        fromLevel: s.level,
+        toLevel: s.level + 1,
+      });
+      used.add(`upgrade:${pick}`);
+      continue;
+    }
+    break;
   }
 
   return choices.map((c) => ({
@@ -271,15 +274,16 @@ export function applySpellChoice(player, choice) {
     return true;
   }
 
-  if (choice.kind === 'upgrade') {
-    const existing = player.spells.find((s) => s.id === choice.spellId);
-    if (!existing) return false;
+  const existing = player.spells.find((s) => s.id === choice.spellId);
+
+  // Upgrade explícito, ou "nova" que o jogador já tem (fallback seguro).
+  if (choice.kind === 'upgrade' || existing) {
+    if (!existing || existing.level >= 5) return false;
     existing.level += 1;
     return true;
   }
 
   if (player.spells.length >= MAX_BASIC_SPELLS) return false;
-  if (player.spells.some((s) => s.id === choice.spellId)) return false;
   player.spells.push(createSpellInstance(choice.spellId, 1));
   return true;
 }

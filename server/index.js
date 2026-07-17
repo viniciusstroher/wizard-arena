@@ -103,7 +103,7 @@ io.on('connection', (socket) => {
   socket.on('choose_spell', (payload = {}) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;
-    match.chooseSpell(socket.id, payload.index);
+    match.chooseSpell(socket.id, payload);
   });
 
   socket.on('leave_lobby', () => {
