@@ -643,13 +643,18 @@ export class LobbyScene extends Phaser.Scene {
       .setDepth(uiDepth);
   }
 
+  setLobbyDomVisible(visible) {
+    if (this.nameInput) this.nameInput.setVisible(visible);
+    if (this.playersListDom) this.playersListDom.setVisible(visible);
+  }
+
   openSettingsModal() {
     if (this.settingsModalOpen) return;
     if (this.controlsModalOpen) this.closeControlsModal();
     if (this.adminModalOpen) this.closeAdminModal();
     this.settingsModalOpen = true;
 
-    if (this.nameInput) this.nameInput.setVisible(false);
+    this.setLobbyDomVisible(false);
 
     const { width, height } = this.scale;
     this.settingsModal.removeAll(true);
@@ -750,8 +755,8 @@ export class LobbyScene extends Phaser.Scene {
       this.settingsModal.setVisible(false);
     }
     this.volumeValueText = null;
-    if (this.nameInput && !this.controlsModalOpen && !this.adminModalOpen) {
-      this.nameInput.setVisible(true);
+    if (!this.controlsModalOpen && !this.adminModalOpen) {
+      this.setLobbyDomVisible(true);
     }
   }
 
@@ -762,7 +767,7 @@ export class LobbyScene extends Phaser.Scene {
     if (this.controlsModalOpen) this.closeControlsModal();
     this.adminModalOpen = true;
 
-    if (this.nameInput) this.nameInput.setVisible(false);
+    this.setLobbyDomVisible(false);
 
     const { width, height } = this.scale;
     this.adminModal.removeAll(true);
@@ -774,12 +779,14 @@ export class LobbyScene extends Phaser.Scene {
     dim.on('pointerup', () => this.closeAdminModal());
 
     const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 280, 0x161228, 0.98)
-      .setStrokeStyle(2, 0x8e44ad)
-      .setInteractive();
+      .rectangle(width / 2, height / 2, 420, 300, 0x161228, 0.98)
+      .setStrokeStyle(2, 0x8e44ad);
+    // Impede o clique no painel de fechar o modal (propaga pro dim)
+    panel.setInteractive();
+    panel.on('pointerup', (_p, _x, _y, event) => event.stopPropagation());
 
     const title = this.add
-      .text(width / 2, height / 2 - 100, 'Admin', {
+      .text(width / 2, height / 2 - 110, 'Admin', {
         fontFamily: 'Georgia, serif',
         fontSize: '26px',
         color: '#f4e8ff',
@@ -787,7 +794,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const hint = this.add
-      .text(width / 2, height / 2 - 62, 'Opções da partida (lobby)', {
+      .text(width / 2, height / 2 - 72, 'Marque as opções e clique em Salvar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -801,32 +808,38 @@ export class LobbyScene extends Phaser.Scene {
     wrap.style.cssText = [
       'display: flex',
       'flex-direction: column',
-      'gap: 16px',
-      'width: 300px',
+      'gap: 18px',
+      'width: 320px',
+      'padding: 8px 12px',
+      'box-sizing: border-box',
       'font-family: Trebuchet MS, sans-serif',
       'font-size: 16px',
       'color: #e8dfff',
       'user-select: none',
+      'pointer-events: auto',
+      'z-index: 10001',
     ].join(';');
 
-    const makeCheck = (labelText, checked, onChange) => {
+    const makeCheck = (labelText, checked) => {
       const row = document.createElement('label');
       row.style.cssText = [
         'display: flex',
         'align-items: center',
         'gap: 12px',
         'cursor: pointer',
+        'pointer-events: auto',
       ].join(';');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = checked;
       cb.style.cssText = [
-        'width: 20px',
-        'height: 20px',
+        'width: 22px',
+        'height: 22px',
         'accent-color: #8e44ad',
         'cursor: pointer',
+        'pointer-events: auto',
+        'flex-shrink: 0',
       ].join(';');
-      cb.addEventListener('change', () => onChange(cb.checked));
       const span = document.createElement('span');
       span.textContent = labelText;
       row.append(cb, span);
@@ -834,20 +847,34 @@ export class LobbyScene extends Phaser.Scene {
       return cb;
     };
 
-    this.adminBotIdleCheck = makeCheck('Bot parado (não ataca)', botIdle, () =>
-      this.emitAdminSettings()
-    );
-    this.adminMobSpawnCheck = makeCheck('Respawn de mobs', mobSpawn, () =>
-      this.emitAdminSettings()
-    );
+    this.adminBotIdleCheck = makeCheck('Bot parado (não ataca)', botIdle);
+    this.adminMobSpawnCheck = makeCheck('Respawn de mobs', mobSpawn);
 
-    this.adminChecksDom = this.add.dom(width / 2, height / 2 + 10, wrap).setOrigin(0.5);
+    this.adminChecksDom = this.add
+      .dom(width / 2, height / 2 - 5, wrap)
+      .setOrigin(0.5)
+      .setDepth(10001);
+
+    const saveBg = this.add
+      .rectangle(width / 2 - 80, height / 2 + 105, 140, 40, 0x2ecc71, 1)
+      .setStrokeStyle(1, 0xffffff, 0.15);
+    const saveLabel = this.add
+      .text(width / 2 - 80, height / 2 + 105, 'Salvar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    saveBg.setInteractive({ useHandCursor: true });
+    saveBg.on('pointerover', () => saveBg.setScale(1.04));
+    saveBg.on('pointerout', () => saveBg.setScale(1));
+    saveBg.on('pointerup', () => this.saveAdminSettings());
 
     const closeBg = this.add
-      .rectangle(width / 2, height / 2 + 100, 140, 40, 0x8e44ad, 1)
+      .rectangle(width / 2 + 80, height / 2 + 105, 140, 40, 0x443866, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
     const closeLabel = this.add
-      .text(width / 2, height / 2 + 100, 'Fechar', {
+      .text(width / 2 + 80, height / 2 + 105, 'Fechar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#ffffff',
@@ -858,7 +885,7 @@ export class LobbyScene extends Phaser.Scene {
     closeBg.on('pointerout', () => closeBg.setScale(1));
     closeBg.on('pointerup', () => this.closeAdminModal());
 
-    this.adminModal.add([dim, panel, title, hint, closeBg, closeLabel]);
+    this.adminModal.add([dim, panel, title, hint, saveBg, saveLabel, closeBg, closeLabel]);
   }
 
   closeAdminModal() {
@@ -874,12 +901,12 @@ export class LobbyScene extends Phaser.Scene {
       this.adminModal.removeAll(true);
       this.adminModal.setVisible(false);
     }
-    if (this.nameInput && !this.controlsModalOpen && !this.settingsModalOpen) {
-      this.nameInput.setVisible(true);
+    if (!this.controlsModalOpen && !this.settingsModalOpen) {
+      this.setLobbyDomVisible(true);
     }
   }
 
-  emitAdminSettings() {
+  saveAdminSettings() {
     if (!this.joined) return;
     const botIdle = !!this.adminBotIdleCheck?.checked;
     const mobSpawn = !!this.adminMobSpawnCheck?.checked;
@@ -887,16 +914,11 @@ export class LobbyScene extends Phaser.Scene {
       botAiEnabled: !botIdle,
       monsterSpawnEnabled: mobSpawn,
     });
-  }
-
-  syncAdminChecksFromLobby() {
-    if (!this.adminModalOpen || !this.lobby) return;
-    if (this.adminBotIdleCheck) {
-      this.adminBotIdleCheck.checked = this.lobby.botAiEnabled === false;
+    if (this.lobby) {
+      this.lobby.botAiEnabled = !botIdle;
+      this.lobby.monsterSpawnEnabled = mobSpawn;
     }
-    if (this.adminMobSpawnCheck) {
-      this.adminMobSpawnCheck.checked = this.lobby.monsterSpawnEnabled !== false;
-    }
+    this.closeAdminModal();
   }
 
   openControlsModal() {
@@ -905,8 +927,8 @@ export class LobbyScene extends Phaser.Scene {
     if (this.adminModalOpen) this.closeAdminModal();
     this.controlsModalOpen = true;
 
-    // DOM fica acima do canvas — esconde o input enquanto o modal está aberto
-    if (this.nameInput) this.nameInput.setVisible(false);
+    // DOM fica acima do canvas — esconde inputs enquanto o modal está aberto
+    this.setLobbyDomVisible(false);
 
     const { width, height } = this.scale;
     this.controlsModal.removeAll(true);
@@ -982,8 +1004,8 @@ export class LobbyScene extends Phaser.Scene {
     this.controlsModalOpen = false;
     this.controlsModal.removeAll(true);
     this.controlsModal.setVisible(false);
-    if (this.nameInput && !this.settingsModalOpen && !this.adminModalOpen) {
-      this.nameInput.setVisible(true);
+    if (!this.settingsModalOpen && !this.adminModalOpen) {
+      this.setLobbyDomVisible(true);
     }
   }
 
@@ -1106,6 +1128,5 @@ export class LobbyScene extends Phaser.Scene {
     this.statusText.setText(
       `${n}/${this.lobby.maxPlayers} jogadores · ${readyCount} ready · precisa ${this.lobby.minPlayers}+`
     );
-    this.syncAdminChecksFromLobby();
   }
 }
