@@ -3814,7 +3814,10 @@ export class GameScene extends Phaser.Scene {
     const shrinksDone = this.state.arena?.shrinksDone ?? 0;
     const shrinkTimes = this.state.arena?.shrinkTimes ?? 0;
     let zoneLabel = 'posicionando';
-    if (this.state.phase !== 'countdown') {
+    const choosers = this.playersChoosingSpells();
+    if (this.state.phase === 'levelup' || choosers.length > 0) {
+      zoneLabel = this.skillChoiceStatusLabel(choosers);
+    } else if (this.state.phase !== 'countdown') {
       zoneLabel =
         shrinkTimes > 0 && shrinksDone >= shrinkTimes
           ? 'zona final'
@@ -3982,6 +3985,18 @@ export class GameScene extends Phaser.Scene {
 
   playersChoosingSpells() {
     return (this.state?.players || []).filter((p) => p.alive && p.pendingLevelUps > 0);
+  }
+
+  /** Texto curto pro status do topo enquanto alguém escolhe habilidade. */
+  skillChoiceStatusLabel(choosers = this.playersChoosingSpells()) {
+    if (!choosers.length) return 'escolhendo habilidades';
+    if (choosers.length === 1) {
+      return `${choosers[0].name} escolhendo habilidade`;
+    }
+    if (choosers.length === 2) {
+      return `${choosers[0].name} e ${choosers[1].name} escolhendo`;
+    }
+    return `${choosers.length} jogadores escolhendo habilidades`;
   }
 
   updateLevelUpUi() {
