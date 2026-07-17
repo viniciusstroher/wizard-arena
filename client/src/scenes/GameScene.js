@@ -30,6 +30,7 @@ export class GameScene extends Phaser.Scene {
     this.selectedSpellSlot = 0;
     this.moveDust = null;
     this.lavaBurn = null;
+    this.fireballFx = null;
     this.dashGhosts = [];
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
@@ -54,6 +55,7 @@ export class GameScene extends Phaser.Scene {
     this.effectGraphics = this.add.graphics();
     this.createMoveDust();
     this.createLavaBurn();
+    this.createFireballFx();
 
     this.createHud();
     this.createEventBoard();
@@ -775,6 +777,51 @@ export class GameScene extends Phaser.Scene {
       .setDepth(21);
   }
 
+  createFireballFx() {
+    this.fireballFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xff2200, 0xff4a00, 0xff8800, 0xffcc33, 0xffee88],
+        speed: { min: 20, max: 90 },
+        scale: { start: 1.6, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        lifespan: { min: 180, max: 380 },
+        gravityY: -40,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(24);
+  }
+
+  emitFireballTrail(sprite, x, y, vx = 0, vy = 0) {
+    if (!this.fireballFx) return;
+    const now = this.time.now;
+    if (now - (sprite.lastFireTrailAt || 0) < 22) return;
+    sprite.lastFireTrailAt = now;
+
+    const ang = Phaser.Math.RadToDeg(Math.atan2(vy || 0, vx || 1));
+    // Faíscas para trás + um pouco de espalhamento
+    this.fireballFx.setEmitterAngle({ min: ang + 150, max: ang + 210 });
+    this.fireballFx.setParticleSpeed({ min: 35, max: 95 });
+    this.fireballFx.emitParticleAt(x, y, 3);
+    this.fireballFx.emitParticleAt(
+      x - (vx || 0) * 0.02 + Phaser.Math.Between(-2, 2),
+      y - (vy || 0) * 0.02 + Phaser.Math.Between(-2, 2),
+      2
+    );
+
+    if (!sprite.fireGlow) {
+      sprite.fireGlow = this.add
+        .circle(x, y, 16, 0xff6600, 0.35)
+        .setDepth(23)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    }
+    const pulse = 0.55 + 0.45 * Math.sin(now / 55);
+    sprite.fireGlow.setPosition(x, y).setVisible(true);
+    sprite.fireGlow.setScale(0.95 + 0.35 * pulse);
+    sprite.fireGlow.setAlpha(0.28 + 0.22 * pulse);
+  }
+
   isOnLava(x, y) {
     const a = this.state?.arena;
     if (!a) return false;
@@ -1226,7 +1273,13 @@ export class GameScene extends Phaser.Scene {
       const tex = this.projectileTexture(kind);
       let s = this.projectileSprites.get(p.entityId);
       if (!s || s.texture.key !== tex) {
-        if (s) s.destroy();
+        if (s) {
+          if (s.fireGlow) {
+            s.fireGlow.destroy();
+            s.fireGlow = null;
+          }
+          s.destroy();
+        }
         s = this.add.sprite(p.x, p.y, tex).setDepth(25);
         this.projectileSprites.set(p.entityId, s);
       }
@@ -1235,19 +1288,25 @@ export class GameScene extends Phaser.Scene {
         s.setTint(p.color || 0xffffff);
         s.setScale((p.radius || 8) / 6);
         s.setRotation(0);
+        if (s.fireGlow) s.fireGlow.setVisible(false);
       } else if (kind === 'arrow') {
         s.clearTint();
         s.setScale(0.85);
         s.setRotation(Math.atan2(p.vy || 0, p.vx || 1));
+        if (s.fireGlow) s.fireGlow.setVisible(false);
       } else {
-        // fireball / firebolt — keep warm tint subtle
-        s.setTint(p.color || 0xffffff);
-        s.setScale(Math.max(0.9, (p.radius || 7) / 6));
+        // fireball / firebolt — brilho + rastro de chama
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 60);
+        s.clearTint();
+        s.setBlendMode(Phaser.BlendModes.ADD);
+        s.setScale(1.05 + 0.12 * pulse);
         s.setRotation(Math.atan2(p.vy || 0, p.vx || 1) + Math.PI / 2);
+        this.emitFireballTrail(s, p.x, p.y, p.vx, p.vy);
       }
     }
     for (const [id, s] of this.projectileSprites) {
       if (!seen.has(id)) {
+        if (s.fireGlow) s.fireGlow.destroy();
         s.destroy();
         this.projectileSprites.delete(id);
       }

@@ -101,25 +101,33 @@ export class BootScene extends Phaser.Scene {
       2
     );
 
-    // Fireball
+    // Fireball — núcleo quente + língua de fogo (apontando para cima; rotacionada no render)
     makePixelTexture(
       this,
       'proj_fireball',
       [
-        '........',
-        '..OYYO..',
-        '.OYYYYO.',
-        '.YYWYYY.',
-        '.OYYYYO.',
-        '..ORRO..',
-        '...RR...',
-        '........',
+        '................',
+        '......YYYY......',
+        '....YYWWWWYY....',
+        '...YWWWWWWWWY...',
+        '...YWWWWWWWWY...',
+        '....YYWWWWYY....',
+        '.....OYYYYO.....',
+        '.....OOYYOO.....',
+        '......ORRO......',
+        '......ORRO......',
+        '.......RR.......',
+        '.......RR.......',
+        '.......R........',
+        '........R.......',
+        '................',
+        '................',
       ],
       {
-        Y: 0xffc857,
-        O: 0xff8c1a,
-        R: 0xe85d04,
-        W: 0xfff0c8,
+        W: 0xfff6c8,
+        Y: 0xffd84a,
+        O: 0xff8a12,
+        R: 0xff3b00,
       },
       2
     );
