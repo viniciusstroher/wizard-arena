@@ -37,9 +37,8 @@ Para PvP real: abra duas abas/navegadores, entre com nomes diferentes e dê Read
 |-------|------|
 | WASD | Mover |
 | Mouse | Mirar |
-| Clique / 1 | Magia slot 1 |
-| 2–4 | Magias 2–4 |
-| R | Ultimate |
+| 1–4 / R | Selecionar magia |
+| Espaço | Usar magia |
 
 ## Regras
 

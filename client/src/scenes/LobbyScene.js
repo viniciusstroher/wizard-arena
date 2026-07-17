@@ -198,9 +198,8 @@ export class LobbyScene extends Phaser.Scene {
     const lines = [
       ['WASD', 'Mover'],
       ['Mouse', 'Mirar'],
-      ['Clique / 1', 'Magia slot 1'],
-      ['2 – 4', 'Magias 2 a 4'],
-      ['R', 'Ultimate'],
+      ['1 – 4 / R', 'Selecionar magia'],
+      ['Espaço', 'Usar magia'],
     ];
 
     const rows = [];

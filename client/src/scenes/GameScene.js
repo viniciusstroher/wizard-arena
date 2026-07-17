@@ -24,6 +24,7 @@ export class GameScene extends Phaser.Scene {
     this.disconnectConfirmOpen = false;
     this.leaving = false;
     this.lavaFx = [];
+    this.selectedSpellSlot = 0;
   }
 
   create() {
@@ -57,14 +58,11 @@ export class GameScene extends Phaser.Scene {
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
       four: Phaser.Input.Keyboard.KeyCodes.FOUR,
       ult: Phaser.Input.Keyboard.KeyCodes.R,
+      cast: Phaser.Input.Keyboard.KeyCodes.SPACE,
     });
 
-    this.castSlot = -1;
-    this.input.on('pointerdown', () => {
-      if (this.disconnectConfirmOpen || this.leaving) return;
-      // Clique também lança a magia do slot 0 se nenhum número for pressionado
-      if (this.castSlot < 0) this.castSlot = 0;
-    });
+    this.selectedSpellSlot = 0;
+    this.input.keyboard.addCapture('SPACE');
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
       this.onEventBoardWheel(dy);
@@ -182,6 +180,12 @@ export class GameScene extends Phaser.Scene {
       slot.icon = icon;
       slot.name = name;
       slot.cd = cd;
+      slot.slotIndex = i;
+      bg.setInteractive({ useHandCursor: true });
+      bg.on('pointerdown', () => {
+        if (this.disconnectConfirmOpen || this.leaving) return;
+        this.selectedSpellSlot = i;
+      });
       this.spellSlots.push(slot);
     }
 
@@ -474,16 +478,15 @@ export class GameScene extends Phaser.Scene {
 
   sendInput() {
     const pointer = this.input.activePointer;
-    let castSlot = -1;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) castSlot = 0;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) castSlot = 1;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) castSlot = 2;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) castSlot = 3;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.ult)) castSlot = 4;
-    if (this.castSlot >= 0) {
-      castSlot = this.castSlot;
-      this.castSlot = -1;
-    }
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.selectedSpellSlot = 0;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.selectedSpellSlot = 1;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.selectedSpellSlot = 2;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.selectedSpellSlot = 3;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.ult)) this.selectedSpellSlot = 4;
+
+    const castSlot = Phaser.Input.Keyboard.JustDown(this.cursors.cast)
+      ? this.selectedSpellSlot
+      : -1;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,
@@ -898,32 +901,38 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 4; i++) {
       const slot = this.spellSlots[i];
       const spell = me.spells[i];
+      const selected = this.selectedSpellSlot === i;
       if (!spell) {
         slot.name.setText('-');
         slot.cd.setText('');
         slot.icon.setVisible(false);
-        slot.bg.setStrokeStyle(2, 0x443866);
+        slot.bg.setStrokeStyle(selected ? 3 : 2, selected ? 0xffffff : 0x443866);
+        slot.bg.setFillStyle(selected ? 0x2a2250 : 0x1a1430, 0.95);
         continue;
       }
       this.setSpellSlotIcon(slot, spell.id || spell.stats?.id);
       slot.name.setText(`Lv${spell.level}`);
       slot.cd.setText(spell.cooldownLeft > 0 ? spell.cooldownLeft.toFixed(1) : 'OK');
       slot.icon.setAlpha(spell.cooldownLeft > 0 ? 0.45 : 1);
-      slot.bg.setStrokeStyle(2, spell.stats.color || 0x6b5cff);
+      slot.bg.setStrokeStyle(selected ? 3 : 2, selected ? 0xffffff : spell.stats.color || 0x6b5cff);
+      slot.bg.setFillStyle(selected ? 0x2a2250 : 0x1a1430, 0.95);
     }
     const ult = me.ultimate;
     const ultSlot = this.spellSlots[4];
+    const ultSelected = this.selectedSpellSlot === 4;
     if (!ult) {
       ultSlot.name.setText('Ult');
       ultSlot.cd.setText('');
       ultSlot.icon.setVisible(false);
-      ultSlot.bg.setStrokeStyle(2, 0x443866);
+      ultSlot.bg.setStrokeStyle(ultSelected ? 3 : 2, ultSelected ? 0xffffff : 0x443866);
+      ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     } else {
       this.setSpellSlotIcon(ultSlot, ult.id || ult.stats?.id);
       ultSlot.name.setText(ult.stats.passive ? 'passivo' : 'ult');
       ultSlot.cd.setText(ult.usedThisRound ? 'X' : 'OK');
       ultSlot.icon.setAlpha(ult.usedThisRound ? 0.4 : 1);
-      ultSlot.bg.setStrokeStyle(2, ult.stats.color || 0xffaa33);
+      ultSlot.bg.setStrokeStyle(ultSelected ? 3 : 2, ultSelected ? 0xffffff : ult.stats.color || 0xffaa33);
+      ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     }
 
     const board = [...this.state.players]
