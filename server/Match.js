@@ -90,6 +90,8 @@ export class Match {
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
+    /** Após level-up no fim do round: null | { type: 'intermission' } | { type: 'endMatch', winner } */
+    this.afterLevelUp = null;
     this.events = [];
     this.tickAcc = 0;
     this.running = false;
@@ -400,6 +402,7 @@ export class Match {
   }
 
   startCountdown() {
+    this.afterLevelUp = null;
     this.prepareRound();
     this.phase = 'countdown';
     this.countdown = 3;
@@ -679,12 +682,40 @@ export class Match {
     }
   }
 
+  playersNeedingSpellChoices() {
+    return [...this.players.values()].filter((p) => p.alive && p.pendingLevelUps > 0);
+  }
+
+  ensureSpellChoicesForPending() {
+    for (const p of this.playersNeedingSpellChoices()) {
+      if (!p.spellChoices) this.assignSpellChoices(p);
+    }
+  }
+
+  beginPostRoundLevelUp(next) {
+    this.ensureSpellChoicesForPending();
+    this.afterLevelUp = next;
+    this.phase = 'levelup';
+    this.broadcastState(true);
+  }
+
   maybeResumeFromLevelUp() {
     if (this.phase !== 'levelup') return;
-    const waiting = [...this.players.values()].some((p) => p.alive && p.pendingLevelUps > 0);
-    if (!waiting) {
-      this.phase = 'playing';
+    const waiting = this.playersNeedingSpellChoices().length > 0;
+    if (waiting) return;
+
+    const next = this.afterLevelUp;
+    this.afterLevelUp = null;
+    if (next?.type === 'intermission') {
+      this.phase = 'intermission';
+      this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
+      return;
     }
+    if (next?.type === 'endMatch') {
+      this.endMatch(next.winner || this.leadingPlayer());
+      return;
+    }
+    this.phase = 'playing';
   }
 
   grantXp(player, amount, reason) {
@@ -854,6 +885,7 @@ export class Match {
   }
 
   checkRoundEnd() {
+    if (this.afterLevelUp) return; // round já encerrado, aguardando distribuição de habilidades
     if (this.phase !== 'playing' && this.phase !== 'levelup') return;
     const alive = [...this.players.values()].filter((p) => p.alive);
     if (alive.length <= 1) {
@@ -862,6 +894,8 @@ export class Match {
   }
 
   finishRound(winner) {
+    if (this.afterLevelUp || this.phase === 'intermission' || this.phase === 'ended') return;
+
     this.meteors = [];
     this.meteorTimer = 0;
     this.winnerId = winner?.id || null;
@@ -876,6 +910,19 @@ export class Match {
       if (p.alive && p.id !== winner?.id) {
         this.grantXp(p, CONFIG.XP_ROUND_SURVIVE, 'round');
       }
+    }
+
+    // Round só termina de verdade depois que ninguém tem pontos de habilidade pendentes
+    if (this.playersNeedingSpellChoices().length > 0) {
+      if (this.round >= CONFIG.MAX_ROUNDS) {
+        this.beginPostRoundLevelUp({
+          type: 'endMatch',
+          winner: this.leadingPlayer() || winner,
+        });
+      } else {
+        this.beginPostRoundLevelUp({ type: 'intermission' });
+      }
+      return;
     }
 
     if (this.round >= CONFIG.MAX_ROUNDS) {

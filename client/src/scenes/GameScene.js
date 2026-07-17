@@ -748,10 +748,9 @@ export class GameScene extends Phaser.Scene {
         roundEnded = true;
       }
     }
-    if (
-      state.phase === 'intermission' &&
-      (prevPhase === 'playing' || prevPhase === 'levelup')
-    ) {
+    // Som do fim do round: no evento round_win, ou ao ir direto a intermission (sem level-up).
+    // levelup → intermission é só a liberação pós-habilidades; o som já tocou no round_win.
+    if (state.phase === 'intermission' && prevPhase === 'playing') {
       roundEnded = true;
     }
     if (roundEnded) {
@@ -2981,20 +2980,26 @@ export class GameScene extends Phaser.Scene {
   }
 
   levelUpWaitMessage(choosers) {
-    const names = choosers.map((p) => p.name).join(', ');
+    const names = choosers
+      .map((p) => {
+        const pts = p.pendingLevelUps || 0;
+        return pts > 1 ? `${p.name} (${pts} pts)` : p.name;
+      })
+      .join(', ');
     const maxLeft = Math.max(
       0,
       ...choosers.map((p) => (p.choiceTimeLeft != null ? p.choiceTimeLeft : 0))
     );
     const hasTimer = choosers.some((p) => p.choiceTimeLeft != null);
     const timerLine = hasTimer ? `\nAuto em ${Math.ceil(maxLeft)}s` : '';
-    if (!names) return `Jogador escolhendo magia, aguarde!${timerLine}`;
-    return `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} escolhendo magia, aguarde!\n${names}${timerLine}`;
+    if (!names) return `Jogador distribuindo pontos de habilidade, aguarde!${timerLine}`;
+    return `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} distribuindo pontos de habilidade, aguarde!\n${names}${timerLine}`;
   }
 
   showLevelUpWait() {
     const choosers = this.playersChoosingSpells();
-    const waitKey = choosers.map((p) => p.id).sort().join(',') || 'none';
+    const waitKey =
+      choosers.map((p) => `${p.id}:${p.pendingLevelUps || 0}`).sort().join(',') || 'none';
     if (this.levelUpWaitOpen && this.levelUpChoiceKey === `wait:${waitKey}`) {
       if (this.levelUpWaitText) {
         this.levelUpWaitText.setText(this.levelUpWaitMessage(choosers));
@@ -3053,19 +3058,16 @@ export class GameScene extends Phaser.Scene {
       .rectangle(width / 2, height / 2, width, height, 0x000000, 1)
       .setInteractive();
     const remaining = this.me()?.pendingLevelUps || 1;
+    const titleText =
+      remaining > 1
+        ? `SUBIU DE NÍVEL — ${remaining} pontos de habilidade`
+        : 'SUBIU DE NÍVEL — 1 ponto de habilidade';
     const title = this.add
-      .text(
-        width / 2,
-        120,
-        remaining > 1
-          ? `SUBIU DE NÍVEL — escolha uma magia (${remaining} restantes)`
-          : 'SUBIU DE NÍVEL — escolha uma magia',
-        {
-          fontFamily: 'Georgia, serif',
-          fontSize: '28px',
-          color: '#f4e8ff',
-        }
-      )
+      .text(width / 2, 120, titleText, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '28px',
+        color: '#f4e8ff',
+      })
       .setOrigin(0.5);
     this.levelUpHint = this.add
       .text(width / 2, 158, '', {
