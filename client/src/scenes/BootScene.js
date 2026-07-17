@@ -1349,5 +1349,40 @@ export class BootScene extends Phaser.Scene {
         Y: 0x1a1410,
       }
     );
+
+    // Elf — nimble forest archer with pointed ears + bow
+    makePixelTexture(
+      this,
+      'monster_elf',
+      [
+        '................',
+        '....N......N....',
+        '...NHHHHHHHN....',
+        '...HSSSSSSSH....',
+        '...HSBEESBSH.A..',
+        '....HSSSSSH.A...',
+        '....HGGGGGH.A...',
+        '...HGGGGGGGH....',
+        '..HG.GGGG.GH.M..',
+        '..HG......GH.M..',
+        '..LL......LL....',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        N: 0xd4c48a,
+        H: 0xc9a66b,
+        S: 0xf0d0a8,
+        B: 0x1a1a1a,
+        E: 0x2ecc71,
+        G: 0x3d8b4a,
+        L: 0x5c4030,
+        A: 0xc8e6a0,
+        M: 0x6b4e2e,
+      }
+    );
   }
 }

@@ -778,6 +778,22 @@ export class Match {
         attack: 'melee',
         attackCooldown: 0.65,
       },
+      // Nimble forest archer
+      elf: {
+        hpMul: 0.9,
+        speedMul: 1.25,
+        dmgMul: 1.1,
+        radius: 13,
+        color: 0x6bbf59,
+        attack: 'ranged',
+        projectile: 'arrow',
+        range: 240,
+        preferRange: 170,
+        projectileSpeed: 380,
+        projectileRadius: 4,
+        projectileColor: 0xc8e6a0,
+        attackCooldown: 1.05,
+      },
     };
     const ids = Object.keys(types);
     const type = ids[Math.floor(Math.random() * ids.length)];
