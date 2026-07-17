@@ -25,6 +25,7 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.image('lava_tile', '/assets/lava.png');
+    this.load.audio('player_death', '/assets/meda1real.mp3');
   }
 
   create() {

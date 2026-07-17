@@ -417,16 +417,17 @@ export class Match {
   }
 
   applyMeteorDamage(meteor) {
+    // fromHit=false: dano ambiental (sem sangue/spam no painel por entidade)
     for (const p of this.players.values()) {
       if (!p.alive) continue;
       if (dist(meteor, p) <= meteor.radius + CONFIG.PLAYER_RADIUS) {
-        this.damageEntity(p, meteor.damage, null, true, true);
+        this.damageEntity(p, meteor.damage, null, true, false);
       }
     }
     for (const m of this.monsters) {
       if (!m.alive) continue;
       if (dist(meteor, m) <= meteor.radius + (m.radius || CONFIG.MONSTER_RADIUS)) {
-        this.damageEntity(m, meteor.damage, null, false, true);
+        this.damageEntity(m, meteor.damage, null, false, false);
       }
     }
   }
@@ -452,17 +453,7 @@ export class Match {
           radius: m.radius,
           damage: m.damage,
         });
-        this.effects.push({
-          type: 'impact',
-          spellId: 'meteor',
-          x: m.x,
-          y: m.y,
-          radius: m.radius * 0.55,
-          life: 0.45,
-          maxLife: 0.45,
-          color: m.color,
-          seed: m.seed,
-        });
+        // Visual só via serializeMeteorEffects (meteor_strike) — evita burst duplicado no client
       }
     }
     this.meteors = this.meteors.filter((m) => m.life > 0);
@@ -776,6 +767,8 @@ export class Match {
   }
 
   finishRound(winner) {
+    this.meteors = [];
+    this.meteorTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
       winner.score += 1;

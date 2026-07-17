@@ -42,6 +42,8 @@ export class GameScene extends Phaser.Scene {
     this.poisonFx = null;
     this.sparkFx = null;
     this.magicFx = null;
+    this.meteorFx = null;
+    this.meteorTrailAt = new Map();
     this.burstSeen = new Set();
     this.aoeFxAt = new Map();
     this.dashGhosts = [];
@@ -626,6 +628,11 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  playDeathSound() {
+    if (!this.cache.audio.exists('player_death')) return;
+    this.sound.play('player_death', { volume: 0.85 });
+  }
+
   onState(state) {
     const prevPhase = this.state?.phase;
     this.state = state;
@@ -648,6 +655,9 @@ export class GameScene extends Phaser.Scene {
             this.cameras.main.shake(d < r ? 220 : 120, d < r ? 0.008 : 0.0035);
           }
         }
+      }
+      if (ev.type === 'player_death' && ev.playerId === this.playerId) {
+        this.playDeathSound();
       }
     }
     if (
@@ -934,6 +944,22 @@ export class GameScene extends Phaser.Scene {
         blendMode: 'ADD',
       })
       .setDepth(26);
+
+    this.meteorFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xff2200, 0xff5500, 0xff9900, 0xffcc44, 0xffeebb, 0xffffff],
+        speed: { min: 30, max: 180 },
+        scale: { start: 2.2, end: 0 },
+        alpha: { start: 1, end: 0 },
+        lifespan: { min: 220, max: 480 },
+        gravityY: 60,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+        maxParticles: 80,
+        advance: 0,
+      })
+      .setDepth(28);
   }
 
   emitDirectionalTrail(emitter, sprite, x, y, vx, vy, stampKey, count = 3) {
@@ -1012,11 +1038,58 @@ export class GameScene extends Phaser.Scene {
     } else if (e.type === 'poison_burst' || spell === 'poison_cloud') {
       this.poisonFx?.emitParticleAt(x, y, 18);
     } else if (e.type === 'apocalypse' || e.type === 'meteor_strike' || spell === 'meteor') {
-      this.fireballFx?.emitParticleAt(x, y, 22);
-      this.sparkFx?.emitParticleAt(x, y, 14);
+      this.meteorFx?.emitParticleAt(x, y, 14);
+      this.fireballFx?.emitParticleAt(x, y, 8);
+      this.sparkFx?.emitParticleAt(x, y, 8);
     } else {
       this.sparkFx?.emitParticleAt(x, y, 8);
     }
+  }
+
+  /** Posição do meteoro em queda (diagonal) conforme progresso 0..1. */
+  meteorFallPose(e, progress) {
+    const t = Math.min(1, Math.max(0, progress));
+    // Ease-in: acelera perto do chão
+    const ease = t * t;
+    const startX = e.x - 95;
+    const startY = e.y - 320;
+    return {
+      x: startX + (e.x - startX) * ease,
+      y: startY + (e.y - 8 - startY) * ease,
+      t: ease,
+    };
+  }
+
+  emitMeteorTrail(id, x, y, count = 2) {
+    if (!this.meteorFx) return;
+    const now = this.time.now;
+    const last = this.meteorTrailAt.get(id) || 0;
+    if (now - last < 48) return;
+    this.meteorTrailAt.set(id, now);
+    this.meteorFx.setEmitterAngle({ min: 200, max: 250 });
+    this.meteorFx.setParticleSpeed({ min: 40, max: 110 });
+    this.meteorFx.emitParticleAt(x, y, Math.min(3, count));
+  }
+
+  drawMeteorBody(g, x, y, scale, fade, glow = true) {
+    if (glow) {
+      g.fillStyle(0xff6600, 0.22 * fade);
+      g.fillCircle(x, y, 22 * scale);
+      g.fillStyle(0xffaa33, 0.3 * fade);
+      g.fillCircle(x, y, 14 * scale);
+    }
+    // Rocha irregular
+    g.fillStyle(0x5a3a2a, 0.95 * fade);
+    g.fillCircle(x, y, 11 * scale);
+    g.fillStyle(0x3d2818, 0.9 * fade);
+    g.fillCircle(x - 3 * scale, y + 2 * scale, 6 * scale);
+    g.fillStyle(0x8b5a2b, 0.85 * fade);
+    g.fillCircle(x + 3 * scale, y - 3 * scale, 5 * scale);
+    // Núcleo quente
+    g.fillStyle(0xffee88, 0.95 * fade);
+    g.fillCircle(x + 1 * scale, y - 1 * scale, 4.5 * scale);
+    g.fillStyle(0xffffff, 0.8 * fade);
+    g.fillCircle(x + 2 * scale, y - 2 * scale, 2 * scale);
   }
 
   isOnLava(x, y) {
@@ -2062,7 +2135,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Círculo de atenção antes do meteoro cair. */
+  /** Círculo de atenção + meteoro descendo do céu. */
   drawMeteorWarn(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
@@ -2071,58 +2144,78 @@ export class GameScene extends Phaser.Scene {
     const r = e.radius || 78;
     const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 90);
     const flash = 0.55 + 0.45 * Math.sin(this.time.now / 55);
+    // Nos últimos 25% do aviso, o chão “aquece” mais
+    const imminent = Math.max(0, (p - 0.75) / 0.25);
 
-    g.fillStyle(color, 0.14 * fade * pulse);
+    g.fillStyle(color, (0.12 + 0.14 * imminent) * fade * pulse);
     g.fillCircle(e.x, e.y, r);
-    g.fillStyle(0xffaa33, 0.08 * fade * flash);
+    g.fillStyle(0xffaa33, (0.06 + 0.12 * imminent) * fade * flash);
     g.fillCircle(e.x, e.y, r * 0.55);
 
-    g.lineStyle(3.5, color, 0.85 * fade * flash);
+    // Sombra projetada no chão (cresce conforme o meteoro se aproxima)
+    const shadowR = 10 + p * 22;
+    g.fillStyle(0x1a0500, (0.25 + 0.45 * p) * fade);
+    g.fillEllipse(e.x, e.y + 4, shadowR * 1.6, shadowR * 0.7);
+
+    g.lineStyle(3.5, color, (0.75 + 0.2 * imminent) * fade * flash);
     g.strokeCircle(e.x, e.y, r);
     g.lineStyle(2, 0xffee88, 0.55 * fade);
     g.strokeCircle(e.x, e.y, r * 0.78);
 
-    // Anel de countdown (encolhe até o impacto)
     const remain = Math.max(0.05, 1 - p);
-    g.lineStyle(4, 0xffffff, 0.75 * fade);
+    g.lineStyle(4, 0xffffff, 0.8 * fade);
     g.beginPath();
     g.arc(e.x, e.y, r * 0.92, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2, false);
     g.strokePath();
 
-    // Arcos rotativos de atenção
-    const rot = this.time.now / 280;
-    for (let i = 0; i < 3; i++) {
-      const a0 = rot + (i / 3) * Math.PI * 2;
-      g.lineStyle(2.5, 0xffcc66, 0.65 * fade);
-      g.beginPath();
-      g.arc(e.x, e.y, r * 1.06, a0, a0 + 0.7, false);
-      g.strokePath();
-    }
+    // Arco rotativo único (mais leve que 3 arcs/frame)
+    const a0 = this.time.now / 280;
+    g.lineStyle(2.5, 0xffcc66, 0.65 * fade);
+    g.beginPath();
+    g.arc(e.x, e.y, r * 1.06, a0, a0 + 0.9, false);
+    g.strokePath();
 
-    // Miras / cruz
     g.lineStyle(2, 0xffffff, 0.7 * fade * flash);
     g.lineBetween(e.x - r * 0.35, e.y, e.x + r * 0.35, e.y);
     g.lineBetween(e.x, e.y - r * 0.35, e.x, e.y + r * 0.35);
     g.strokeCircle(e.x, e.y, 8);
 
-    // Triângulos de alerta na borda
-    for (let i = 0; i < 4; i++) {
-      const a = -Math.PI / 2 + (i / 4) * Math.PI * 2 + p * 0.4;
-      const tx = e.x + Math.cos(a) * (r + 6);
-      const ty = e.y + Math.sin(a) * (r + 6);
-      g.fillStyle(0xffee66, 0.8 * fade * flash);
-      g.fillTriangle(
-        tx + Math.cos(a) * 7,
-        ty + Math.sin(a) * 7,
-        tx + Math.cos(a + 2.3) * 6,
-        ty + Math.sin(a + 2.3) * 6,
-        tx + Math.cos(a - 2.3) * 6,
-        ty + Math.sin(a - 2.3) * 6
-      );
+    // Meteoro em queda durante o aviso
+    const pose = this.meteorFallPose(e, p);
+    const scale = 0.85 + pose.t * 0.85;
+
+    // Cauda de fogo
+    const tailLen = 40 + pose.t * 90;
+    const dx = 95;
+    const dy = 312;
+    const tlen = Math.hypot(dx, dy) || 1;
+    const backX = pose.x - (dx / tlen) * tailLen;
+    const backY = pose.y - (dy / tlen) * tailLen;
+
+    g.lineStyle(12 * scale, 0xff3300, 0.28 * fade);
+    g.lineBetween(backX, backY, pose.x, pose.y);
+    g.lineStyle(5 * scale, 0xffee88, 0.7 * fade);
+    g.lineBetween(
+      backX + (pose.x - backX) * 0.35,
+      backY + (pose.y - backY) * 0.35,
+      pose.x,
+      pose.y
+    );
+
+    // Faíscas ao longo da cauda
+    for (let i = 0; i < 3; i++) {
+      const tt = 0.25 + i * 0.22;
+      const fx = backX + (pose.x - backX) * tt + Math.sin(this.time.now / 40 + i) * 4;
+      const fy = backY + (pose.y - backY) * tt + Math.cos(this.time.now / 35 + i) * 3;
+      g.fillStyle(i % 2 ? 0xffee88 : 0xff6600, (0.5 - i * 0.08) * fade);
+      g.fillCircle(fx, fy, (3.2 - i * 0.4) * scale);
     }
+
+    this.drawMeteorBody(g, pose.x, pose.y, scale, fade, true);
+    this.emitMeteorTrail(e.entityId ?? `${e.x},${e.y}`, pose.x, pose.y, 1 + Math.floor(pose.t * 2));
   }
 
-  /** Impacto do meteoro após o aviso. */
+  /** Impacto: explosão, onda de choque e crater. */
   drawMeteorStrike(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
@@ -2132,35 +2225,101 @@ export class GameScene extends Phaser.Scene {
     const seedRef = { v: (e.seed ?? 1) >>> 0 };
     const rand = () => this.seededRand(seedRef);
 
-    // Solo em brasa
-    g.fillStyle(color, 0.28 * fade * (1 - p * 0.4));
-    g.fillCircle(e.x, e.y, r * (0.7 + 0.3 * Math.min(1, p * 1.4)));
-    g.lineStyle(3, 0xff8800, 0.7 * fade);
-    g.strokeCircle(e.x, e.y, r);
-
-    // Meteoro caindo
-    const fall = Math.min(1, p * 1.8);
-    const sx = e.x - 55;
-    const sy = e.y - 140 + fall * 140;
-    g.lineStyle(5, 0xffaa33, 0.85 * fade);
-    g.lineBetween(sx, sy - 36, e.x, e.y);
-    g.lineStyle(2.5, 0xffee88, 0.9 * fade);
-    g.lineBetween(sx + 4, sy - 30, e.x, e.y);
-    g.fillStyle(0xffee88, 0.95 * fade);
-    g.fillCircle(sx, sy - 36, 8);
-    g.fillStyle(color, 0.7 * fade);
-    g.fillCircle(e.x, e.y, 10 + fall * 16);
-
-    // Explosão radial
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2 + p;
-      const len = r * (0.45 + 0.55 * Math.min(1, p * 1.5)) * (0.7 + rand() * 0.3);
-      g.lineStyle(2.5, i % 2 ? 0xffee88 : color, 0.6 * fade);
-      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+    // Flash inicial
+    const flash = Math.max(0, 1 - p * 3.2);
+    if (flash > 0) {
+      g.fillStyle(0xffffff, 0.55 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.4 + flash * 0.5));
+      g.fillStyle(0xffee88, 0.35 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.8 + flash * 0.4));
     }
 
-    g.fillStyle(0xffffff, 0.45 * fade * (1 - p));
-    g.fillCircle(e.x, e.y, 18 * (1 - p * 0.5));
+    // Cratera / solo em brasa
+    const groundR = r * (0.75 + 0.35 * Math.min(1, p * 1.6));
+    g.fillStyle(0x2a0a00, 0.45 * fade);
+    g.fillCircle(e.x, e.y, groundR * 0.85);
+    g.fillStyle(color, 0.32 * fade * (1 - p * 0.35));
+    g.fillCircle(e.x, e.y, groundR);
+    g.fillStyle(0xff8800, 0.18 * fade * (1 - p * 0.5));
+    g.fillCircle(e.x, e.y, groundR * 0.55);
+    g.lineStyle(3, 0xffaa44, 0.75 * fade);
+    g.strokeCircle(e.x, e.y, groundR);
+
+    // Ondas de choque
+    for (let i = 0; i < 3; i++) {
+      const wave = Math.min(1.4, p * 1.8 + i * 0.18);
+      const wr = r * (0.35 + wave * 0.9);
+      const wa = (0.7 - i * 0.18) * fade * Math.max(0, 1 - wave * 0.65);
+      g.lineStyle(3.5 - i, i === 0 ? 0xffffff : 0xffaa33, wa);
+      g.strokeCircle(e.x, e.y, wr);
+    }
+
+    // Coluna de fogo
+    const columnH = 30 + (1 - p) * 70;
+    g.fillStyle(0xff4400, 0.35 * fade * (1 - p * 0.4));
+    g.fillEllipse(e.x, e.y - columnH * 0.35, 28 * (1 - p * 0.3), columnH);
+    g.fillStyle(0xffcc44, 0.4 * fade * (1 - p * 0.5));
+    g.fillEllipse(e.x, e.y - columnH * 0.4, 14, columnH * 0.75);
+    g.fillStyle(0xffffff, 0.35 * fade * Math.max(0, 1 - p * 2));
+    g.fillEllipse(e.x, e.y - columnH * 0.45, 6, columnH * 0.4);
+
+    // Fragmentos de rocha
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + rand() * 0.4;
+      const dist = r * (0.25 + rand() * 0.7) * Math.min(1.1, p * 1.7);
+      const fx = e.x + Math.cos(a) * dist;
+      const fy = e.y + Math.sin(a) * dist * 0.85 - (1 - p) * 12 * rand();
+      const sz = 2.5 + rand() * 4;
+      g.fillStyle(i % 2 ? 0x6b4423 : 0x3d2818, 0.85 * fade * (1 - p * 0.3));
+      g.fillCircle(fx, fy, sz);
+    }
+
+    // Raios de explosão
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + p * 0.8;
+      const len = r * (0.5 + 0.7 * Math.min(1, p * 1.4)) * (0.7 + (i % 3) * 0.12);
+      g.lineStyle(i % 2 ? 3 : 2, i % 3 === 0 ? 0xffee88 : color, 0.65 * fade * (1 - p * 0.4));
+      g.lineBetween(
+        e.x + Math.cos(a) * 8,
+        e.y + Math.sin(a) * 8,
+        e.x + Math.cos(a) * len,
+        e.y + Math.sin(a) * len
+      );
+    }
+
+    // Rachaduras no chão
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.35;
+      const len = r * (0.4 + (i % 3) * 0.15) * Math.min(1, 0.4 + p);
+      g.lineStyle(2, 0xff3300, 0.45 * fade);
+      const midX = e.x + Math.cos(a) * len * 0.55;
+      const midY = e.y + Math.sin(a) * len * 0.55;
+      g.lineBetween(e.x, e.y, midX, midY);
+      g.lineBetween(midX, midY, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+    }
+
+    // Núcleo do impacto + rocha afundando
+    const sink = Math.min(1, p * 1.3);
+    this.drawMeteorBody(g, e.x, e.y + sink * 6, 1.35 - sink * 0.35, fade * (1 - sink * 0.4), true);
+    g.fillStyle(0xffffff, 0.5 * fade * Math.max(0, 1 - p * 1.8));
+    g.fillCircle(e.x, e.y, 22 * Math.max(0.2, 1 - p));
+
+    // Brasas contínuas (mais espaçadas para não saturar o emitter)
+    if (this.meteorFx && p < 0.7) {
+      const id = `strike:${e.entityId ?? `${e.x},${e.y}`}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(id) || 0;
+      if (now - last > 70) {
+        this.meteorTrailAt.set(id, now);
+        this.meteorFx.setEmitterAngle({ min: 220, max: 320 });
+        this.meteorFx.setParticleSpeed({ min: 50, max: 140 });
+        this.meteorFx.emitParticleAt(
+          e.x + Phaser.Math.Between(-r * 0.3, r * 0.3),
+          e.y + Phaser.Math.Between(-6, 6),
+          2
+        );
+      }
+    }
   }
 
   renderEffects() {
@@ -2271,6 +2430,21 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.pruneBurstSeen(activeBursts);
+
+    // Limpa trails de meteoros inativos (uma passagem O(n))
+    if (this.meteorTrailAt.size) {
+      const alive = new Set();
+      for (const e of this.state.effects || []) {
+        if (e.type === 'meteor_warn' || e.type === 'meteor_strike') {
+          const id = String(e.entityId ?? `${e.x},${e.y}`);
+          alive.add(id);
+          if (e.type === 'meteor_strike') alive.add(`strike:${id}`);
+        }
+      }
+      for (const key of this.meteorTrailAt.keys()) {
+        if (!alive.has(key)) this.meteorTrailAt.delete(key);
+      }
+    }
 
     for (const [id, s] of this.bloodSprites) {
       if (!seenBlood.has(id)) {
