@@ -546,7 +546,9 @@ export class Match {
     this.kikoLaughTimer -= dt;
     if (this.kikoLaughTimer > 0) return;
     if (Math.random() < CONFIG.KIKO_LAUGH_CHANCE) {
-      this.pushEvent({ type: 'kiko_laugh' });
+      // Um clip por vez: Kiko ou Seu Madruga (o client também bloqueia overlap).
+      const type = Math.random() < 0.5 ? 'kiko_laugh' : 'madruga_nossa';
+      this.pushEvent({ type });
     }
     this.scheduleNextKikoLaugh();
   }
@@ -2568,7 +2570,7 @@ export class Match {
     // Eventos aleatórios: meteoro (dano) e mass heal (cura)
     this.tickMeteors(dt);
     this.tickMassHeals(dt);
-    // Risada do Kiko (áudio aleatório no client)
+    // Vozes aleatórias (Kiko / Seu Madruga) no client
     this.tickKikoLaugh(dt);
 
     // Players

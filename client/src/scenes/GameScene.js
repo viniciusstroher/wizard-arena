@@ -1126,9 +1126,19 @@ export class GameScene extends Phaser.Scene {
     this.sound.play('player_hurt', { volume: 0.75 });
   }
 
+  /** Kiko / Seu Madruga: só um clip de voz por vez. */
+  playChavesVoice(key) {
+    if (!this.cache.audio.exists(key)) return;
+    if (this.chavesVoice?.isPlaying) return;
+    this.chavesVoice = this.sound.play(key, { volume: 0.85 });
+  }
+
   playKikoLaugh() {
-    if (!this.cache.audio.exists('kiko_laugh')) return;
-    this.sound.play('kiko_laugh', { volume: 0.85 });
+    this.playChavesVoice('kiko_laugh');
+  }
+
+  playMadrugaNossa() {
+    this.playChavesVoice('madruga_nossa');
   }
 
   onState(state) {
@@ -1192,6 +1202,9 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'kiko_laugh') {
         this.playKikoLaugh();
+      }
+      if (ev.type === 'madruga_nossa') {
+        this.playMadrugaNossa();
       }
       if (ev.type === 'round_win') {
         roundEnded = true;

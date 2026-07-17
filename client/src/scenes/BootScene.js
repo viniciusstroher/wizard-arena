@@ -90,6 +90,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('round_start', '/assets/death-bong.mp3');
     this.load.audio('player_hurt', '/assets/soco_8rPimgT.mp3');
     this.load.audio('kiko_laugh', '/assets/a-risada-do-kiko.mp3');
+    this.load.audio('madruga_nossa', '/assets/seu-madruga-nossa.mp3');
     this.load.audio('lobby_music_a', '/assets/tavern-festival.mp3');
     this.load.audio('lobby_music_b', '/assets/tavern-festival-1.mp3');
     this.load.audio('battle_music', '/assets/pao-queijo-escuridao.mp3');

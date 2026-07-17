@@ -171,8 +171,8 @@ export const CONFIG = {
   MASS_HEAL_AMOUNT: envNumber('MASS_HEAL_AMOUNT', 42),
 
   /**
-   * Risada do Kiko: intervalo min/max entre tentativas (segundos)
-   * e chance (0–1) de tocar quando o timer dispara.
+   * Vozes aleatórias (Kiko / Seu Madruga): intervalo min/max entre
+   * tentativas (segundos) e chance (0–1) de tocar quando o timer dispara.
    */
   KIKO_LAUGH_MIN_INTERVAL: envNumber('KIKO_LAUGH_MIN_INTERVAL', 25),
   KIKO_LAUGH_MAX_INTERVAL: envNumber('KIKO_LAUGH_MAX_INTERVAL', 55),
