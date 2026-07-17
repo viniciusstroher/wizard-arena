@@ -137,31 +137,40 @@ export class BootScene extends Phaser.Scene {
   createLavaTextures() {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
 
-    // Tile de lava (fluxo)
+    // Tile de lava linear (faixas horizontais contínuas)
     const tw = 64;
     const th = 64;
     g.clear();
-    g.fillStyle(0x3a0800, 1);
-    g.fillRect(0, 0, tw, th);
-    const blobs = [
-      [4, 8, 22, 14, 0x8b1a00],
-      [28, 4, 18, 16, 0xb83b00],
-      [40, 30, 20, 18, 0x7a1500],
-      [8, 36, 24, 16, 0xc44a00],
-      [32, 44, 16, 12, 0x5c1000],
-      [18, 22, 14, 10, 0xe85d04],
-      [48, 12, 12, 10, 0xff7a18],
-      [2, 50, 14, 10, 0xd35400],
+    const bands = [
+      [0x2a0500, 10],
+      [0x5c1000, 6],
+      [0x8b1a00, 5],
+      [0xc44a00, 4],
+      [0xe85d04, 3],
+      [0xff7a18, 2],
+      [0xe85d04, 3],
+      [0xc44a00, 4],
+      [0x8b1a00, 5],
+      [0x5c1000, 6],
+      [0x3a0800, 8],
+      [0x7a1500, 4],
+      [0xd35400, 3],
+      [0xffc857, 1],
     ];
-    for (const [x, y, w, h, c] of blobs) {
-      g.fillStyle(c, 1);
-      g.fillEllipse(x + w / 2, y + h / 2, w, h);
+    let y = 0;
+    for (const [color, h] of bands) {
+      g.fillStyle(color, 1);
+      g.fillRect(0, y, tw, h);
+      y += h;
     }
-    // Brilhos quentes
-    g.fillStyle(0xffc857, 0.85);
-    g.fillEllipse(22, 28, 8, 5);
-    g.fillEllipse(50, 48, 7, 4);
-    g.fillEllipse(12, 54, 6, 3);
+    // Linhas finas de brilho (fluxo)
+    g.fillStyle(0xffe066, 0.55);
+    g.fillRect(0, 18, tw, 1);
+    g.fillRect(0, 33, tw, 1);
+    g.fillRect(0, 52, tw, 1);
+    g.fillStyle(0x1a0300, 0.45);
+    g.fillRect(0, 24, tw, 1);
+    g.fillRect(0, 41, tw, 1);
     g.generateTexture('lava_tile', tw, th);
 
     // Bolhas de lava (3 frames)
