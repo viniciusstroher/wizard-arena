@@ -99,6 +99,8 @@ export const CONFIG = {
   XP_PLAYER_KILL: 100,
   XP_ROUND_SURVIVE: 40,
   XP_PER_SECOND: envNumber('XP_PER_SECOND', 5),
+  /** XP passivo por segundo para bots vivos (durante a partida). */
+  BOT_XP_PER_SECOND: envNumber('BOT_XP_PER_SECOND', 5),
   /**
    * Tempo máximo (segundos) na tela de escolha de magia.
    * Ao expirar, escolhe automaticamente. 0 = sem limite.

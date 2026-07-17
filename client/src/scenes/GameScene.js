@@ -107,7 +107,8 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown', this.onDashKeyDown, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
-      this.onEventBoardWheel(dy);
+      if (this.onEventBoardWheel(dy)) return;
+      this.onSpellSlotWheel(dy);
     });
 
     this.socket.off('game_state');
@@ -558,18 +559,36 @@ export class GameScene extends Phaser.Scene {
     this.refreshEventBoard();
   }
 
+  /** @returns {boolean} true se o scroll foi consumido pelo painel de eventos */
   onEventBoardWheel(dy) {
-    if (this.eventLog.length <= this.eventBoardMaxVisible) return;
+    if (this.eventLog.length <= this.eventBoardMaxVisible) return false;
     const pointer = this.input.activePointer;
     const b = this.eventBoardBounds;
-    if (!b) return;
+    if (!b) return false;
     if (pointer.x < b.x || pointer.x > b.x + b.w || pointer.y < b.y || pointer.y > b.y + b.h) {
-      return;
+      return false;
     }
     const maxScroll = this.eventLog.length - this.eventBoardMaxVisible;
     if (dy > 0) this.eventScroll = Math.min(maxScroll, this.eventScroll + 1);
     else if (dy < 0) this.eventScroll = Math.max(0, this.eventScroll - 1);
     this.refreshEventBoard();
+    return true;
+  }
+
+  onSpellSlotWheel(dy) {
+    if (!dy) return;
+    if (
+      this.leaving ||
+      this.disconnectConfirmOpen ||
+      this.matchEndOpen ||
+      this.levelUpOpen ||
+      this.levelUpWaitOpen ||
+      this.levelUpSubmitting
+    ) {
+      return;
+    }
+    // Scroll para baixo = próxima magia; para cima = anterior
+    this.cycleSpellSlot(dy > 0 ? 1 : -1);
   }
 
   refreshEventBoard() {
@@ -2930,15 +2949,57 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  cycleSpellSlot() {
-    this.selectedSpellSlot = (this.selectedSpellSlot + 1) % 4;
+  spellSlotFilled(index) {
+    const me = this.me();
+    if (!me) return false;
+    if (index >= 0 && index < 3) return !!me.spells?.[index];
+    if (index === 3) return !!me.ultimate;
+    return false;
+  }
+
+  filledSpellSlots() {
+    const slots = [];
+    for (let i = 0; i < 4; i++) {
+      if (this.spellSlotFilled(i)) slots.push(i);
+    }
+    return slots;
+  }
+
+  /**
+   * Troca entre magias preenchidas. Sem próxima habilidade → volta à primeira.
+   * @param {number} dir 1 = próxima (Tab/scroll↓), -1 = anterior (scroll↑)
+   */
+  cycleSpellSlot(dir = 1) {
+    const filled = this.filledSpellSlots();
+    if (!filled.length) {
+      this.selectedSpellSlot = 0;
+      return;
+    }
+
+    const step = dir >= 0 ? 1 : -1;
+    let idx = filled.indexOf(this.selectedSpellSlot);
+    if (idx < 0) {
+      // Slot atual vazio (ex.: sem ultimate) → primeira magia
+      this.selectedSpellSlot = filled[0];
+      return;
+    }
+
+    const next = (idx + step + filled.length) % filled.length;
+    this.selectedSpellSlot = filled[next];
   }
 
   updateLevelUpSlotHint() {
     if (!this.levelUpHint || this.levelUpSubmitting) return;
-    const slot = this.selectedSpellSlot + 1;
+    const filled = this.filledSpellSlots();
+    const cur = this.selectedSpellSlot + 1;
+    let nextLabel = '1';
+    if (filled.length) {
+      const idx = filled.indexOf(this.selectedSpellSlot);
+      const nextIdx = idx < 0 ? 0 : (idx + 1) % filled.length;
+      nextLabel = String(filled[nextIdx] + 1);
+    }
     this.levelUpHint.setText(
-      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${slot} → ${(slot % 4) + 1}`
+      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${cur} → ${nextLabel}`
     );
     this.updateLevelUpCountdown();
   }

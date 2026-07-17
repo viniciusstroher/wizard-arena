@@ -1807,16 +1807,19 @@ export class Match {
       return;
     }
 
-    // XP passivo a cada segundo (jogadores e monstros)
-    if (CONFIG.XP_PER_SECOND > 0 || CONFIG.MONSTER_XP_PER_SECOND > 0) {
+    // XP passivo a cada segundo (jogadores, bots e monstros)
+    if (
+      CONFIG.XP_PER_SECOND > 0 ||
+      CONFIG.BOT_XP_PER_SECOND > 0 ||
+      CONFIG.MONSTER_XP_PER_SECOND > 0
+    ) {
       this.xpPassiveTimer += dt;
       while (this.xpPassiveTimer >= 1) {
         this.xpPassiveTimer -= 1;
-        if (CONFIG.XP_PER_SECOND > 0) {
-          for (const p of this.players.values()) {
-            if (!p.alive) continue;
-            this.grantXp(p, CONFIG.XP_PER_SECOND, 'passive');
-          }
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          const amount = p.isBot ? CONFIG.BOT_XP_PER_SECOND : CONFIG.XP_PER_SECOND;
+          if (amount > 0) this.grantXp(p, amount, 'passive');
         }
         if (CONFIG.MONSTER_XP_PER_SECOND > 0) {
           for (const m of this.monsters) {
