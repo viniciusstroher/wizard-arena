@@ -141,35 +141,34 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
 
-    // Barra de escudo (Barrier) — canto superior direito
-    const shieldW = 220;
-    const shieldX = width - 20 - shieldW;
+    this.xpBarBg = this.add.rectangle(20, 42, 220, 10, 0x221833).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
+    this.xpBar = this.add.rectangle(20, 42, 0, 10, 0xf1c40f).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
+
+    // Barra de escudo (Barrier) — abaixo da XP, canto superior esquerdo
     this.shieldBarBg = this.add
-      .rectangle(shieldX, 20, shieldW, 18, 0x152033)
+      .rectangle(20, 56, 220, 12, 0x152033)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(100)
       .setVisible(false);
     this.shieldBar = this.add
-      .rectangle(shieldX, 20, shieldW, 18, 0x4a90ff)
+      .rectangle(20, 56, 220, 12, 0x4a90ff)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(101)
       .setVisible(false);
     this.shieldText = this.add
-      .text(shieldX + 4, 21, 'ESCUTO 0', {
+      .text(24, 56, 'ESCUTO 0', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         color: '#dcecff',
       })
       .setScrollFactor(0)
       .setDepth(102)
       .setVisible(false);
 
-    this.xpBarBg = this.add.rectangle(20, 42, 220, 10, 0x221833).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
-    this.xpBar = this.add.rectangle(20, 42, 0, 10, 0xf1c40f).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.levelText = this.add
-      .text(24, 54, 'Lv 1', {
+      .text(24, 72, 'Lv 1', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#f1c40f',
@@ -177,7 +176,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
     this.scoreText = this.add
-      .text(250, 54, '0/0', {
+      .text(250, 72, '0/0', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#7dcea0',
