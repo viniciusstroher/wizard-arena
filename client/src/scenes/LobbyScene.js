@@ -117,7 +117,7 @@ export class LobbyScene extends Phaser.Scene {
     this.joinBtn = this.makeButton(panelX - 110, panelY + 150, 'Entrar', 0x6b5cff, () => this.joinLobby());
     this.readyBtn = this.makeButton(panelX + 110, panelY + 150, 'Ready', 0x2ecc71, () => this.toggleReady());
     this.readyBtn.setAlpha(0.35);
-    this.botsBtn = this.makeButton(panelX, panelY + 205, '+ Bot (testar solo)', 0xff8c42, () => this.addBot());
+    this.botsBtn = this.makeButton(panelX, panelY + 205, '+ Bot (testar solo)', 0xff8c42, () => this.addBot(), 240);
     this.botsBtn.setAlpha(0.35);
 
     this.hint = this.add
@@ -134,9 +134,10 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
   }
 
-  makeButton(x, y, label, color, onClick) {
+  makeButton(x, y, label, color, onClick, width = 180) {
+    const height = 44;
     const container = this.add.container(x, y);
-    const bg = this.add.rectangle(0, 0, 180, 44, color, 1).setStrokeStyle(2, 0xffffff, 0.15);
+    const bg = this.add.rectangle(0, 0, width, height, color, 1).setStrokeStyle(2, 0xffffff, 0.15);
     const text = this.add
       .text(0, 0, label, {
         fontFamily: 'Trebuchet MS, sans-serif',
@@ -145,11 +146,13 @@ export class LobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     container.add([bg, text]);
-    container.setSize(180, 44);
-    container.setInteractive(new Phaser.Geom.Rectangle(-90, -22, 180, 44), Phaser.Geom.Rectangle.Contains);
-    container.on('pointerover', () => bg.setScale(1.04));
-    container.on('pointerout', () => bg.setScale(1));
-    container.on('pointerup', onClick);
+
+    // Hit area no retângulo (origin 0.5) — containers com setSize deslocam o clique
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover', () => bg.setScale(1.04));
+    bg.on('pointerout', () => bg.setScale(1));
+    bg.on('pointerup', onClick);
+
     container.bg = bg;
     container.label = text;
     return container;

@@ -310,18 +310,25 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  monsterTexture(type) {
+    const key = `monster_${type}`;
+    return this.textures.exists(key) ? key : 'monster';
+  }
+
   renderMonsters() {
     const seen = new Set();
     for (const m of this.state.monsters) {
       seen.add(m.entityId);
-      const s = this.ensureActor(this.monsterSprites, m.entityId, 'monster', 15);
+      const tex = this.monsterTexture(m.type);
+      const s = this.ensureActor(this.monsterSprites, m.entityId, tex, 15);
+      if (s.texture.key !== tex) s.setTexture(tex);
+      s.clearTint();
       s.setPosition(m.x, m.y);
-      s.setTint(m.color);
       s.nameTag.setText(m.type);
-      s.nameTag.setPosition(m.x, m.y - 22);
-      s.hpBg.setPosition(m.x, m.y - 16);
+      s.nameTag.setPosition(m.x, m.y - 26);
+      s.hpBg.setPosition(m.x, m.y - 18);
       const ratio = m.maxHp ? m.hp / m.maxHp : 0;
-      s.hpFg.setPosition(m.x - 16 + 16 * ratio, m.y - 16);
+      s.hpFg.setPosition(m.x - 16 + 16 * ratio, m.y - 18);
       s.hpFg.width = 32 * ratio;
       s.hpFg.setFillStyle(0xe67e22);
     }
