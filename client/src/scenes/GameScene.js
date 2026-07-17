@@ -56,10 +56,12 @@ export class GameScene extends Phaser.Scene {
     this.dashGhosts = [];
     this.pendingBarrier = false;
     this.pendingMend = false;
+    this.pendingBlink = false;
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
     this.lastHurtSoundAt = 0;
     this.battleMusic = null;
+    this.aimCursor = null;
     /** Ordenação do placar: 'damage' | 'kills' */
     this.scoreboardSort = 'damage';
   }
@@ -92,6 +94,7 @@ export class GameScene extends Phaser.Scene {
     this.createEventBoard();
     this.createDisconnectUi();
     this.createMatchEndUi();
+    this.setupAimCursor();
     this.cursors = this.input.keyboard.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
       down: Phaser.Input.Keyboard.KeyCodes.S,
@@ -102,6 +105,8 @@ export class GameScene extends Phaser.Scene {
       barrier: Phaser.Input.Keyboard.KeyCodes.E,
       /** Heal inato. */
       mend: Phaser.Input.Keyboard.KeyCodes.H,
+      /** Blink inato. */
+      blink: Phaser.Input.Keyboard.KeyCodes.B,
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
@@ -133,12 +138,43 @@ export class GameScene extends Phaser.Scene {
 
     this.events.on('shutdown', () => {
       this.stopBattleMusic();
+      this.clearAimCursor();
       this.socket.off('game_state');
       this.socket.off('game_event');
     });
 
     // Garante snapshot da arena/spawns mesmo se o state inicial chegou antes da cena
     this.socket.emit('request_state');
+  }
+
+  setupAimCursor() {
+    this.input.setDefaultCursor('none');
+    if (!this.textures.exists('crosshair')) return;
+    this.aimCursor = this.add
+      .image(0, 0, 'crosshair')
+      .setDepth(100000)
+      .setScrollFactor(0)
+      .setOrigin(0.5, 0.5)
+      .setDisplaySize(48, 48)
+      .setVisible(false);
+    this.input.on('pointermove', this.syncAimCursor, this);
+    this.syncAimCursor(this.input.activePointer);
+  }
+
+  syncAimCursor(pointer) {
+    if (!this.aimCursor) return;
+    const p = pointer || this.input.activePointer;
+    this.aimCursor.setPosition(p.x, p.y);
+    this.aimCursor.setVisible(p && p.within);
+  }
+
+  clearAimCursor() {
+    this.input.off('pointermove', this.syncAimCursor, this);
+    this.input.setDefaultCursor('default');
+    if (this.aimCursor) {
+      this.aimCursor.destroy();
+      this.aimCursor = null;
+    }
   }
 
   startBattleMusic() {
@@ -288,9 +324,9 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (lv2), H = heal (lv3)
-    const slotLabels = ['1', '2', '3', '4', 'Shift', 'E', 'H'];
-    for (let i = 0; i < 7; i++) {
+    // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (lv2), H = heal (lv3), B = blink (lv5)
+    const slotLabels = ['1', '2', '3', '4', 'Shift', 'E', 'H', 'B'];
+    for (let i = 0; i < 8; i++) {
       const gapAfterUlt = i >= 4 ? 24 : 0;
       const x = 24 + i * 70 + gapAfterUlt;
       const y = this.scale.height - 70;
@@ -320,7 +356,7 @@ export class GameScene extends Phaser.Scene {
         })
         .setOrigin(1, 0);
       const lock =
-        i === 5 || i === 6
+        i === 5 || i === 6 || i === 7
           ? this.add.image(0, -2, 'icon_lock').setScale(1.15).setVisible(false).setDepth(1)
           : null;
       slot.add(lock ? [bg, icon, lock, key, name, cd] : [bg, icon, key, name, cd]);
@@ -349,6 +385,13 @@ export class GameScene extends Phaser.Scene {
           if (this.disconnectConfirmOpen || this.leaving) return;
           if (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) return;
           this.pendingMend = true;
+        });
+      } else if (i === 7) {
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerdown', () => {
+          if (this.disconnectConfirmOpen || this.leaving) return;
+          if (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) return;
+          this.pendingBlink = true;
         });
       }
       this.spellSlots.push(slot);
@@ -1170,6 +1213,7 @@ export class GameScene extends Phaser.Scene {
     // Inatas: teclas dedicadas; latch para não perder toque curto.
     if (event.code === 'KeyE') this.pendingBarrier = true;
     if (event.code === 'KeyH') this.pendingMend = true;
+    if (event.code === 'KeyB') this.pendingBlink = true;
 
     // Shift + WASD (W/A/S/D apertado com Shift).
     if (dir && shiftHeld) {
@@ -1210,6 +1254,7 @@ export class GameScene extends Phaser.Scene {
     if (levelUpPaused) {
       this.pendingBarrier = false;
       this.pendingMend = false;
+      this.pendingBlink = false;
       this.pendingDash = null;
       if (this.levelUpOpen && !this.levelUpSubmitting) {
         if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
@@ -1232,6 +1277,7 @@ export class GameScene extends Phaser.Scene {
         dash: null,
         barrier: false,
         mend: false,
+        blink: false,
       });
       return;
     }
@@ -1246,12 +1292,14 @@ export class GameScene extends Phaser.Scene {
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
-    // Escudo (E) / Heal (H): só tecla dedicada ou clique no slot
+    // Escudo (E) / Heal (H) / Blink (B): só tecla dedicada ou clique no slot
     const barrier =
       !!this.pendingBarrier || Phaser.Input.Keyboard.JustDown(this.cursors.barrier);
     this.pendingBarrier = false;
     const mend = !!this.pendingMend || Phaser.Input.Keyboard.JustDown(this.cursors.mend);
     this.pendingMend = false;
+    const blink = !!this.pendingBlink || Phaser.Input.Keyboard.JustDown(this.cursors.blink);
+    this.pendingBlink = false;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,
@@ -1264,6 +1312,7 @@ export class GameScene extends Phaser.Scene {
       dash,
       barrier,
       mend,
+      blink,
     });
   }
 
@@ -3413,6 +3462,27 @@ export class GameScene extends Phaser.Scene {
       mendSlot.icon.setAlpha(mendCd > 0 ? 0.45 : 1);
       mendSlot.bg.setStrokeStyle(2, mendCd > 0 ? 0x445544 : 0x55ff88);
       mendSlot.bg.setFillStyle(0x1a1430, 0.95);
+    }
+
+    // Slot depois do heal (7): blink inato (B, lv5+)
+    const blinkSlot = this.spellSlots[7];
+    const blinkUnlocked = (me.level || 1) >= 5;
+    const blinkCd = me.blinkCooldown || 0;
+    this.setSpellSlotIcon(blinkSlot, 'blink');
+    if (!blinkUnlocked) {
+      blinkSlot.name.setText('lv5');
+      blinkSlot.cd.setText('');
+      blinkSlot.icon.setAlpha(0.3);
+      blinkSlot.lock?.setVisible(true).setAlpha(1);
+      blinkSlot.bg.setStrokeStyle(2, 0x443866);
+      blinkSlot.bg.setFillStyle(0x12101c, 0.95);
+    } else {
+      blinkSlot.lock?.setVisible(false);
+      blinkSlot.name.setText('blink');
+      blinkSlot.cd.setText(blinkCd > 0 ? blinkCd.toFixed(1) : '');
+      blinkSlot.icon.setAlpha(blinkCd > 0 ? 0.45 : 1);
+      blinkSlot.bg.setStrokeStyle(2, blinkCd > 0 ? 0x554466 : 0xaa88ff);
+      blinkSlot.bg.setFillStyle(0x1a1430, 0.95);
     }
 
     this.updateScoreboard();

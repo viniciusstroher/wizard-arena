@@ -101,9 +101,13 @@ export const SPELLS = {
   blink: {
     id: 'blink',
     name: 'Blink',
-    description: 'Teleporte curto na direção do cursor.',
+    description: 'Teleporte curto na direção do cursor. Habilidade inata (B), liberada no nível 5.',
     type: 'basic',
     playerUsable: true,
+    /** Não aparece na tela de escolha; inata a partir do nível 5. */
+    selectable: false,
+    innate: true,
+    unlockLevel: 5,
     cooldown: 3.5,
     manaCost: 0,
     range: 180,

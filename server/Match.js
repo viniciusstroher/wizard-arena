@@ -234,6 +234,7 @@ export class Match {
         dash: null,
         barrier: false,
         mend: false,
+        blink: false,
       },
       /** Escudo inato (E) — liberado no nível 2. */
       barrierCooldown: 0,
@@ -241,6 +242,9 @@ export class Match {
       /** Heal inato (H) — liberado no nível 3. */
       mendCooldown: 0,
       mendBuffer: 0,
+      /** Blink inato (B) — liberado no nível 5. */
+      blinkCooldown: 0,
+      blinkBuffer: 0,
       shield: 0,
       maxShield: 0,
       shieldTimer: 0,
@@ -432,6 +436,8 @@ export class Match {
       p.barrierBuffer = 0;
       p.mendCooldown = 0;
       p.mendBuffer = 0;
+      p.blinkCooldown = 0;
+      p.blinkBuffer = 0;
       if (p.ultimate) {
         p.ultimate.cooldownLeft = 0;
         p.ultimate.usedThisRound = false;
@@ -602,11 +608,12 @@ export class Match {
         ? input.dash
         : null;
     const castSlot = Number.isInteger(input.castSlot) ? input.castSlot : -1;
-    // Latch cast/dash/barrier/mend until the next tick consumes them — client frames are much
+    // Latch cast/dash/barrier/mend/blink until the next tick consumes them — client frames are much
     // faster than TICK_RATE, so a one-frame press would otherwise be overwritten.
     if (dash) p.dashBuffer = 0.2;
     if (input.barrier) p.barrierBuffer = 0.2;
     if (input.mend) p.mendBuffer = 0.2;
+    if (input.blink) p.blinkBuffer = 0.2;
     p.input = {
       up: !!input.up,
       down: !!input.down,
@@ -618,6 +625,7 @@ export class Match {
       dash: dash || p.input.dash,
       barrier: !!(input.barrier || p.input.barrier),
       mend: !!(input.mend || p.input.mend),
+      blink: !!(input.blink || p.input.blink),
     };
   }
 
@@ -677,6 +685,9 @@ export class Match {
     } else if (kind === 'mend') {
       player.input.mend = false;
       player.mendBuffer = 0;
+    } else if (kind === 'blink') {
+      player.input.blink = false;
+      player.blinkBuffer = 0;
     }
   }
 
@@ -757,6 +768,80 @@ export class Match {
       maxLife: 0.75,
       color: stats.color,
       radius: 42,
+    });
+  }
+
+  /** Blink inato (B) — liberado no nível 5. */
+  tryCastBlink(player) {
+    const wants = player.input?.blink || (player.blinkBuffer || 0) > 0;
+    if (!wants) return;
+    if (!player.alive) {
+      this.clearInnateRequest(player, 'blink');
+      return;
+    }
+    const unlockAt = innateUnlockLevel('blink');
+    if (
+      (player.level || 1) < unlockAt ||
+      player.stunTimer > 0 ||
+      (player.blinkCooldown || 0) > 0
+    ) {
+      this.clearInnateRequest(player, 'blink');
+      return;
+    }
+
+    const stats = spellStats('blink', 1);
+    if (!stats) {
+      this.clearInnateRequest(player, 'blink');
+      return;
+    }
+
+    const fromX = player.x;
+    const fromY = player.y;
+    const aimDx = (player.input?.aimX || player.x) - player.x;
+    const aimDy = (player.input?.aimY || player.y) - player.y;
+    const aimLen = Math.hypot(aimDx, aimDy) || 1;
+    const dirX = aimDx / aimLen;
+    const dirY = aimDy / aimLen;
+    const distBlink = Math.min(stats.range, Math.hypot(aimDx, aimDy) || stats.range);
+
+    player.x = clamp(
+      player.x + dirX * distBlink,
+      CONFIG.ARENA_CENTER_X - 900,
+      CONFIG.ARENA_CENTER_X + 900
+    );
+    player.y = clamp(
+      player.y + dirY * distBlink,
+      CONFIG.ARENA_CENTER_Y - 900,
+      CONFIG.ARENA_CENTER_Y + 900
+    );
+    player.vx = 0;
+    player.vy = 0;
+    this.resolveRockCollision(player, CONFIG.PLAYER_RADIUS);
+    player.blinkCooldown = stats.cooldown;
+    this.clearInnateRequest(player, 'blink');
+    this.effects.push({
+      type: 'blink',
+      phase: 'out',
+      x: fromX,
+      y: fromY,
+      x2: player.x,
+      y2: player.y,
+      life: 0.5,
+      maxLife: 0.5,
+      color: stats.color,
+      radius: 36,
+    });
+    this.effects.push({
+      type: 'blink',
+      phase: 'in',
+      x: player.x,
+      y: player.y,
+      x2: fromX,
+      y2: fromY,
+      life: 0.55,
+      maxLife: 0.55,
+      color: stats.color,
+      radius: 36,
     });
   }
 
@@ -1956,49 +2041,10 @@ export class Match {
         });
         break;
       }
-      case 'blink': {
-        const fromX = player.x;
-        const fromY = player.y;
-        const distBlink = Math.min(stats.range, Math.hypot(aimDx, aimDy));
-        player.x = clamp(
-          player.x + dirX * distBlink,
-          CONFIG.ARENA_CENTER_X - 900,
-          CONFIG.ARENA_CENTER_X + 900
-        );
-        player.y = clamp(
-          player.y + dirY * distBlink,
-          CONFIG.ARENA_CENTER_Y - 900,
-          CONFIG.ARENA_CENTER_Y + 900
-        );
-        player.vx = 0;
-        player.vy = 0;
-        this.resolveRockCollision(player, CONFIG.PLAYER_RADIUS);
-        this.effects.push({
-          type: 'blink',
-          phase: 'out',
-          x: fromX,
-          y: fromY,
-          x2: player.x,
-          y2: player.y,
-          life: 0.5,
-          maxLife: 0.5,
-          color: stats.color,
-          radius: 36,
-        });
-        this.effects.push({
-          type: 'blink',
-          phase: 'in',
-          x: player.x,
-          y: player.y,
-          x2: fromX,
-          y2: fromY,
-          life: 0.55,
-          maxLife: 0.55,
-          color: stats.color,
-          radius: 36,
-        });
-        break;
-      }
+      case 'blink':
+        // Blink é habilidade inata (tecla B), não slot de magia.
+        player.input.castSlot = -1;
+        return;
       case 'barrier':
         // Escudo é habilidade inata (tecla E), não slot de magia.
         player.input.castSlot = -1;
@@ -2296,6 +2342,8 @@ export class Match {
       p.barrierBuffer = Math.max(0, (p.barrierBuffer || 0) - dt);
       p.mendCooldown = Math.max(0, (p.mendCooldown || 0) - dt);
       p.mendBuffer = Math.max(0, (p.mendBuffer || 0) - dt);
+      p.blinkCooldown = Math.max(0, (p.blinkCooldown || 0) - dt);
+      p.blinkBuffer = Math.max(0, (p.blinkBuffer || 0) - dt);
 
       for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
       if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);
@@ -2303,6 +2351,7 @@ export class Match {
       this.tryStartDash(p);
       this.tryCastBarrier(p);
       this.tryCastMend(p);
+      this.tryCastBlink(p);
 
       if (p.stunTimer > 0) {
         p.vx = 0;
@@ -2679,6 +2728,7 @@ export class Match {
       dashCooldown: +Math.max(0, p.dashCooldown).toFixed(2),
       barrierCooldown: +Math.max(0, p.barrierCooldown || 0).toFixed(2),
       mendCooldown: +Math.max(0, p.mendCooldown || 0).toFixed(2),
+      blinkCooldown: +Math.max(0, p.blinkCooldown || 0).toFixed(2),
       kills: p.kills,
       deaths: p.deaths,
       monsterKills: p.monsterKills || 0,

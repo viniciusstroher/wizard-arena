@@ -129,6 +129,9 @@ export class BotController {
     // Heal inato (lv3+): sempre que possível (ferido e fora de CD)
     const mend = level >= 3 && (player.mendCooldown || 0) <= 0 && player.hp < player.maxHp;
 
+    // Blink inato (lv5+): sempre que possível
+    const blink = level >= 5 && (player.blinkCooldown || 0) <= 0;
+
     this.match.setInput(this.playerId, {
       up,
       down,
@@ -139,6 +142,7 @@ export class BotController {
       castSlot,
       barrier,
       mend,
+      blink,
     });
   }
 }

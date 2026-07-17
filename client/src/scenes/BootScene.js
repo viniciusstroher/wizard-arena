@@ -85,6 +85,7 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.image('lava_tile', '/assets/lava.png');
+    this.load.image('crosshair', '/assets/crosshair.png');
     this.load.audio('player_death', '/assets/death-bong.mp3');
     this.load.audio('round_end', '/assets/death-bong.mp3');
     this.load.audio('round_start', '/assets/death-bong.mp3');
