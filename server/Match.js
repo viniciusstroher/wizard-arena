@@ -368,6 +368,9 @@ export class Match {
       input.dash === 'right'
         ? input.dash
         : null;
+    const castSlot = Number.isInteger(input.castSlot) ? input.castSlot : -1;
+    // Latch cast/dash until the next tick consumes them — client frames are much
+    // faster than TICK_RATE, so a one-frame press would otherwise be overwritten.
     p.input = {
       up: !!input.up,
       down: !!input.down,
@@ -375,8 +378,8 @@ export class Match {
       right: !!input.right,
       aimX: Number(input.aimX) || 0,
       aimY: Number(input.aimY) || 0,
-      castSlot: Number.isInteger(input.castSlot) ? input.castSlot : -1,
-      dash,
+      castSlot: castSlot >= 0 ? castSlot : p.input.castSlot,
+      dash: dash || p.input.dash,
     };
   }
 
@@ -496,6 +499,18 @@ export class Match {
     }
     if (dmg <= 0) return false;
     target.hp -= dmg;
+
+    this.pushEvent({
+      type: 'damage',
+      amount: dmg,
+      x: +target.x.toFixed(1),
+      y: +target.y.toFixed(1),
+      targetId: isPlayer ? target.id : target.entityId,
+      targetName: isPlayer ? target.name : target.type || 'Monstro',
+      isPlayer,
+      sourceId: sourcePlayerId,
+      fromHit: !!fromHit,
+    });
 
     if (fromHit || sourcePlayerId) {
       this.spawnBlood(target.x, target.y);
@@ -673,16 +688,29 @@ export class Match {
     } else if (slot === 4) {
       spellInst = player.ultimate;
     }
-    if (!spellInst) return;
+    if (!spellInst) {
+      player.input.castSlot = -1;
+      return;
+    }
+    // Keep latched cast while on cooldown so a press queues until ready.
     if (spellInst.cooldownLeft > 0) return;
     if (spellInst.type === 'ultimate' || spellStats(spellInst.id)?.oncePerRound) {
-      if (spellInst.usedThisRound) return;
+      if (spellInst.usedThisRound) {
+        player.input.castSlot = -1;
+        return;
+      }
       // Phoenix is passive — don't cast
-      if (spellInst.id === 'phoenix') return;
+      if (spellInst.id === 'phoenix') {
+        player.input.castSlot = -1;
+        return;
+      }
     }
 
     const stats = spellStats(spellInst.id, spellInst.level);
-    if (!stats) return;
+    if (!stats) {
+      player.input.castSlot = -1;
+      return;
+    }
 
     const aimDx = player.input.aimX - player.x;
     const aimDy = player.input.aimY - player.y;
@@ -826,6 +854,7 @@ export class Match {
         break;
       }
       default:
+        player.input.castSlot = -1;
         return;
     }
 

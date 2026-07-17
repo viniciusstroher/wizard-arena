@@ -38,7 +38,7 @@ export const CONFIG = {
    * 0 = movimento instantâneo; valores maiores = mais deslizamento.
    */
   PLAYER_INERTIA: envNumber('PLAYER_INERTIA', 0.12),
-  /** Velocidade do dash (px/s) no double-tap WASD. */
+  /** Velocidade do dash (px/s) com Shift + WASD. */
   PLAYER_DASH_SPEED: envNumber('PLAYER_DASH_SPEED', 520),
   /** Duração do dash em segundos. */
   PLAYER_DASH_DURATION: envNumber('PLAYER_DASH_DURATION', 0.12),

@@ -31,13 +31,6 @@ export class GameScene extends Phaser.Scene {
     this.moveDust = null;
     this.lavaBurn = null;
     this.dashGhosts = [];
-    /** Janela (ms) para double-tap / re-tap WASD. */
-    this.dashDoubleTapMs = 420;
-    this.dashLastTap = { up: 0, down: 0, left: 0, right: 0 };
-    this.dashLastRelease = { up: 0, down: 0, left: 0, right: 0 };
-    this.dashWasDown = { up: false, down: false, left: false, right: false };
-    /** Última direção cardinal de movimento (fallback do Shift). */
-    this.lastMoveDir = 'up';
   }
 
   create() {
@@ -172,9 +165,11 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    const slotLabels = ['1', '2', '3', '4', 'R', 'WASD'];
+    // 1–4 magias, R = ultimate, Shift = dash (depois do ultimate, com gap)
+    const slotLabels = ['1', '2', '3', '4', 'R', 'Shift'];
     for (let i = 0; i < 6; i++) {
-      const x = 24 + i * 70;
+      const gapAfterUlt = i === 5 ? 24 : 0;
+      const x = 24 + i * 70 + gapAfterUlt;
       const y = this.scale.height - 70;
       const slot = this.add.container(x, y).setScrollFactor(0).setDepth(100);
       const bg = this.add.rectangle(0, 0, 60, 60, 0x1a1430, 0.95).setStrokeStyle(2, 0x6b5cff);
@@ -531,6 +526,15 @@ export class GameScene extends Phaser.Scene {
           : `${this.playerName(ev.playerId)} morreu`;
       case 'monster_kill':
         return `${this.playerName(ev.killerId)} derrotou um monstro`;
+      case 'damage': {
+        // Zona/DoT contínuo: só números flutuantes (evita spam no painel)
+        if (!ev.fromHit && !ev.sourceId) return null;
+        const target = ev.targetName || (ev.isPlayer ? this.playerName(ev.targetId) : 'Monstro');
+        if (ev.sourceId) {
+          return `${this.playerName(ev.sourceId)} causou ${ev.amount} em ${target}`;
+        }
+        return `${target} recebeu ${ev.amount} de dano`;
+      }
       case 'level_up':
         return `${this.playerName(ev.playerId)} subiu para Lv ${ev.level}`;
       case 'phoenix':
@@ -549,12 +553,42 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  spawnDamageNumber(x, y, amount, isSelf = false) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !(amount > 0)) return;
+    const jitterX = (Math.random() - 0.5) * 18;
+    const startY = y - 34;
+    const label = this.add
+      .text(x + jitterX, startY, `-${Math.round(amount)}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: isSelf ? '20px' : '17px',
+        color: isSelf ? '#ff8a80' : '#ffe066',
+        stroke: '#1a0500',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(55)
+      .setAlpha(1);
+
+    this.tweens.add({
+      targets: label,
+      y: startY - 42,
+      alpha: 0,
+      scale: 1.15,
+      duration: 1400,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
+  }
+
   onState(state) {
     const prevPhase = this.state?.phase;
     this.state = state;
     for (const ev of state.events || []) {
       const msg = this.formatGameEvent(ev);
       if (msg) this.pushBoardEvent(msg);
+      if (ev.type === 'damage') {
+        this.spawnDamageNumber(ev.x, ev.y, ev.amount, ev.isPlayer && ev.targetId === this.playerId);
+      }
       // Fallback: ossos de monstro pelo evento (caso o effect do servidor atrase)
       if (ev.type === 'monster_kill' && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {
         this.ensureCorpseAt(ev.x, ev.y);
@@ -629,65 +663,20 @@ export class GameScene extends Phaser.Scene {
     this.handleBanners();
   }
 
-  currentMoveDir() {
-    const { up, down, left, right } = this.cursors;
-    const u = up.isDown;
-    const d = down.isDown;
-    const l = left.isDown;
-    const r = right.isDown;
-    if (u && !d) return 'up';
-    if (d && !u) return 'down';
-    if (l && !r) return 'left';
-    if (r && !l) return 'right';
-    return null;
-  }
-
-  aimDashDir(pointer) {
-    const me = this.me();
-    if (!me) return this.lastMoveDir;
-    const dx = pointer.worldX - me.x;
-    const dy = pointer.worldY - me.y;
-    if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
-    return dy >= 0 ? 'down' : 'up';
-  }
-
-  detectDash(pointer) {
-    const now = this.time.now;
-    const windowMs = this.dashDoubleTapMs;
+  detectDash() {
     const keys = [
       ['up', this.cursors.up],
       ['down', this.cursors.down],
       ['left', this.cursors.left],
       ['right', this.cursors.right],
     ];
+    const shiftDown = this.cursors.dash.isDown;
+    const shiftJust = Phaser.Input.Keyboard.JustDown(this.cursors.dash);
 
+    // Shift + WASD: direção = tecla pressionada com Shift, ou Shift com WASD já segurado.
     for (const [dir, key] of keys) {
-      const down = key.isDown;
-      if (this.dashWasDown[dir] && !down) this.dashLastRelease[dir] = now;
-      this.dashWasDown[dir] = down;
-    }
-
-    const held = this.currentMoveDir();
-    if (held) this.lastMoveDir = held;
-
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.dash)) {
-      return held || this.lastMoveDir || this.aimDashDir(pointer);
-    }
-
-    for (const [dir, key] of keys) {
-      if (!Phaser.Input.Keyboard.JustDown(key)) continue;
-      const lastTap = this.dashLastTap[dir] || 0;
-      const lastRelease = this.dashLastRelease[dir] || 0;
-      this.dashLastTap[dir] = now;
-      // Double-tap clássico OU re-tap rápido após soltar (dash enquanto anda).
-      if (
-        (lastTap > 0 && now - lastTap <= windowMs) ||
-        (lastRelease > 0 && now - lastRelease <= windowMs)
-      ) {
-        this.dashLastTap[dir] = 0;
-        this.dashLastRelease[dir] = 0;
-        return dir;
-      }
+      if (shiftDown && Phaser.Input.Keyboard.JustDown(key)) return dir;
+      if (shiftJust && key.isDown) return dir;
     }
     return null;
   }
@@ -700,9 +689,8 @@ export class GameScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.selectedSpellSlot = 3;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.ult)) this.selectedSpellSlot = 4;
 
-    const castSlot = Phaser.Input.Keyboard.JustDown(this.cursors.cast)
-      ? this.selectedSpellSlot
-      : -1;
+    // Hold SPACE to cast (server latches + respects cooldown).
+    const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,
@@ -712,7 +700,7 @@ export class GameScene extends Phaser.Scene {
       aimX: pointer.worldX,
       aimY: pointer.worldY,
       castSlot,
-      dash: this.detectDash(pointer),
+      dash: this.detectDash(),
     });
   }
 
@@ -1373,12 +1361,13 @@ export class GameScene extends Phaser.Scene {
       ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     }
 
+    // Slot depois do ultimate (R): cooldown do dash
     const dashSlot = this.spellSlots[5];
     const dashCd = me.dashCooldown || 0;
     const dashing = !!me.dashing;
     this.setSpellSlotIcon(dashSlot, 'dash');
     dashSlot.name.setText(dashing ? 'dash!' : 'dash');
-    dashSlot.cd.setText(dashCd > 0 ? dashCd.toFixed(1) : 'OK');
+    dashSlot.cd.setText(dashCd > 0 ? dashCd.toFixed(1) : '');
     dashSlot.icon.setAlpha(dashCd > 0 && !dashing ? 0.45 : 1);
     dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
     dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
