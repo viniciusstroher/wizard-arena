@@ -1013,9 +1013,9 @@ export class GameScene extends Phaser.Scene {
     const me = this.me();
     if (!me) return;
 
-    const hpRatio = me.hp / me.maxHp;
+    const hpRatio = me.alive ? me.hp / me.maxHp : 0;
     this.hpBar.width = 220 * hpRatio;
-    this.hpText.setText(`HP ${Math.ceil(me.hp)} / ${me.maxHp}`);
+    this.hpText.setText(me.alive ? `HP ${Math.ceil(me.hp)} / ${me.maxHp}` : 'MORTO — próximo round');
 
     const xpRatio = me.xpToNext ? Math.min(1, me.xp / me.xpToNext) : 0;
     this.xpBar.width = 220 * xpRatio;
@@ -1109,6 +1109,13 @@ export class GameScene extends Phaser.Scene {
           ? `${w.name} venceu o round!\nPróximo em ${Math.ceil(this.state.intermissionTimer)}s`
           : `Round encerrado\nPróximo em ${Math.ceil(this.state.intermissionTimer)}s`
       );
+      this.bannerText.setAlpha(1);
+    } else if (
+      (this.state.phase === 'playing' || this.state.phase === 'levelup') &&
+      this.me() &&
+      !this.me().alive
+    ) {
+      this.bannerText.setText('Você morreu\nRevive no próximo round');
       this.bannerText.setAlpha(1);
     } else if (this.state.phase === 'playing' && this.bannerText.alpha > 0 && !this.levelUpOpen) {
       this.bannerText.setAlpha(Math.max(0, this.bannerText.alpha - 0.02));
