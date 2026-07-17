@@ -151,31 +151,32 @@ export class GameScene extends Phaser.Scene {
       const y = this.scale.height - 70;
       const slot = this.add.container(x, y).setScrollFactor(0).setDepth(100);
       const bg = this.add.rectangle(0, 0, 60, 60, 0x1a1430, 0.95).setStrokeStyle(2, 0x6b5cff);
+      const icon = this.add.image(0, -4, 'spell_firebolt').setScale(1.35).setVisible(false);
       const key = this.add
-        .text(-22, -22, i < 4 ? String(i + 1) : 'R', {
+        .text(-26, -26, i < 4 ? String(i + 1) : 'R', {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '11px',
           color: '#9a8bb8',
         })
         .setOrigin(0);
       const name = this.add
-        .text(0, 0, '-', {
+        .text(0, 18, '-', {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '10px',
+          fontSize: '9px',
           color: '#eee',
           align: 'center',
-          wordWrap: { width: 54 },
         })
         .setOrigin(0.5);
       const cd = this.add
-        .text(0, 20, '', {
+        .text(22, -22, '', {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '11px',
+          fontSize: '10px',
           color: '#ffcc66',
         })
-        .setOrigin(0.5);
-      slot.add([bg, key, name, cd]);
+        .setOrigin(1, 0);
+      slot.add([bg, icon, key, name, cd]);
       slot.bg = bg;
+      slot.icon = icon;
       slot.name = name;
       slot.cd = cd;
       this.spellSlots.push(slot);
@@ -891,22 +892,28 @@ export class GameScene extends Phaser.Scene {
       if (!spell) {
         slot.name.setText('-');
         slot.cd.setText('');
+        slot.icon.setVisible(false);
         slot.bg.setStrokeStyle(2, 0x443866);
         continue;
       }
-      slot.name.setText(`${spell.stats.name}\nLv${spell.level}`);
+      this.setSpellSlotIcon(slot, spell.id || spell.stats?.id);
+      slot.name.setText(`Lv${spell.level}`);
       slot.cd.setText(spell.cooldownLeft > 0 ? spell.cooldownLeft.toFixed(1) : 'OK');
+      slot.icon.setAlpha(spell.cooldownLeft > 0 ? 0.45 : 1);
       slot.bg.setStrokeStyle(2, spell.stats.color || 0x6b5cff);
     }
     const ult = me.ultimate;
     const ultSlot = this.spellSlots[4];
     if (!ult) {
-      ultSlot.name.setText('Ultimate\n(Lv4)');
+      ultSlot.name.setText('Ult');
       ultSlot.cd.setText('');
+      ultSlot.icon.setVisible(false);
       ultSlot.bg.setStrokeStyle(2, 0x443866);
     } else {
-      ultSlot.name.setText(ult.stats.name);
-      ultSlot.cd.setText(ult.usedThisRound ? 'usado' : ult.stats.passive ? 'passivo' : 'PRONTO');
+      this.setSpellSlotIcon(ultSlot, ult.id || ult.stats?.id);
+      ultSlot.name.setText(ult.stats.passive ? 'passivo' : 'ult');
+      ultSlot.cd.setText(ult.usedThisRound ? 'X' : 'OK');
+      ultSlot.icon.setAlpha(ult.usedThisRound ? 0.4 : 1);
       ultSlot.bg.setStrokeStyle(2, ult.stats.color || 0xffaa33);
     }
 
@@ -944,6 +951,19 @@ export class GameScene extends Phaser.Scene {
     if (!this.levelUpOpen) this.showLevelUp(me.spellChoices);
   }
 
+  spellIconKey(spellId) {
+    return spellId ? `spell_${spellId}` : null;
+  }
+
+  setSpellSlotIcon(slot, spellId) {
+    const key = this.spellIconKey(spellId);
+    if (key && this.textures.exists(key)) {
+      slot.icon.setTexture(key).setVisible(true);
+    } else {
+      slot.icon.setVisible(false);
+    }
+  }
+
   showLevelUp(choices) {
     this.levelUpOpen = true;
     this.levelUpLayer.removeAll(true);
@@ -966,25 +986,34 @@ export class GameScene extends Phaser.Scene {
       const x = width / 2 + (i - 1) * 260;
       const y = height / 2 + 20;
       const card = this.add.container(x, y);
-      const bg = this.add.rectangle(0, 0, 230, 280, 0x1a1430, 0.98).setStrokeStyle(2, choice.kind === 'upgrade' ? 0xf1c40f : 0x6b5cff);
+      const stroke = choice.kind === 'upgrade' ? 0xf1c40f : choice.def?.color || 0x6b5cff;
+      const bg = this.add.rectangle(0, 0, 230, 280, 0x1a1430, 0.98).setStrokeStyle(2, stroke);
       const badge = this.add
-        .text(0, -110, choice.label || (choice.kind === 'upgrade' ? 'UPGRADE' : 'NOVA'), {
+        .text(0, -118, choice.label || (choice.kind === 'upgrade' ? 'UPGRADE' : 'NOVA'), {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '12px',
           color: choice.kind === 'upgrade' ? '#f1c40f' : '#a99bc8',
         })
         .setOrigin(0.5);
+
+      const iconKey = this.spellIconKey(choice.spellId || choice.def?.id);
+      const iconBg = this.add.rectangle(0, -62, 72, 72, 0x0e0a1a, 0.95).setStrokeStyle(2, stroke);
+      const icon =
+        iconKey && this.textures.exists(iconKey)
+          ? this.add.image(0, -62, iconKey).setScale(2)
+          : this.add.circle(0, -62, 20, choice.def?.color || 0x6b5cff, 0.9);
+
       const name = this.add
-        .text(0, -70, choice.def?.name || choice.spellId, {
+        .text(0, -10, choice.def?.name || choice.spellId, {
           fontFamily: 'Georgia, serif',
-          fontSize: '22px',
+          fontSize: '20px',
           color: '#ffffff',
         })
         .setOrigin(0.5);
       const desc = this.add
-        .text(0, 10, choice.def?.description || '', {
+        .text(0, 42, choice.def?.description || '', {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '14px',
+          fontSize: '13px',
           color: '#c4b5e0',
           align: 'center',
           wordWrap: { width: 200 },
@@ -993,7 +1022,7 @@ export class GameScene extends Phaser.Scene {
       const meta = this.add
         .text(
           0,
-          100,
+          110,
           choice.kind === 'upgrade'
             ? `Lv ${choice.fromLevel} → ${choice.toLevel}`
             : choice.def?.type === 'ultimate'
@@ -1008,7 +1037,7 @@ export class GameScene extends Phaser.Scene {
         )
         .setOrigin(0.5);
 
-      card.add([bg, badge, name, desc, meta]);
+      card.add([bg, badge, iconBg, icon, name, desc, meta]);
       card.setSize(230, 280);
       card.setInteractive(new Phaser.Geom.Rectangle(-115, -140, 230, 280), Phaser.Geom.Rectangle.Contains);
       card.on('pointerover', () => bg.setScale(1.03));
