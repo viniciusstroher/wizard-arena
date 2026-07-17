@@ -84,6 +84,7 @@ export class LobbyScene extends Phaser.Scene {
     ring.lineStyle(1, 0xff6b4a, 0.15);
     ring.strokeCircle(width / 2, height / 2 + 40, 160);
 
+    this.createTopFlames(width, height);
     this.createMagicFlakes(width, height);
 
     const title = this.add
@@ -111,6 +112,164 @@ export class LobbyScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+  }
+
+  ensureFlameTextures() {
+    if (this.textures.exists('flame_tongue')) return;
+
+    const makeSoft = (key, w, h, rx, ry, cy) => {
+      const tex = this.textures.createCanvas(key, w, h);
+      const ctx = tex.getContext();
+      const g = ctx.createRadialGradient(w / 2, cy, 0, w / 2, cy, Math.max(rx, ry));
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.25, 'rgba(255,255,255,0.85)');
+      g.addColorStop(0.55, 'rgba(255,255,255,0.35)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      tex.refresh();
+    };
+
+    // Língua alongada (ponta para baixo no canvas; usada com rotação)
+    makeSoft('flame_tongue', 28, 48, 9, 20, 22);
+    makeSoft('flame_core', 18, 28, 5, 11, 12);
+    makeSoft('flame_ember', 10, 10, 4, 4, 5);
+  }
+
+  /** Cortina de chamas no topo: 100% da largura, até 5% da altura. */
+  createTopFlames(width, height) {
+    this.ensureFlameTextures();
+    const band = height * 0.05;
+    this.topFlameBand = band;
+    this.topFlameWidth = width;
+
+    const glow = this.add.graphics().setDepth(0.4);
+    glow.fillGradientStyle(0xff2200, 0xff2200, 0x1a0800, 0x1a0800, 0.7, 0.7, 0, 0);
+    glow.fillRect(0, 0, width, band * 0.55);
+    glow.fillGradientStyle(0xff6600, 0xff6600, 0x0b1020, 0x0b1020, 0.35, 0.35, 0, 0);
+    glow.fillRect(0, 0, width, band);
+
+    // Colunas de línguas desenhadas (flicker por frame)
+    this.topFlameGfx = this.add.graphics().setDepth(0.9).setBlendMode(Phaser.BlendModes.ADD);
+    const cols = Math.max(28, Math.ceil(width / 22));
+    this.topFlameTongues = [];
+    for (let i = 0; i < cols; i++) {
+      this.topFlameTongues.push({
+        x: ((i + 0.5) / cols) * width + Phaser.Math.FloatBetween(-8, 8),
+        phase: Math.random() * Math.PI * 2,
+        speed: 9 + Math.random() * 8,
+        baseW: 12 + Math.random() * 18,
+        baseH: band * (0.75 + Math.random() * 0.35),
+        lean: Phaser.Math.FloatBetween(-0.35, 0.35),
+      });
+    }
+
+    // Fumaça/brilho denso da base (topo da tela)
+    this.add
+      .particles(0, 0, 'flame_tongue', {
+        x: { min: 0, max: width },
+        y: { min: -6, max: band * 0.15 },
+        lifespan: { min: 320, max: 620 },
+        speedY: { min: band * 1.6, max: band * 3.2 },
+        speedX: { min: -50, max: 50 },
+        accelerationX: { min: -80, max: 80 },
+        scale: { start: { min: 0.9, max: 1.7 }, end: 0.15 },
+        alpha: { start: { min: 0.55, max: 0.9 }, end: 0 },
+        tint: [0xff1a00, 0xff3300, 0xff5500, 0xff7700],
+        rotate: { min: -25, max: 25 },
+        frequency: 18,
+        blendMode: 'ADD',
+        advance: 500,
+      })
+      .setDepth(1);
+
+    // Núcleo amarelo/branco das chamas
+    this.add
+      .particles(0, 0, 'flame_core', {
+        x: { min: 0, max: width },
+        y: { min: -2, max: band * 0.1 },
+        lifespan: { min: 180, max: 380 },
+        speedY: { min: band * 1.2, max: band * 2.4 },
+        speedX: { min: -30, max: 30 },
+        scale: { start: { min: 0.55, max: 1.15 }, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        tint: [0xffffff, 0xfff0a0, 0xffd84a, 0xffaa22],
+        rotate: { min: -20, max: 20 },
+        frequency: 26,
+        blendMode: 'ADD',
+        advance: 350,
+      })
+      .setDepth(1.2);
+
+    // Brasas e faíscas
+    this.add
+      .particles(0, 0, 'flame_ember', {
+        x: { min: 0, max: width },
+        y: { min: 0, max: band * 0.4 },
+        lifespan: { min: 450, max: 1100 },
+        speedY: { min: band * 0.4, max: band * 1.6 },
+        speedX: { min: -70, max: 70 },
+        gravityY: -40,
+        scale: { start: { min: 0.35, max: 0.9 }, end: 0 },
+        alpha: { start: 1, end: 0 },
+        tint: [0xff6600, 0xff9900, 0xffcc44, 0xffeebb, 0xffffff],
+        frequency: 36,
+        blendMode: 'ADD',
+        advance: 600,
+      })
+      .setDepth(1.4);
+  }
+
+  drawTopFlames() {
+    const g = this.topFlameGfx;
+    const tongues = this.topFlameTongues;
+    if (!g || !tongues) return;
+
+    g.clear();
+    const t = this.time.now * 0.001;
+    const band = this.topFlameBand;
+
+    // Base contínua de brasa no topo
+    g.fillStyle(0xff2200, 0.55);
+    g.fillRect(0, 0, this.topFlameWidth, band * 0.22);
+    g.fillStyle(0xff6600, 0.4);
+    g.fillRect(0, 0, this.topFlameWidth, band * 0.12);
+    g.fillStyle(0xffcc44, 0.35);
+    g.fillRect(0, 0, this.topFlameWidth, band * 0.05);
+
+    for (const f of tongues) {
+      const flicker = 0.62 + 0.38 * Math.sin(t * f.speed + f.phase);
+      const sway = Math.sin(t * (f.speed * 0.7) + f.phase * 1.7) * 10;
+      const tipSway = Math.sin(t * f.speed * 1.35 + f.phase) * 14;
+      const h = f.baseH * (0.7 + 0.45 * flicker);
+      const w = f.baseW * (0.75 + 0.4 * flicker);
+      const x0 = f.x + sway;
+      const y0 = 0;
+      const xTip = x0 + tipSway + f.lean * h;
+      const yTip = Math.min(band * 1.05, h);
+
+      // Envelope vermelho/laranja
+      g.fillStyle(0xff2200, 0.5 * flicker);
+      g.fillTriangle(x0 - w, y0, x0 + w, y0, xTip, yTip);
+      g.fillStyle(0xff6600, 0.55 * flicker);
+      g.fillTriangle(x0 - w * 0.65, y0, x0 + w * 0.65, y0, xTip, yTip * 0.92);
+
+      // Núcleo amarelo
+      g.fillStyle(0xffcc33, 0.65 * flicker);
+      g.fillTriangle(x0 - w * 0.35, y0, x0 + w * 0.35, y0, xTip * 0.15 + x0 * 0.85, yTip * 0.62);
+      g.fillStyle(0xfff6c8, 0.55 * flicker);
+      g.fillTriangle(x0 - w * 0.16, y0, x0 + w * 0.16, y0, x0 + tipSway * 0.25, yTip * 0.35);
+
+      // Ponta quente
+      g.fillStyle(0xffffff, 0.4 * flicker);
+      g.fillCircle(xTip, yTip, 1.5 + 2 * flicker);
+    }
+  }
+
+  update() {
+    this.drawTopFlames();
   }
 
   /** Flocos de luz/magia caindo do topo até ~10% da altura. */
@@ -204,7 +363,7 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     this.statusText = this.add
-      .text(panelX, panelY - 76, 'Digite seu nome e entre no lobby.', {
+      .text(panelX, panelY - 76, 'Digite seu nome e clique em Entrar.', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#c4b5e0',
