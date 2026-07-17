@@ -495,6 +495,7 @@ export class GameScene extends Phaser.Scene {
     this.scoreboardPanel.setPosition(panelX, panelY);
     this.scoreboardPanel.setSize(panelW, Math.max(72, panelH));
     this.scoreboardPanel.setStrokeStyle(2, 0x6b5cff);
+    this.layoutDisconnectButton();
   }
 
   createEventBoard() {
@@ -551,13 +552,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   createDisconnectUi() {
-    const { width } = this.scale;
     const btnW = 120;
     const btnH = 32;
-    const x = width - 20 - btnW / 2;
-    const y = 36;
+    this.disconnectBtnSize = { w: btnW, h: btnH };
 
-    this.disconnectBtn = this.add.container(x, y).setScrollFactor(0).setDepth(110);
+    this.disconnectBtn = this.add.container(0, 0).setScrollFactor(0).setDepth(110);
     const bg = this.add.rectangle(0, 0, btnW, btnH, 0xc0392b, 0.95).setStrokeStyle(1, 0xffffff, 0.2);
     const label = this.add
       .text(0, 0, 'Desconectar', {
@@ -572,7 +571,19 @@ export class GameScene extends Phaser.Scene {
     bg.on('pointerout', () => bg.setScale(1));
     bg.on('pointerup', () => this.openDisconnectConfirm());
 
+    this.layoutDisconnectButton();
     this.disconnectModal = this.add.container(0, 0).setDepth(400).setScrollFactor(0).setVisible(false);
+  }
+
+  layoutDisconnectButton() {
+    if (!this.disconnectBtn || !this.scoreboardPanel || !this.scoreboardLayout) return;
+    const { panelX, panelW } = this.scoreboardLayout;
+    const { w: btnW, h: btnH } = this.disconnectBtnSize;
+    const panelH = this.scoreboardPanel.height || 72;
+    const gap = 8;
+    const x = panelX + panelW - btnW / 2;
+    const y = this.scoreboardLayout.panelY + panelH + gap + btnH / 2;
+    this.disconnectBtn.setPosition(x, y);
   }
 
   openDisconnectConfirm() {
