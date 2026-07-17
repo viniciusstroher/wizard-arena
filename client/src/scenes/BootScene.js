@@ -63,6 +63,7 @@ export class BootScene extends Phaser.Scene {
 
     this.createWizardSprites();
     this.createMonsterSprites();
+    this.createProjectileSprites();
     this.createManaPotionSprite();
     this.createArenaDirtTexture();
     this.createLavaTextures();
@@ -71,6 +72,57 @@ export class BootScene extends Phaser.Scene {
     this.createBonesSprites();
     this.createSpellIcons();
     this.scene.start('Lobby');
+  }
+
+  createProjectileSprites() {
+    // Arrow pointing right (rotated toward velocity on render)
+    makePixelTexture(
+      this,
+      'proj_arrow',
+      [
+        '............',
+        '............',
+        '.........T..',
+        '........TT..',
+        '..WWWWWWTTT.',
+        '.WMMMMMMTTT.',
+        '..WWWWWWTTT.',
+        '........TT..',
+        '.........T..',
+        '............',
+        '............',
+        '............',
+      ],
+      {
+        W: 0xe8dcc0,
+        M: 0xb8956a,
+        T: 0x8a8a92,
+      },
+      2
+    );
+
+    // Fireball
+    makePixelTexture(
+      this,
+      'proj_fireball',
+      [
+        '........',
+        '..OYYO..',
+        '.OYYYYO.',
+        '.YYWYYY.',
+        '.OYYYYO.',
+        '..ORRO..',
+        '...RR...',
+        '........',
+      ],
+      {
+        Y: 0xffc857,
+        O: 0xff8c1a,
+        R: 0xe85d04,
+        W: 0xfff0c8,
+      },
+      2
+    );
   }
 
   createSpellIcons() {

@@ -1211,18 +1211,40 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  projectileTexture(kind) {
+    if (kind === 'arrow' && this.textures.exists('proj_arrow')) return 'proj_arrow';
+    if (kind === 'fireball' && this.textures.exists('proj_fireball')) return 'proj_fireball';
+    if (kind === 'firebolt' && this.textures.exists('proj_fireball')) return 'proj_fireball';
+    return 'orb';
+  }
+
   renderProjectiles() {
     const seen = new Set();
     for (const p of this.state.projectiles) {
       seen.add(p.entityId);
+      const kind = p.kind || 'orb';
+      const tex = this.projectileTexture(kind);
       let s = this.projectileSprites.get(p.entityId);
-      if (!s) {
-        s = this.add.sprite(p.x, p.y, 'orb').setDepth(25);
+      if (!s || s.texture.key !== tex) {
+        if (s) s.destroy();
+        s = this.add.sprite(p.x, p.y, tex).setDepth(25);
         this.projectileSprites.set(p.entityId, s);
       }
       s.setPosition(p.x, p.y);
-      s.setTint(p.color);
-      s.setScale((p.radius || 8) / 6);
+      if (tex === 'orb') {
+        s.setTint(p.color || 0xffffff);
+        s.setScale((p.radius || 8) / 6);
+        s.setRotation(0);
+      } else if (kind === 'arrow') {
+        s.clearTint();
+        s.setScale(0.85);
+        s.setRotation(Math.atan2(p.vy || 0, p.vx || 1));
+      } else {
+        // fireball / firebolt — keep warm tint subtle
+        s.setTint(p.color || 0xffffff);
+        s.setScale(Math.max(0.9, (p.radius || 7) / 6));
+        s.setRotation(Math.atan2(p.vy || 0, p.vx || 1) + Math.PI / 2);
+      }
     }
     for (const [id, s] of this.projectileSprites) {
       if (!seen.has(id)) {

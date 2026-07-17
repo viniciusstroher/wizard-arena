@@ -661,13 +661,56 @@ export class Match {
   spawnMonster() {
     if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
     const types = {
-      imp: { hpMul: 1, speedMul: 1.25, dmgMul: 1, radius: 14, color: 0xff4422 },
-      slime: { hpMul: 1.5, speedMul: 0.8, dmgMul: 1, radius: 16, color: 0x44ff66 },
-      wraith: { hpMul: 1.3, speedMul: 1.1, dmgMul: 1, radius: 14, color: 0x8866ff },
-      // Fast, fragile skirmisher
-      goblin: { hpMul: 0.7, speedMul: 1.45, dmgMul: 0.75, radius: 12, color: 0xa8c734 },
-      // Slow, tanky bruiser
-      orc: { hpMul: 2.2, speedMul: 0.65, dmgMul: 1.75, radius: 20, color: 0x3d8b4a },
+      // Ranged: fireballs
+      imp: {
+        hpMul: 1,
+        speedMul: 1.2,
+        dmgMul: 1,
+        radius: 14,
+        color: 0xff4422,
+        attack: 'ranged',
+        projectile: 'fireball',
+        range: 190,
+        preferRange: 130,
+        projectileSpeed: 220,
+        projectileRadius: 7,
+        projectileColor: 0xff6622,
+        attackCooldown: 1.45,
+      },
+      slime: { hpMul: 1.5, speedMul: 0.8, dmgMul: 1, radius: 16, color: 0x44ff66, attack: 'melee' },
+      wraith: { hpMul: 1.3, speedMul: 1.1, dmgMul: 1, radius: 14, color: 0x8866ff, attack: 'melee' },
+      // Fast skirmisher — arrows
+      goblin: {
+        hpMul: 0.7,
+        speedMul: 1.35,
+        dmgMul: 0.85,
+        radius: 12,
+        color: 0xa8c734,
+        attack: 'ranged',
+        projectile: 'arrow',
+        range: 210,
+        preferRange: 140,
+        projectileSpeed: 340,
+        projectileRadius: 4,
+        projectileColor: 0xd4c4a0,
+        attackCooldown: 1.15,
+      },
+      // Slow bruiser — heavier arrows
+      orc: {
+        hpMul: 2.2,
+        speedMul: 0.65,
+        dmgMul: 1.6,
+        radius: 20,
+        color: 0x3d8b4a,
+        attack: 'ranged',
+        projectile: 'arrow',
+        range: 175,
+        preferRange: 110,
+        projectileSpeed: 260,
+        projectileRadius: 5,
+        projectileColor: 0xb8956a,
+        attackCooldown: 1.7,
+      },
     };
     const ids = Object.keys(types);
     const type = ids[Math.floor(Math.random() * ids.length)];
@@ -696,9 +739,40 @@ export class Match {
       speed: CONFIG.MONSTER_SPEED * def.speedMul,
       damage: Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul),
       attackCd: 0,
+      attack: def.attack || 'melee',
+      projectile: def.projectile || null,
+      range: def.range || CONFIG.MONSTER_ATTACK_RANGE,
+      preferRange: def.preferRange || 0,
+      projectileSpeed: def.projectileSpeed || 0,
+      projectileRadius: def.projectileRadius || 6,
+      projectileColor: def.projectileColor || def.color,
+      attackCooldown: def.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN,
       radius: def.radius,
       color: def.color,
     });
+  }
+
+  monsterShoot(monster, target) {
+    const dx = target.x - monster.x;
+    const dy = target.y - monster.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const speed = monster.projectileSpeed || 240;
+    this.projectiles.push({
+      entityId: eid(),
+      ownerId: monster.entityId,
+      team: 'monster',
+      kind: monster.projectile || 'orb',
+      spellId: monster.projectile,
+      x: monster.x,
+      y: monster.y,
+      vx: (dx / len) * speed,
+      vy: (dy / len) * speed,
+      damage: monster.damage,
+      radius: monster.projectileRadius || 6,
+      life: (monster.range || 180) / speed,
+      color: monster.projectileColor || monster.color,
+    });
+    monster.attackCd = monster.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
   }
 
   castSpell(player, slot) {
@@ -747,6 +821,8 @@ export class Match {
         this.projectiles.push({
           entityId: eid(),
           ownerId: player.id,
+          team: 'player',
+          kind: spellInst.id === 'firebolt' ? 'fireball' : 'orb',
           spellId: spellInst.id,
           x: player.x,
           y: player.y,
@@ -1132,21 +1208,38 @@ export class Match {
         }
       }
 
-      const attackRange =
+      const meleeRange =
         CONFIG.MONSTER_ATTACK_RANGE +
         Math.max(0, (m.radius || CONFIG.MONSTER_RADIUS) - CONFIG.MONSTER_RADIUS);
 
       let targetVx = 0;
       let targetVy = 0;
-      if (nearest && nearestD > attackRange) {
+      if (nearest) {
         const dx = nearest.x - m.x;
         const dy = nearest.y - m.y;
         const len = Math.hypot(dx, dy) || 1;
-        targetVx = (dx / len) * m.speed;
-        targetVy = (dy / len) * m.speed;
-      } else if (nearest && m.attackCd <= 0) {
-        this.damageEntity(nearest, m.damage, null, true, true);
-        m.attackCd = CONFIG.MONSTER_ATTACK_COOLDOWN;
+
+        if (m.attack === 'ranged') {
+          const shootRange = m.range || 180;
+          const prefer = m.preferRange || shootRange * 0.7;
+          if (nearestD > shootRange) {
+            targetVx = (dx / len) * m.speed;
+            targetVy = (dy / len) * m.speed;
+          } else if (nearestD < prefer * 0.65) {
+            // Recua um pouco para manter distância de tiro
+            targetVx = (-dx / len) * m.speed * 0.7;
+            targetVy = (-dy / len) * m.speed * 0.7;
+          }
+          if (nearestD <= shootRange && m.attackCd <= 0) {
+            this.monsterShoot(m, nearest);
+          }
+        } else if (nearestD > meleeRange) {
+          targetVx = (dx / len) * m.speed;
+          targetVy = (dy / len) * m.speed;
+        } else if (m.attackCd <= 0) {
+          this.damageEntity(nearest, m.damage, null, true, true);
+          m.attackCd = m.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
+        }
       }
 
       applyInertia(m, targetVx, targetVy, CONFIG.MONSTER_INERTIA, dt);
@@ -1162,10 +1255,14 @@ export class Match {
       proj.y += proj.vy * dt;
       proj.life -= dt;
       let hit = false;
+      const fromMonster = proj.team === 'monster';
       for (const p of this.players.values()) {
-        if (!p.alive || p.id === proj.ownerId) continue;
+        if (!p.alive) continue;
+        if (!fromMonster && p.id === proj.ownerId) continue;
         if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
-          this.damageEntity(p, proj.damage, proj.ownerId, true, true);
+          // Dano de monstro não conta como kill de jogador
+          const sourceId = fromMonster ? null : proj.ownerId;
+          this.damageEntity(p, proj.damage, sourceId, true, true);
           if (proj.slow) {
             p.slow = Math.max(p.slow, proj.slow);
             p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
@@ -1174,7 +1271,7 @@ export class Match {
           break;
         }
       }
-      if (!hit) {
+      if (!hit && !fromMonster) {
         for (const m of this.monsters) {
           if (!m.alive) continue;
           if (dist(proj, m) <= proj.radius + m.radius) {
@@ -1322,8 +1419,12 @@ export class Match {
         entityId: p.entityId,
         x: p.x,
         y: p.y,
+        vx: +p.vx.toFixed(1),
+        vy: +p.vy.toFixed(1),
         color: p.color,
         radius: p.radius,
+        kind: p.kind || p.spellId || 'orb',
+        team: p.team || 'player',
       })),
       aoes: this.aoes.map((a) => ({
         entityId: a.entityId,
