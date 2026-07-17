@@ -2092,12 +2092,27 @@ export class GameScene extends Phaser.Scene {
         if (!this.textures.exists(key)) continue;
         const baseScale = tree.type === 'oak' ? 1.15 : tree.type === 'pine' ? 1.05 : 0.95;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
-        s = this.add
-          .image(tree.x, tree.y, key)
-          .setDepth(6)
+        const scale = baseScale * scaleJitter * 1.35;
+        const flip = (h & 1) === 1;
+
+        // Contorno/sombra no chão + silhueta escura atrás (contraste na grama)
+        const padW = (tree.radius || 14) * 2.6;
+        const padH = (tree.radius || 14) * 1.25;
+        const pad = this.add.ellipse(0, 2, padW, padH, 0x101808, 0.55);
+        const outline = this.add
+          .image(0, 0, key)
           .setOrigin(0.5, 0.9)
-          .setScale(baseScale * scaleJitter)
-          .setFlipX((h & 1) === 1);
+          .setScale(scale * 1.12)
+          .setTint(0x0a1208)
+          .setAlpha(0.95)
+          .setFlipX(flip);
+        const img = this.add
+          .image(0, 0, key)
+          .setOrigin(0.5, 0.9)
+          .setScale(scale)
+          .setFlipX(flip);
+
+        s = this.add.container(tree.x, tree.y, [pad, outline, img]).setDepth(6);
         this.treeSprites.set(tree.id, s);
       } else {
         s.setPosition(tree.x, tree.y);
