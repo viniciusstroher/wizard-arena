@@ -618,10 +618,13 @@ export class GameScene extends Phaser.Scene {
       seen.add(rock.id);
       let s = this.rockSprites.get(rock.id);
       if (!s) {
+        const key = tex[rock.type] || 'rock_rock';
+        if (!this.textures.exists(key)) continue;
         s = this.add
-          .image(rock.x, rock.y, tex[rock.type] || 'rock_rock')
-          .setDepth(3)
-          .setOrigin(0.5, 0.65);
+          .image(rock.x, rock.y, key)
+          .setDepth(5)
+          .setOrigin(0.5, 0.65)
+          .setScale(rock.type === 'boulder' ? 1.15 : rock.type === 'rock' ? 1.05 : 1);
         this.rockSprites.set(rock.id, s);
       } else {
         s.setPosition(rock.x, rock.y);
