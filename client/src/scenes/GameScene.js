@@ -319,9 +319,14 @@ export class GameScene extends Phaser.Scene {
           color: '#ffcc66',
         })
         .setOrigin(1, 0);
-      slot.add([bg, icon, key, name, cd]);
+      const lock =
+        i === 5 || i === 6
+          ? this.add.image(0, -2, 'icon_lock').setScale(1.15).setVisible(false).setDepth(1)
+          : null;
+      slot.add(lock ? [bg, icon, lock, key, name, cd] : [bg, icon, key, name, cd]);
       slot.bg = bg;
       slot.icon = icon;
+      slot.lock = lock;
       slot.name = name;
       slot.cd = cd;
       slot.slotIndex = i;
@@ -3361,10 +3366,12 @@ export class GameScene extends Phaser.Scene {
     if (!barrierUnlocked) {
       barrierSlot.name.setText('lv2');
       barrierSlot.cd.setText('');
-      barrierSlot.icon.setAlpha(0.35);
+      barrierSlot.icon.setAlpha(0.3);
+      barrierSlot.lock?.setVisible(true).setAlpha(1);
       barrierSlot.bg.setStrokeStyle(2, 0x443866);
       barrierSlot.bg.setFillStyle(0x12101c, 0.95);
     } else {
+      barrierSlot.lock?.setVisible(false);
       barrierSlot.name.setText(shielded ? 'escudo!' : 'escudo');
       barrierSlot.cd.setText(barrierCd > 0 ? barrierCd.toFixed(1) : '');
       barrierSlot.icon.setAlpha(barrierCd > 0 && !shielded ? 0.45 : 1);
@@ -3380,10 +3387,12 @@ export class GameScene extends Phaser.Scene {
     if (!mendUnlocked) {
       mendSlot.name.setText('lv3');
       mendSlot.cd.setText('');
-      mendSlot.icon.setAlpha(0.35);
+      mendSlot.icon.setAlpha(0.3);
+      mendSlot.lock?.setVisible(true).setAlpha(1);
       mendSlot.bg.setStrokeStyle(2, 0x443866);
       mendSlot.bg.setFillStyle(0x12101c, 0.95);
     } else {
+      mendSlot.lock?.setVisible(false);
       mendSlot.name.setText('heal');
       mendSlot.cd.setText(mendCd > 0 ? mendCd.toFixed(1) : '');
       mendSlot.icon.setAlpha(mendCd > 0 ? 0.45 : 1);

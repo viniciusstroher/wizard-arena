@@ -567,6 +567,32 @@ export class BootScene extends Phaser.Scene {
       const clean = rows.map((r) => r.replace(/ /g, '.'));
       makePixelTexture(this, `spell_${id}`, clean, palette, 2);
     }
+
+    // Cadeado para slots de habilidade bloqueados por nível
+    makePixelTexture(
+      this,
+      'icon_lock',
+      [
+        '................',
+        '................',
+        '.....LLLL.......',
+        '....L....L......',
+        '....L....L......',
+        '....L....L......',
+        '...BBBBBBBB.....',
+        '...BWWWWWWB.....',
+        '...BWWKKWWB.....',
+        '...BWWKKWWB.....',
+        '...BWWWWWWB.....',
+        '...BWWWWWWB.....',
+        '...BBBBBBBB.....',
+        '................',
+        '................',
+        '................',
+      ],
+      { L: 0xc9b896, B: 0xd4a017, W: 0xf1c40f, K: 0x5d4e37 },
+      2
+    );
   }
 
   createRockSprites() {
