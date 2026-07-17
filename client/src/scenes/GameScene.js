@@ -2878,6 +2878,8 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.levelUpOpen || this.levelUpWaitOpen || key !== this.levelUpChoiceKey) {
       this.showLevelUp(choices, key);
+    } else {
+      this.updateLevelUpSlotHint();
     }
   }
 
@@ -2901,8 +2903,12 @@ export class GameScene extends Phaser.Scene {
   updateLevelUpSlotHint() {
     if (!this.levelUpHint || this.levelUpSubmitting) return;
     const slot = this.selectedSpellSlot + 1;
+    const me = this.me();
+    const timeLeft = me?.choiceTimeLeft;
+    const timer =
+      timeLeft != null ? `  ·  auto em ${Math.ceil(timeLeft)}s` : '';
     this.levelUpHint.setText(
-      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${slot} → ${(slot % 4) + 1}`
+      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${slot} → ${(slot % 4) + 1}${timer}`
     );
   }
 
@@ -2974,17 +2980,24 @@ export class GameScene extends Phaser.Scene {
     this.choiceCards = [];
   }
 
+  levelUpWaitMessage(choosers) {
+    const names = choosers.map((p) => p.name).join(', ');
+    const maxLeft = Math.max(
+      0,
+      ...choosers.map((p) => (p.choiceTimeLeft != null ? p.choiceTimeLeft : 0))
+    );
+    const hasTimer = choosers.some((p) => p.choiceTimeLeft != null);
+    const timerLine = hasTimer ? `\nAuto em ${Math.ceil(maxLeft)}s` : '';
+    if (!names) return `Jogador escolhendo magia, aguarde!${timerLine}`;
+    return `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} escolhendo magia, aguarde!\n${names}${timerLine}`;
+  }
+
   showLevelUpWait() {
     const choosers = this.playersChoosingSpells();
     const waitKey = choosers.map((p) => p.id).sort().join(',') || 'none';
     if (this.levelUpWaitOpen && this.levelUpChoiceKey === `wait:${waitKey}`) {
       if (this.levelUpWaitText) {
-        const names = choosers.map((p) => p.name).join(', ');
-        this.levelUpWaitText.setText(
-          names
-            ? `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} escolhendo magia, aguarde!\n${names}`
-            : 'Jogador escolhendo magia, aguarde!'
-        );
+        this.levelUpWaitText.setText(this.levelUpWaitMessage(choosers));
       }
       return;
     }
@@ -3002,7 +3015,6 @@ export class GameScene extends Phaser.Scene {
       .rectangle(width / 2, height / 2, width, height, 0x000000, 1)
       .setInteractive();
 
-    const names = choosers.map((p) => p.name).join(', ');
     const title = this.add
       .text(width / 2, height / 2 - 24, 'PAUSA', {
         fontFamily: 'Georgia, serif',
@@ -3012,20 +3024,13 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.levelUpWaitText = this.add
-      .text(
-        width / 2,
-        height / 2 + 28,
-        names
-          ? `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} escolhendo magia, aguarde!\n${names}`
-          : 'Jogador escolhendo magia, aguarde!',
-        {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '20px',
-          color: '#e8dfff',
-          align: 'center',
-          lineSpacing: 10,
-        }
-      )
+      .text(width / 2, height / 2 + 28, this.levelUpWaitMessage(choosers), {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '20px',
+        color: '#e8dfff',
+        align: 'center',
+        lineSpacing: 10,
+      })
       .setOrigin(0.5);
 
     this.levelUpLayer.add([this.levelUpDim, title, this.levelUpWaitText]);

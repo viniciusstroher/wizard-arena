@@ -90,6 +90,11 @@ export const CONFIG = {
   XP_PLAYER_KILL: 100,
   XP_ROUND_SURVIVE: 40,
   XP_PER_SECOND: envNumber('XP_PER_SECOND', 5),
+  /**
+   * Tempo máximo (segundos) na tela de escolha de magia.
+   * Ao expirar, escolhe automaticamente. 0 = sem limite.
+   */
+  LEVELUP_CHOICE_TIMEOUT: envNumber('LEVELUP_CHOICE_TIMEOUT', 10),
   /** XP passivo por segundo para cada monstro vivo. */
   MONSTER_XP_PER_SECOND: envNumber('MONSTER_XP_PER_SECOND', 3),
   /** XP que o monstro ganha ao eliminar um jogador. */

@@ -211,6 +211,7 @@ export class Match {
       pendingLevelUps: 0,
       spellChoices: null,
       choiceSetId: null,
+      choiceDeadlineAt: null,
       input: {
         up: false,
         down: false,
@@ -605,6 +606,10 @@ export class Match {
   assignSpellChoices(player) {
     player.spellChoices = rollSpellChoices(player, player.level);
     player.choiceSetId = eid();
+    player.choiceDeadlineAt =
+      CONFIG.LEVELUP_CHOICE_TIMEOUT > 0
+        ? this.matchTime + CONFIG.LEVELUP_CHOICE_TIMEOUT
+        : null;
   }
 
   /**
@@ -639,6 +644,7 @@ export class Match {
     const lockedChoice = choice;
     p.spellChoices = null;
     p.choiceSetId = null;
+    p.choiceDeadlineAt = null;
 
     if (!applySpellChoice(p, lockedChoice)) {
       // Falha rara — devolve o pacote para o jogador não ficar preso.
@@ -653,6 +659,24 @@ export class Match {
     }
     this.maybeResumeFromLevelUp();
     this.broadcastState(true);
+  }
+
+  /** Escolhe automaticamente se o tempo da tela de magia expirou. */
+  resolveLevelUpTimeouts() {
+    if (CONFIG.LEVELUP_CHOICE_TIMEOUT <= 0 || this.phase !== 'levelup') return;
+    for (const p of [...this.players.values()]) {
+      if (!p.alive || p.pendingLevelUps <= 0 || !p.spellChoices?.length) continue;
+      if (p.choiceDeadlineAt == null || this.matchTime < p.choiceDeadlineAt) continue;
+      const index = Math.floor(Math.random() * p.spellChoices.length);
+      const choice = p.spellChoices[index];
+      this.chooseSpell(p.id, {
+        index,
+        spellId: choice.spellId,
+        kind: choice.kind,
+        fromLevel: choice.fromLevel,
+        choiceSetId: p.choiceSetId,
+      });
+    }
   }
 
   maybeResumeFromLevelUp() {
@@ -1641,13 +1665,14 @@ export class Match {
     if (this.phase === 'ended') return;
 
     if (this.phase === 'levelup') {
-      // Pausa leve: ainda atualiza cooldowns visuais, sem combate
+      // Pausa: combate travado até todos escolherem ou o timeout expirar
       this.matchTime += dt;
       for (const p of this.players.values()) {
         for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
         if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);
       }
-      this.broadcastState();
+      this.resolveLevelUpTimeouts();
+      if (this.phase === 'levelup') this.broadcastState();
       return;
     }
 
@@ -2092,6 +2117,10 @@ export class Match {
       pendingLevelUps: p.pendingLevelUps,
       spellChoices: p.spellChoices,
       choiceSetId: p.choiceSetId,
+      choiceTimeLeft:
+        p.choiceDeadlineAt != null && CONFIG.LEVELUP_CHOICE_TIMEOUT > 0
+          ? +Math.max(0, p.choiceDeadlineAt - this.matchTime).toFixed(1)
+          : null,
       spells: p.spells.map((s) => ({
         id: s.id,
         level: s.level,
