@@ -633,9 +633,15 @@ export class GameScene extends Phaser.Scene {
     this.sound.play('player_death', { volume: 0.85 });
   }
 
+  playRoundEndSound() {
+    if (!this.cache.audio.exists('round_end')) return;
+    this.sound.play('round_end', { volume: 0.9 });
+  }
+
   onState(state) {
     const prevPhase = this.state?.phase;
     this.state = state;
+    let roundEnded = false;
     for (const ev of state.events || []) {
       const msg = this.formatGameEvent(ev);
       if (msg) this.pushBoardEvent(msg);
@@ -659,6 +665,18 @@ export class GameScene extends Phaser.Scene {
       if (ev.type === 'player_death' && ev.playerId === this.playerId) {
         this.playDeathSound();
       }
+      if (ev.type === 'round_win') {
+        roundEnded = true;
+      }
+    }
+    if (
+      state.phase === 'intermission' &&
+      (prevPhase === 'playing' || prevPhase === 'levelup')
+    ) {
+      roundEnded = true;
+    }
+    if (roundEnded) {
+      this.playRoundEndSound();
     }
     if (
       state.phase === 'countdown' &&

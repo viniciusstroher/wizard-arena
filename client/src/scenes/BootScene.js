@@ -26,6 +26,7 @@ export class BootScene extends Phaser.Scene {
   preload() {
     this.load.image('lava_tile', '/assets/lava.png');
     this.load.audio('player_death', '/assets/death-bong.mp3');
+    this.load.audio('round_end', '/assets/fogos-caruaru-foguete-12x1-8.mp3');
   }
 
   create() {
