@@ -2963,6 +2963,7 @@ export class Match {
       id: p.id,
       entityId: p.entityId,
       name: p.name,
+      isBot: !!p.isBot,
       x: p.x,
       y: p.y,
       vx: +p.vx.toFixed(1),

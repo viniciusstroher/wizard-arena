@@ -31,6 +31,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpCountdown = null;
     this.levelUpDim = null;
     this.levelUpWaitText = null;
+    this.levelUpWaitTitle = null;
     this.eventLog = [];
     this.eventScroll = 0;
     this.disconnectConfirmOpen = false;
@@ -4014,7 +4015,6 @@ export class GameScene extends Phaser.Scene {
     if (!needs) {
       this.levelUpSubmitting = false;
       this.levelUpSubmittedKey = null;
-      this.levelUpChoiceKey = null;
       this.levelUpChoices = [];
       this.showLevelUpWait();
       return;
@@ -4206,29 +4206,48 @@ export class GameScene extends Phaser.Scene {
     this.levelUpHint = null;
     this.levelUpCountdown = null;
     this.levelUpWaitText = null;
+    this.levelUpWaitTitle = null;
     this.choiceCards = [];
   }
 
   levelUpWaitMessage(choosers) {
-    const names = choosers
-      .map((p) => {
-        const pts = p.pendingLevelUps || 0;
-        return pts > 1 ? `${p.name} (${pts} pts)` : p.name;
-      })
-      .join(', ');
-    if (!names) return 'Jogador distribuindo pontos de habilidade, aguarde!';
-    return `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} distribuindo pontos de habilidade, aguarde!\n${names}`;
+    if (!choosers.length) {
+      return 'Aguardando confirmação…';
+    }
+    const lines = choosers.map((p) => {
+      const tag = p.isBot ? ' (bot)' : '';
+      const pts = p.pendingLevelUps || 0;
+      const ptsLabel = pts > 1 ? ` — ${pts} pontos` : '';
+      return `• ${p.name}${tag}${ptsLabel}`;
+    });
+    const header =
+      choosers.length === 1 ? 'Ainda falta escolher:' : 'Ainda faltam escolher:';
+    return `${header}\n${lines.join('\n')}`;
+  }
+
+  refreshLevelUpWaitContent(choosers) {
+    if (this.levelUpWaitTitle) {
+      this.levelUpWaitTitle.setText(
+        choosers.length === 1
+          ? 'Aguardando escolha de habilidade'
+          : 'Aguardando escolhas de habilidade'
+      );
+    }
+    if (this.levelUpWaitText) {
+      this.levelUpWaitText.setText(this.levelUpWaitMessage(choosers));
+    }
+    this.updateLevelUpCountdown();
   }
 
   showLevelUpWait() {
     const choosers = this.playersChoosingSpells();
     const waitKey =
       choosers.map((p) => `${p.id}:${p.pendingLevelUps || 0}`).sort().join(',') || 'none';
-    if (this.levelUpWaitOpen && this.levelUpChoiceKey === `wait:${waitKey}`) {
-      if (this.levelUpWaitText) {
-        this.levelUpWaitText.setText(this.levelUpWaitMessage(choosers));
-      }
-      this.updateLevelUpCountdown();
+
+    // Já aberto: só atualiza o aviso (evita recriar e matar o fade todo frame)
+    if (this.levelUpWaitOpen && !this.levelUpOpen) {
+      this.levelUpChoiceKey = `wait:${waitKey}`;
+      this.refreshLevelUpWaitContent(choosers);
       return;
     }
 
@@ -4245,42 +4264,49 @@ export class GameScene extends Phaser.Scene {
       .rectangle(width / 2, height / 2, width, height, 0x000000, 1)
       .setInteractive();
 
-    const title = this.add
-      .text(width / 2, height / 2 - 48, 'PAUSA', {
+    this.levelUpWaitTitle = this.add
+      .text(width / 2, height / 2 - 56, 'Aguardando escolha de habilidade', {
         fontFamily: 'Georgia, serif',
-        fontSize: '34px',
+        fontSize: '28px',
         color: '#f4e8ff',
+        stroke: '#1a1030',
+        strokeThickness: 5,
+        align: 'center',
       })
       .setOrigin(0.5);
 
     this.levelUpCountdown = this.add
-      .text(width / 2, height / 2 - 8, '', {
+      .text(width / 2, height / 2 - 14, '', {
         fontFamily: 'Georgia, serif',
-        fontSize: '28px',
+        fontSize: '20px',
         color: '#ffd166',
+        stroke: '#1a1030',
+        strokeThickness: 4,
       })
       .setOrigin(0.5);
 
     this.levelUpWaitText = this.add
-      .text(width / 2, height / 2 + 40, this.levelUpWaitMessage(choosers), {
+      .text(width / 2, height / 2 + 36, this.levelUpWaitMessage(choosers), {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '20px',
+        fontSize: '22px',
         color: '#e8dfff',
+        stroke: '#1a1030',
+        strokeThickness: 4,
         align: 'center',
-        lineSpacing: 10,
+        lineSpacing: 8,
       })
       .setOrigin(0.5);
 
-    this.updateLevelUpCountdown();
+    this.refreshLevelUpWaitContent(choosers);
     this.levelUpLayer.add([
       this.levelUpDim,
-      title,
+      this.levelUpWaitTitle,
       this.levelUpCountdown,
       this.levelUpWaitText,
     ]);
     this.fadeInLevelUpOverlay(
-      [title, this.levelUpCountdown, this.levelUpWaitText],
-      0.72
+      [this.levelUpWaitTitle, this.levelUpCountdown, this.levelUpWaitText],
+      0.55
     );
   }
 
@@ -4423,6 +4449,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpHint = null;
     this.levelUpCountdown = null;
     this.levelUpWaitText = null;
+    this.levelUpWaitTitle = null;
     this.choiceCards = [];
     this.levelUpDim = null;
 
