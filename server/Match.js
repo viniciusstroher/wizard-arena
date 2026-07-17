@@ -186,6 +186,7 @@ export class Match {
       stunTimer: 0,
       phoenixReady: false,
       kills: 0,
+      deaths: 0,
       monsterKills: 0,
       wizardType: wizard.type,
       color: wizard.color,
@@ -386,7 +387,6 @@ export class Match {
   grantXp(player, amount, reason) {
     if (!player.alive && reason !== 'round') return;
     player.xp += amount;
-    player.score += amount;
     let leveled = false;
     // xp é progresso no nível atual; xpToNext é o custo do próximo nível
     while (player.xp >= player.xpToNext) {
@@ -458,9 +458,11 @@ export class Match {
         return false;
       }
 
+      target.deaths += 1;
       const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
       if (killer && killer.id !== target.id) {
         killer.kills += 1;
+        killer.score += 1;
         this.grantXp(killer, CONFIG.XP_PLAYER_KILL, 'player_kill');
         this.pushEvent({ type: 'player_kill', killerId: killer.id, victimId: target.id });
       } else {
@@ -492,7 +494,7 @@ export class Match {
   finishRound(winner) {
     this.winnerId = winner?.id || null;
     if (winner) {
-      winner.score += 25;
+      winner.score += 1;
       this.grantXp(winner, CONFIG.XP_ROUND_SURVIVE, 'round');
       this.pushEvent({ type: 'round_win', playerId: winner.id, round: this.round });
     }
@@ -514,11 +516,11 @@ export class Match {
     this.broadcastState(true);
   }
 
-  /** Jogador com maior score (desempate: kills, depois nível). */
+  /** Jogador com maior placar (desempate: kills, menos deaths, depois nível). */
   leadingPlayer() {
     return (
       [...this.players.values()].sort(
-        (a, b) => b.score - a.score || b.kills - a.kills || b.level - a.level
+        (a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths || b.level - a.level
       )[0] || null
     );
   }
@@ -529,16 +531,19 @@ export class Match {
     this.pushEvent({
       type: 'match_end',
       winnerId: this.winnerId,
-      scores: [...this.players.values()].map((p) => ({
-        id: p.id,
-        name: p.name,
-        score: p.score,
-        kills: p.kills,
-        level: p.level,
-      })),
+      scores: [...this.players.values()]
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          score: p.score,
+          kills: p.kills,
+          deaths: p.deaths,
+          level: p.level,
+        }))
+        .sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths || b.level - a.level),
     });
     this.broadcastState(true);
-    setTimeout(() => this.destroy(), 8000);
+    setTimeout(() => this.destroy(), 60000);
   }
 
   wipeAll() {
@@ -546,6 +551,7 @@ export class Match {
       if (p.alive) {
         p.alive = false;
         p.hp = 0;
+        p.deaths += 1;
         this.pushEvent({ type: 'player_death', playerId: p.id, reason: 'time' });
       }
     }
@@ -1108,6 +1114,7 @@ export class Match {
       slow: p.slow,
       stun: p.stunTimer > 0,
       kills: p.kills,
+      deaths: p.deaths,
       score: p.score,
       pendingLevelUps: p.pendingLevelUps,
       spellChoices: p.spellChoices,

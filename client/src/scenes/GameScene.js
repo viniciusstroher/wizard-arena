@@ -23,6 +23,7 @@ export class GameScene extends Phaser.Scene {
     this.eventScroll = 0;
     this.disconnectConfirmOpen = false;
     this.leaving = false;
+    this.matchEndOpen = false;
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
   }
@@ -48,6 +49,7 @@ export class GameScene extends Phaser.Scene {
     this.createHud();
     this.createEventBoard();
     this.createDisconnectUi();
+    this.createMatchEndUi();
     this.cursors = this.input.keyboard.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
       down: Phaser.Input.Keyboard.KeyCodes.S,
@@ -109,6 +111,14 @@ export class GameScene extends Phaser.Scene {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#f1c40f',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
+    this.scoreText = this.add
+      .text(250, 54, '0/0', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#7dcea0',
       })
       .setScrollFactor(0)
       .setDepth(102);
@@ -282,7 +292,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   openDisconnectConfirm() {
-    if (this.disconnectConfirmOpen || this.leaving) return;
+    if (this.disconnectConfirmOpen || this.leaving || this.matchEndOpen) return;
     this.disconnectConfirmOpen = true;
 
     const { width, height } = this.scale;
@@ -348,6 +358,90 @@ export class GameScene extends Phaser.Scene {
     this.pushBoardEvent('Você desconectou da partida');
     this.socket.emit('leave_lobby');
     this.time.delayedCall(450, () => {
+      this.scene.start('Lobby');
+    });
+  }
+
+  createMatchEndUi() {
+    this.matchEndModal = this.add.container(0, 0).setDepth(450).setScrollFactor(0).setVisible(false);
+  }
+
+  showMatchEndOverlay(state) {
+    if (this.matchEndOpen || this.leaving) return;
+    this.matchEndOpen = true;
+    this.closeDisconnectConfirm();
+
+    const { width, height } = this.scale;
+    this.matchEndModal.removeAll(true);
+    this.matchEndModal.setVisible(true);
+
+    const ranking = [...(state.players || [])].sort(
+      (a, b) =>
+        (b.score || 0) - (a.score || 0) ||
+        (b.kills || 0) - (a.kills || 0) ||
+        (a.deaths || 0) - (b.deaths || 0) ||
+        (b.level || 0) - (a.level || 0)
+    );
+    const winner = ranking.find((p) => p.id === state.winnerId) || ranking[0] || null;
+    const rows = ranking
+      .map((p, i) => {
+        const mark = p.id === winner?.id ? '★' : `${i + 1}.`;
+        return `${mark} ${p.name}  ${p.kills || 0}K / ${p.deaths || 0}M  ·  ${p.score || 0} pts`;
+      })
+      .join('\n');
+
+    const panelH = Math.min(420, 210 + ranking.length * 22);
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
+    const panel = this.add
+      .rectangle(width / 2, height / 2, 460, panelH, 0x161228, 0.98)
+      .setStrokeStyle(2, 0xf1c40f);
+    const title = this.add
+      .text(width / 2, height / 2 - panelH / 2 + 36, winner ? `${winner.name} venceu!` : 'Partida encerrada', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '28px',
+        color: '#f1c40f',
+      })
+      .setOrigin(0.5);
+    const subtitle = this.add
+      .text(width / 2, height / 2 - panelH / 2 + 68, 'Placar final', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#a99bc8',
+      })
+      .setOrigin(0.5);
+    const board = this.add
+      .text(width / 2, height / 2 - 10, rows || 'Sem jogadores', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#e8dfff',
+        align: 'center',
+        lineSpacing: 6,
+      })
+      .setOrigin(0.5);
+
+    const btnY = height / 2 + panelH / 2 - 42;
+    const lobbyBg = this.add.rectangle(width / 2, btnY, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
+    const lobbyLabel = this.add
+      .text(width / 2, btnY, 'Ir ao Lobby', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '16px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    lobbyBg.setInteractive({ useHandCursor: true });
+    lobbyBg.on('pointerover', () => lobbyBg.setScale(1.04));
+    lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
+    lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
+
+    this.matchEndModal.add([dim, panel, title, subtitle, board, lobbyBg, lobbyLabel]);
+    this.bannerText.setAlpha(0);
+  }
+
+  goToLobbyFromMatchEnd() {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.socket.emit('leave_lobby');
+    this.time.delayedCall(300, () => {
       this.scene.start('Lobby');
     });
   }
@@ -443,12 +537,7 @@ export class GameScene extends Phaser.Scene {
       if (msg) this.pushBoardEvent(msg);
     }
     if (state.phase === 'ended') {
-      const winner = state.players.find((p) => p.id === state.winnerId);
-      this.bannerText.setText(winner ? `${winner.name} venceu!` : 'Tempo esgotado — todos morreram');
-      this.bannerText.setAlpha(1);
-      this.time.delayedCall(5000, () => {
-        this.scene.start('Lobby');
-      });
+      this.showMatchEndOverlay(state);
     }
   }
 
@@ -461,7 +550,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.state || this.leaving) return;
 
-    if (!this.disconnectConfirmOpen) {
+    if (!this.disconnectConfirmOpen && !this.matchEndOpen) {
       this.sendInput();
     }
     this.renderArena();
@@ -884,6 +973,8 @@ export class GameScene extends Phaser.Scene {
     const xpRatio = me.xpToNext ? Math.min(1, me.xp / me.xpToNext) : 0;
     this.xpBar.width = 220 * xpRatio;
     this.levelText.setText(`Lv ${me.level}  ·  XP ${me.xp}/${me.xpToNext}`);
+    this.scoreText.setText(`·  ${me.kills || 0}/${me.deaths || 0}  (${me.score || 0} pts)`);
+    this.scoreText.setX(this.levelText.x + this.levelText.width + 8);
 
     const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 60;
     const remain = Math.max(0, roundDuration - (this.state.roundTime || 0));
@@ -943,14 +1034,22 @@ export class GameScene extends Phaser.Scene {
     }
 
     const board = [...this.state.players]
-      .sort((a, b) => b.score - a.score)
-      .map((p) => `${p.alive ? '●' : '○'} ${p.name}  Lv${p.level}  ${p.kills}K  ${p.score}`)
+      .sort(
+        (a, b) =>
+          (b.score || 0) - (a.score || 0) ||
+          (b.kills || 0) - (a.kills || 0) ||
+          (a.deaths || 0) - (b.deaths || 0)
+      )
+      .map(
+        (p) =>
+          `${p.alive ? '●' : '○'} ${p.name}  ${p.kills || 0}/${p.deaths || 0}  ${p.score || 0}pts`
+      )
       .join('\n');
     this.scoreboard.setText(board);
   }
 
   handleBanners() {
-    if (!this.state) return;
+    if (!this.state || this.matchEndOpen) return;
     if (this.state.phase === 'countdown') {
       const nextRound = (this.state.round || 0) + 1;
       const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
