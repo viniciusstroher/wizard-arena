@@ -259,6 +259,16 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(99);
 
+    this.modeText = this.add
+      .text(24, 16, 'PVP', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#ff6b6b',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
+
     this.hpBarBg = this.add.rectangle(20, 20, 220, 18, 0x221833).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     this.hpBar = this.add.rectangle(20, 20, 220, 18, 0xe74c3c).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.hpText = this.add
@@ -3793,7 +3803,13 @@ export class GameScene extends Phaser.Scene {
     const PANEL_X = 12;
     const PANEL_Y = 12;
     const BAR_W = 220;
-    let y = 20;
+    let y = 18;
+
+    const pvpOn = this.state?.pvpEnabled !== false;
+    this.modeText.setPosition(PAD_X + 4, y);
+    this.modeText.setText(pvpOn ? 'PVP' : 'PVE');
+    this.modeText.setColor(pvpOn ? '#ff6b6b' : '#6bffb0');
+    y += 20;
 
     const hpRatio = me.alive ? me.hp / me.maxHp : 0;
     this.hpBarBg.setPosition(PAD_X, y);
