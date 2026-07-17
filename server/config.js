@@ -85,6 +85,15 @@ export const CONFIG = {
   MONSTER_ATTACK_RANGE: 28,
   MONSTER_ATTACK_COOLDOWN: 1.0,
   MONSTER_AGGRO_RANGE: 220,
+  /** Peso base dos monstros comuns no sorteio de spawn. */
+  MONSTER_WEIGHT_COMMON: envNumber('MONSTER_WEIGHT_COMMON', 10),
+  /** Peso base dos bosses (beholder, dragon, lich). */
+  MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
+  /**
+   * Diversidade do spawn (0–2+). Penaliza tipos já vivos e o último spawnado.
+   * 0 = só pesos fixos; 1 = variação forte; >1 = ainda mais espalhado.
+   */
+  MONSTER_SPAWN_DIVERSITY: envNumber('MONSTER_SPAWN_DIVERSITY', 1),
 
   XP_MONSTER: 18,
   XP_PLAYER_KILL: 100,

@@ -87,6 +87,7 @@ export class Match {
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
     this.shrinksDone = 0;
     this.monsterSpawnTimer = 0;
+    this.lastSpawnedMonsterType = null;
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
@@ -984,9 +985,10 @@ export class Match {
     this.endMatch(null);
   }
 
-  spawnMonster() {
-    if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
-    const types = {
+  monsterTypeDefs() {
+    const common = CONFIG.MONSTER_WEIGHT_COMMON;
+    const boss = CONFIG.MONSTER_WEIGHT_BOSS;
+    return {
       // Ranged: fireballs
       imp: {
         hpMul: 1,
@@ -1002,9 +1004,26 @@ export class Match {
         projectileRadius: 7,
         projectileColor: 0xff6622,
         attackCooldown: 1.45,
+        weight: common,
       },
-      slime: { hpMul: 1.5, speedMul: 0.8, dmgMul: 1, radius: 16, color: 0x44ff66, attack: 'melee' },
-      wraith: { hpMul: 1.3, speedMul: 1.1, dmgMul: 1, radius: 14, color: 0x8866ff, attack: 'melee' },
+      slime: {
+        hpMul: 1.5,
+        speedMul: 0.8,
+        dmgMul: 1,
+        radius: 16,
+        color: 0x44ff66,
+        attack: 'melee',
+        weight: common,
+      },
+      wraith: {
+        hpMul: 1.3,
+        speedMul: 1.1,
+        dmgMul: 1,
+        radius: 14,
+        color: 0x8866ff,
+        attack: 'melee',
+        weight: common,
+      },
       // Fast skirmisher — arrows
       goblin: {
         hpMul: 0.7,
@@ -1020,6 +1039,7 @@ export class Match {
         projectileRadius: 4,
         projectileColor: 0xd4c4a0,
         attackCooldown: 1.15,
+        weight: common,
       },
       // Slow bruiser — heavier arrows
       orc: {
@@ -1036,6 +1056,7 @@ export class Match {
         projectileRadius: 5,
         projectileColor: 0xb8956a,
         attackCooldown: 1.7,
+        weight: common,
       },
       // Melee undead
       skeleton: {
@@ -1046,6 +1067,7 @@ export class Match {
         color: 0xe8e0d0,
         attack: 'melee',
         attackCooldown: 0.9,
+        weight: common,
       },
       // Ranged-only undead archer
       skeleton_archer: {
@@ -1062,6 +1084,7 @@ export class Match {
         projectileRadius: 4,
         projectileColor: 0xc8b8a0,
         attackCooldown: 1.35,
+        weight: common,
       },
       // Fast melee pack hunter
       wolf: {
@@ -1072,6 +1095,7 @@ export class Match {
         color: 0x8b7355,
         attack: 'melee',
         attackCooldown: 0.75,
+        weight: common,
       },
       // Bulky melee arachnid
       giant_spider: {
@@ -1082,6 +1106,7 @@ export class Match {
         color: 0x2d1b2e,
         attack: 'melee',
         attackCooldown: 1.1,
+        weight: common,
       },
       // Fragile flying skirmisher
       bat: {
@@ -1092,6 +1117,7 @@ export class Match {
         color: 0x4a3728,
         attack: 'melee',
         attackCooldown: 0.65,
+        weight: common,
       },
       // Nimble forest archer
       elf: {
@@ -1108,7 +1134,7 @@ export class Match {
         projectileRadius: 4,
         projectileColor: 0xc8e6a0,
         attackCooldown: 1.05,
-        weight: 10,
+        weight: common,
       },
       // Beholder — olho arcano que lança Arc Lightning
       beholder: {
@@ -1122,7 +1148,7 @@ export class Match {
         range: 170,
         preferRange: 130,
         attackCooldown: 1.35,
-        weight: 3,
+        weight: boss,
       },
       // Dragão — Firebolt à distância + Flame Nova de perto
       dragon: {
@@ -1141,7 +1167,7 @@ export class Match {
         attackCooldown: 1.1,
         novaRadius: 120,
         novaCooldown: 4.2,
-        weight: 2,
+        weight: boss,
       },
       // Lich — morto-vivo arcano que lança Ice Shard
       lich: {
@@ -1158,24 +1184,54 @@ export class Match {
         projectileRadius: 9,
         projectileColor: 0x66ccff,
         attackCooldown: 1.25,
-        weight: 3,
+        weight: boss,
       },
     };
-    // Pesos: bosses (beholder/dragon/lich) aparecem menos
-    for (const id of Object.keys(types)) {
-      if (types[id].weight == null) types[id].weight = 10;
+  }
+
+  /** Sorteia tipo com pesos + diversidade (evita repetir tipos já vivos / último spawn). */
+  pickMonsterType(types) {
+    const diversity = Math.max(0, CONFIG.MONSTER_SPAWN_DIVERSITY);
+    const aliveCount = {};
+    for (const m of this.monsters) {
+      if (!m.alive) continue;
+      aliveCount[m.type] = (aliveCount[m.type] || 0) + 1;
     }
+
     const ids = Object.keys(types);
-    const totalWeight = ids.reduce((sum, id) => sum + types[id].weight, 0);
+    let totalWeight = 0;
+    const weights = new Map();
+    for (const id of ids) {
+      let w = Math.max(0, types[id].weight ?? CONFIG.MONSTER_WEIGHT_COMMON);
+      const n = aliveCount[id] || 0;
+      if (diversity > 0 && n > 0) {
+        w *= (1 / (1 + n)) ** diversity;
+      }
+      if (diversity > 0 && id === this.lastSpawnedMonsterType) {
+        w *= Math.max(0.05, 1 - 0.85 * Math.min(1, diversity));
+      }
+      w = Math.max(0.01, w);
+      weights.set(id, w);
+      totalWeight += w;
+    }
+
     let roll = Math.random() * totalWeight;
     let type = ids[0];
     for (const id of ids) {
-      roll -= types[id].weight;
+      roll -= weights.get(id);
       if (roll <= 0) {
         type = id;
         break;
       }
     }
+    this.lastSpawnedMonsterType = type;
+    return type;
+  }
+
+  spawnMonster() {
+    if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
+    const types = this.monsterTypeDefs();
+    const type = this.pickMonsterType(types);
     const def = types[type];
 
     let x = CONFIG.ARENA_CENTER_X;
