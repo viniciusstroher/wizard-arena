@@ -809,6 +809,8 @@ export class Match {
       return;
     }
 
+    const castX = player.x;
+    const castY = player.y;
     const aimDx = player.input.aimX - player.x;
     const aimDy = player.input.aimY - player.y;
     const aimLen = Math.hypot(aimDx, aimDy) || 1;
@@ -956,6 +958,16 @@ export class Match {
         player.input.castSlot = -1;
         return;
     }
+
+    this.effects.push({
+      type: 'pentagram',
+      x: castX,
+      y: castY,
+      radius: 38,
+      life: 2.2,
+      maxLife: 2.2,
+      color: stats.color,
+    });
 
     spellInst.cooldownLeft = stats.cooldown;
     player.input.castSlot = -1;

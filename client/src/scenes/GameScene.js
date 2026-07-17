@@ -51,8 +51,8 @@ export class GameScene extends Phaser.Scene {
     this.arenaFloor.setMask(this.arenaMaskGfx.createGeometryMask());
 
     this.arenaGraphics = this.add.graphics().setDepth(1);
-    this.aoeGraphics = this.add.graphics();
-    this.effectGraphics = this.add.graphics();
+    this.aoeGraphics = this.add.graphics().setDepth(6);
+    this.effectGraphics = this.add.graphics().setDepth(5);
     this.createMoveDust();
     this.createLavaBurn();
     this.createFireballFx();
@@ -1323,6 +1323,44 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  drawPentagram(e) {
+    const maxLife = e.maxLife || 2.2;
+    const fade = Math.min(1, e.life / maxLife);
+    const pulse = 0.85 + 0.15 * Math.sin((maxLife - e.life) * 10);
+    const radius = (e.radius || 38) * pulse;
+    const color = e.color || 0xffffff;
+    const rot = (maxLife - e.life) * 0.55;
+    const g = this.effectGraphics;
+
+    g.fillStyle(color, 0.1 * fade);
+    g.fillCircle(e.x, e.y, radius);
+    g.lineStyle(2.5, color, 0.85 * fade);
+    g.strokeCircle(e.x, e.y, radius);
+    g.lineStyle(1.5, color, 0.45 * fade);
+    g.strokeCircle(e.x, e.y, radius * 0.72);
+
+    const pts = [];
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + rot + (i * Math.PI * 2) / 5;
+      pts.push({
+        x: e.x + Math.cos(a) * radius * 0.88,
+        y: e.y + Math.sin(a) * radius * 0.88,
+      });
+    }
+
+    g.lineStyle(2, color, 0.95 * fade);
+    g.beginPath();
+    g.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i <= 5; i++) {
+      const next = pts[(i * 2) % 5];
+      g.lineTo(next.x, next.y);
+    }
+    g.strokePath();
+
+    g.fillStyle(color, 0.35 * fade);
+    g.fillCircle(e.x, e.y, 3);
+  }
+
   renderEffects() {
     this.effectGraphics.clear();
     const seenBlood = new Set();
@@ -1368,7 +1406,9 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (e.type === 'lightning') {
+      if (e.type === 'pentagram') {
+        this.drawPentagram(e);
+      } else if (e.type === 'lightning') {
         this.effectGraphics.lineStyle(2, e.color || 0xffee55, 0.9);
         this.effectGraphics.lineBetween(e.x1, e.y1, e.x2, e.y2);
       } else if (e.type === 'dash') {
