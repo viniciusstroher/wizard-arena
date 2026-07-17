@@ -27,7 +27,11 @@ export class GameScene extends Phaser.Scene {
     this.socket = getSocket();
     this.cameras.main.setBackgroundColor('#0b1020');
 
-    this.arenaGraphics = this.add.graphics();
+    this.arenaFloor = this.add.tileSprite(640, 360, 640, 640, 'arena_brick').setDepth(0);
+    this.arenaMaskGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    this.arenaFloor.setMask(this.arenaMaskGfx.createGeometryMask());
+
+    this.arenaGraphics = this.add.graphics().setDepth(1);
     this.aoeGraphics = this.add.graphics();
     this.effectGraphics = this.add.graphics();
 
@@ -478,11 +482,16 @@ export class GameScene extends Phaser.Scene {
 
   renderArena() {
     const a = this.state.arena;
-    this.arenaGraphics.clear();
+    const diameter = Math.max(2, a.radius * 2);
 
-    // Floor
-    this.arenaGraphics.fillStyle(0x12182a, 1);
-    this.arenaGraphics.fillCircle(a.x, a.y, a.radius);
+    this.arenaFloor.setPosition(a.x, a.y);
+    this.arenaFloor.setSize(diameter, diameter);
+
+    this.arenaMaskGfx.clear();
+    this.arenaMaskGfx.fillStyle(0xffffff, 1);
+    this.arenaMaskGfx.fillCircle(a.x, a.y, a.radius);
+
+    this.arenaGraphics.clear();
 
     // Safe ring
     this.arenaGraphics.lineStyle(4, 0x6b5cff, 0.9);
@@ -491,10 +500,6 @@ export class GameScene extends Phaser.Scene {
     // Danger outside hint
     this.arenaGraphics.lineStyle(2, 0xff4a4a, 0.25);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 18);
-
-    // Inner pattern
-    this.arenaGraphics.lineStyle(1, 0xffffff, 0.05);
-    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius * 0.5);
   }
 
   ensureActor(map, id, texture, depth = 10) {

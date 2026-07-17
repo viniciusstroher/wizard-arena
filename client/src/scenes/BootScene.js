@@ -60,7 +60,43 @@ export class BootScene extends Phaser.Scene {
     this.createWizardSprites();
     this.createMonsterSprites();
     this.createBruxaoSprite();
+    this.createArenaBrickTexture();
     this.scene.start('Lobby');
+  }
+
+  createArenaBrickTexture() {
+    const tw = 64;
+    const th = 32;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    // Argamassa
+    g.fillStyle(0xcfd3da, 1);
+    g.fillRect(0, 0, tw, th);
+
+    const brickW = 30;
+    const brickH = 14;
+
+    const drawBrick = (x, y, w = brickW) => {
+      if (w <= 0) return;
+      g.fillStyle(0xf4f6fa, 1);
+      g.fillRect(x, y, w, brickH);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillRect(x, y, w, 2);
+      g.fillStyle(0xe2e6ee, 1);
+      g.fillRect(x, y + brickH - 2, w, 2);
+    };
+
+    // Fileira 1 — alinhada
+    drawBrick(1, 1);
+    drawBrick(33, 1);
+    // Fileira 2 — deslocada (padrão tijolo, tile contínuo)
+    drawBrick(0, 17, 15);
+    drawBrick(17, 17);
+    drawBrick(49, 17, 15);
+
+    g.generateTexture('arena_brick', tw, th);
+    g.destroy();
+    this.textures.get('arena_brick').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   /** Title mascot: Ronaldinho smile + Gandalf robe/beard. */
