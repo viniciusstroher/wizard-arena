@@ -16,6 +16,11 @@ export const CONFIG = {
   PLAYER_MAX_HP: 100,
   PLAYER_SPEED: 180,
   PLAYER_RADIUS: 16,
+  /**
+   * Inércia do jogador (segundos para aproximar da velocidade alvo).
+   * 0 = movimento instantâneo; valores maiores = mais deslizamento.
+   */
+  PLAYER_INERTIA: envNumber('PLAYER_INERTIA', 0.12),
   /** HP regenerado a cada janela (0 = desligado). */
   HP_REGEN_AMOUNT: envNumber('HP_REGEN_AMOUNT', 2),
   /** Janela em segundos entre regenerações. */
@@ -34,6 +39,11 @@ export const CONFIG = {
   MONSTER_HP: 40,
   MONSTER_DAMAGE: 8,
   MONSTER_SPEED: 95,
+  /**
+   * Inércia dos monstros (segundos para aproximar da velocidade alvo).
+   * 0 = movimento instantâneo; valores maiores = mais deslizamento.
+   */
+  MONSTER_INERTIA: envNumber('MONSTER_INERTIA', 0.18),
   MONSTER_RADIUS: 14,
   MONSTER_ATTACK_RANGE: 28,
   MONSTER_ATTACK_COOLDOWN: 1.0,

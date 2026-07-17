@@ -22,6 +22,20 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+/** Aproxima vx/vy da velocidade alvo com inércia configurável (segundos). */
+function applyInertia(entity, targetVx, targetVy, inertia, dt) {
+  if (inertia <= 0) {
+    entity.vx = targetVx;
+    entity.vy = targetVy;
+  } else {
+    const t = 1 - Math.exp(-dt / inertia);
+    entity.vx += (targetVx - entity.vx) * t;
+    entity.vy += (targetVy - entity.vy) * t;
+  }
+  if (targetVx === 0 && Math.abs(entity.vx) < 1) entity.vx = 0;
+  if (targetVy === 0 && Math.abs(entity.vy) < 1) entity.vy = 0;
+}
+
 function xpForLevel(level) {
   const table = CONFIG.XP_LEVELS;
   if (level <= 1) return 0;
@@ -549,6 +563,8 @@ export class Match {
       type,
       x,
       y,
+      vx: 0,
+      vy: 0,
       hp: Math.round(CONFIG.MONSTER_HP * hpMul),
       maxHp: Math.round(CONFIG.MONSTER_HP * hpMul),
       alive: true,
@@ -663,6 +679,8 @@ export class Match {
           CONFIG.ARENA_CENTER_Y - 900,
           CONFIG.ARENA_CENTER_Y + 900
         );
+        player.vx = 0;
+        player.vy = 0;
         this.resolveRockCollision(player, CONFIG.PLAYER_RADIUS);
         this.effects.push({ type: 'blink', x: player.x, y: player.y, life: 0.2, color: stats.color });
         break;
@@ -877,7 +895,10 @@ export class Match {
       for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
       if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);
 
-      if (p.stunTimer <= 0) {
+      if (p.stunTimer > 0) {
+        p.vx = 0;
+        p.vy = 0;
+      } else {
         let mx = 0;
         let my = 0;
         if (p.input.up) my -= 1;
@@ -890,9 +911,10 @@ export class Match {
           my /= len;
         }
         const speed = CONFIG.PLAYER_SPEED * (1 - p.slow);
-        p.x += mx * speed * dt;
+        applyInertia(p, mx * speed, my * speed, CONFIG.PLAYER_INERTIA, dt);
+        p.x += p.vx * dt;
         this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
-        p.y += my * speed * dt;
+        p.y += p.vy * dt;
         this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
       }
 
@@ -919,7 +941,11 @@ export class Match {
       if (!m.alive) continue;
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
-      if (m.stunTimer > 0) continue;
+      if (m.stunTimer > 0) {
+        m.vx = 0;
+        m.vy = 0;
+        continue;
+      }
 
       let nearest = null;
       let nearestD = CONFIG.MONSTER_AGGRO_RANGE;
@@ -931,20 +957,25 @@ export class Match {
           nearest = p;
         }
       }
-      if (!nearest) continue;
 
-      if (nearestD > CONFIG.MONSTER_ATTACK_RANGE) {
+      let targetVx = 0;
+      let targetVy = 0;
+      if (nearest && nearestD > CONFIG.MONSTER_ATTACK_RANGE) {
         const dx = nearest.x - m.x;
         const dy = nearest.y - m.y;
         const len = Math.hypot(dx, dy) || 1;
-        m.x += (dx / len) * m.speed * dt;
-        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
-        m.y += (dy / len) * m.speed * dt;
-        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
-      } else if (m.attackCd <= 0) {
+        targetVx = (dx / len) * m.speed;
+        targetVy = (dy / len) * m.speed;
+      } else if (nearest && m.attackCd <= 0) {
         this.damageEntity(nearest, m.damage, null, true, true);
         m.attackCd = CONFIG.MONSTER_ATTACK_COOLDOWN;
       }
+
+      applyInertia(m, targetVx, targetVy, CONFIG.MONSTER_INERTIA, dt);
+      m.x += m.vx * dt;
+      this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
+      m.y += m.vy * dt;
+      this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
     }
 
     // Projectiles
