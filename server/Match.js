@@ -1982,7 +1982,7 @@ export class Match {
       type: 'pentagram',
       x: castX,
       y: castY,
-      radius: 38,
+      radius: 30.4,
       life: pentagramLife,
       maxLife: pentagramLife,
       color: stats.color,

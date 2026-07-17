@@ -125,7 +125,7 @@ export const CONFIG = {
   ROCK_MAX: 28,
 
   /** Duração do fade-out do pentagrama ao lançar magia (segundos). */
-  PENTAGRAM_FADEOUT: envNumber('PENTAGRAM_FADEOUT', 2.2),
+  PENTAGRAM_FADEOUT: envNumber('PENTAGRAM_FADEOUT', 1.76),
 
   /**
    * Empurrão ao ser atingido por magia projétil (px/s).

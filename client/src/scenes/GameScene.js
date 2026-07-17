@@ -2405,10 +2405,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawPentagram(e) {
-    const maxLife = e.maxLife || 2.2;
+    const maxLife = e.maxLife || 1.76;
     const fade = Math.min(1, e.life / maxLife);
     const pulse = 0.85 + 0.15 * Math.sin((maxLife - e.life) * 10);
-    const radius = (e.radius || 38) * pulse;
+    const radius = (e.radius || 30.4) * pulse;
     const color = e.color || 0xffffff;
     const rot = (maxLife - e.life) * 0.55;
     const g = this.effectGraphics;
