@@ -779,14 +779,14 @@ export class LobbyScene extends Phaser.Scene {
     dim.on('pointerup', () => this.closeAdminModal());
 
     const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 300, 0x161228, 0.98)
+      .rectangle(width / 2, height / 2, 420, 340, 0x161228, 0.98)
       .setStrokeStyle(2, 0x8e44ad);
     // Impede o clique no painel de fechar o modal (propaga pro dim)
     panel.setInteractive();
     panel.on('pointerup', (_p, _x, _y, event) => event.stopPropagation());
 
     const title = this.add
-      .text(width / 2, height / 2 - 110, 'Admin', {
+      .text(width / 2, height / 2 - 130, 'Admin', {
         fontFamily: 'Georgia, serif',
         fontSize: '26px',
         color: '#f4e8ff',
@@ -794,7 +794,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const hint = this.add
-      .text(width / 2, height / 2 - 72, 'Marque as opções e clique em Salvar', {
+      .text(width / 2, height / 2 - 92, 'Marque as opções e clique em Salvar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -803,6 +803,7 @@ export class LobbyScene extends Phaser.Scene {
 
     const botIdle = this.lobby?.botAiEnabled === false;
     const mobSpawn = this.lobby?.monsterSpawnEnabled !== false;
+    const botLevelUp = this.lobby?.botLevelUpChoiceEnabled !== false;
 
     const wrap = document.createElement('div');
     wrap.style.cssText = [
@@ -849,6 +850,10 @@ export class LobbyScene extends Phaser.Scene {
 
     this.adminBotIdleCheck = makeCheck('Bot parado (não ataca)', botIdle);
     this.adminMobSpawnCheck = makeCheck('Respawn de mobs', mobSpawn);
+    this.adminBotLevelUpCheck = makeCheck(
+      'Bot escolhe habilidade (outros esperam)',
+      botLevelUp
+    );
 
     this.adminChecksDom = this.add
       .dom(width / 2, height / 2 - 5, wrap)
@@ -856,10 +861,10 @@ export class LobbyScene extends Phaser.Scene {
       .setDepth(10001);
 
     const saveBg = this.add
-      .rectangle(width / 2 - 80, height / 2 + 105, 140, 40, 0x2ecc71, 1)
+      .rectangle(width / 2 - 80, height / 2 + 125, 140, 40, 0x2ecc71, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
     const saveLabel = this.add
-      .text(width / 2 - 80, height / 2 + 105, 'Salvar', {
+      .text(width / 2 - 80, height / 2 + 125, 'Salvar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#ffffff',
@@ -871,10 +876,10 @@ export class LobbyScene extends Phaser.Scene {
     saveBg.on('pointerup', () => this.saveAdminSettings());
 
     const closeBg = this.add
-      .rectangle(width / 2 + 80, height / 2 + 105, 140, 40, 0x443866, 1)
+      .rectangle(width / 2 + 80, height / 2 + 125, 140, 40, 0x443866, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
     const closeLabel = this.add
-      .text(width / 2 + 80, height / 2 + 105, 'Fechar', {
+      .text(width / 2 + 80, height / 2 + 125, 'Fechar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#ffffff',
@@ -897,6 +902,7 @@ export class LobbyScene extends Phaser.Scene {
     }
     this.adminBotIdleCheck = null;
     this.adminMobSpawnCheck = null;
+    this.adminBotLevelUpCheck = null;
     if (this.adminModal) {
       this.adminModal.removeAll(true);
       this.adminModal.setVisible(false);
@@ -910,13 +916,16 @@ export class LobbyScene extends Phaser.Scene {
     if (!this.joined) return;
     const botIdle = !!this.adminBotIdleCheck?.checked;
     const mobSpawn = !!this.adminMobSpawnCheck?.checked;
+    const botLevelUp = !!this.adminBotLevelUpCheck?.checked;
     this.socket.emit('admin_settings', {
       botAiEnabled: !botIdle,
       monsterSpawnEnabled: mobSpawn,
+      botLevelUpChoiceEnabled: botLevelUp,
     });
     if (this.lobby) {
       this.lobby.botAiEnabled = !botIdle;
       this.lobby.monsterSpawnEnabled = mobSpawn;
+      this.lobby.botLevelUpChoiceEnabled = botLevelUp;
     }
     this.closeAdminModal();
   }

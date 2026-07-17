@@ -114,6 +114,7 @@ export class Match {
     /** Overrides de admin (lobby); defaults vêm do .env. */
     this.botAiEnabled = CONFIG.BOT_AI_ENABLED;
     this.monsterSpawnEnabled = CONFIG.MONSTER_SPAWN_ENABLED;
+    this.botLevelUpChoiceEnabled = CONFIG.BOT_LEVELUP_CHOICE_ENABLED;
     this.generateRocks();
   }
 
@@ -124,8 +125,40 @@ export class Match {
     if (payload.monsterSpawnEnabled !== undefined) {
       this.monsterSpawnEnabled = !!payload.monsterSpawnEnabled;
     }
+    if (payload.botLevelUpChoiceEnabled !== undefined) {
+      this.botLevelUpChoiceEnabled = !!payload.botLevelUpChoiceEnabled;
+    }
     this.broadcastLobby();
-    return { ok: true, botAiEnabled: this.botAiEnabled, monsterSpawnEnabled: this.monsterSpawnEnabled };
+    return {
+      ok: true,
+      botAiEnabled: this.botAiEnabled,
+      monsterSpawnEnabled: this.monsterSpawnEnabled,
+      botLevelUpChoiceEnabled: this.botLevelUpChoiceEnabled,
+    };
+  }
+
+  /** Com a flag off, bots escolhem na hora (não travam a partida). */
+  autoResolveBotLevelUpsIfDisabled() {
+    if (this.botLevelUpChoiceEnabled) return;
+    for (const p of [...this.players.values()]) {
+      if (!p.isBot || !p.alive) continue;
+      let guard = 0;
+      while (p.pendingLevelUps > 0 && guard++ < 20) {
+        if (!p.spellChoices?.length) this.assignSpellChoices(p);
+        if (!p.spellChoices?.length) break;
+        const index = Math.floor(Math.random() * p.spellChoices.length);
+        const choice = p.spellChoices[index];
+        const before = p.pendingLevelUps;
+        this.chooseSpell(p.id, {
+          index,
+          spellId: choice.spellId,
+          kind: choice.kind,
+          fromLevel: choice.fromLevel,
+          choiceSetId: p.choiceSetId,
+        });
+        if (p.pendingLevelUps >= before) break;
+      }
+    }
   }
 
   generateRocks() {
@@ -1046,6 +1079,8 @@ export class Match {
     this.ensureSpellChoicesForPending({ refreshDeadline: true });
     this.afterLevelUp = next;
     this.phase = 'levelup';
+    this.autoResolveBotLevelUpsIfDisabled();
+    this.maybeResumeFromLevelUp();
     this.broadcastState(true);
   }
 
@@ -1093,6 +1128,8 @@ export class Match {
         this.assignSpellChoices(player);
       }
       this.phase = 'levelup';
+      this.autoResolveBotLevelUpsIfDisabled();
+      this.maybeResumeFromLevelUp();
     }
   }
 
@@ -2905,6 +2942,7 @@ export class Match {
       maxPlayers: CONFIG.MAX_PLAYERS,
       botAiEnabled: this.botAiEnabled,
       monsterSpawnEnabled: this.monsterSpawnEnabled,
+      botLevelUpChoiceEnabled: this.botLevelUpChoiceEnabled,
       players: [...this.players.values()].map((p) => ({
         id: p.id,
         name: p.name,

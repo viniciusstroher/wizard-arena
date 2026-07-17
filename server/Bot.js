@@ -8,6 +8,8 @@ export class BotController {
     this.strafe = Math.random() < 0.5 ? 1 : -1;
     this.retargetTimer = 0;
     this.target = null;
+    this.levelUpThinkTimer = 0;
+    this.levelUpChoiceSetId = null;
   }
 
   idleInput(player) {
@@ -25,21 +27,38 @@ export class BotController {
     });
   }
 
+  pickRandomSpell(player) {
+    if (!player.spellChoices?.length || player.pendingLevelUps <= 0) return;
+    const index = Math.floor(Math.random() * player.spellChoices.length);
+    const choice = player.spellChoices[index];
+    this.match.chooseSpell(this.playerId, {
+      index,
+      spellId: choice.spellId,
+      kind: choice.kind,
+      fromLevel: choice.fromLevel,
+      choiceSetId: player.choiceSetId,
+    });
+    this.levelUpChoiceSetId = null;
+  }
+
   update(dt) {
     const player = this.match.players.get(this.playerId);
     if (!player || !player.alive) return;
-    if (this.match.phase === 'levelup' && player.spellChoices?.length) {
-      // Escolhe uma opção após um pequeno atraso simulado
-      if (Math.random() < 0.08) {
-        const index = Math.floor(Math.random() * player.spellChoices.length);
-        const choice = player.spellChoices[index];
-        this.match.chooseSpell(this.playerId, {
-          index,
-          spellId: choice.spellId,
-          kind: choice.kind,
-          fromLevel: choice.fromLevel,
-          choiceSetId: player.choiceSetId,
-        });
+    if (this.match.phase === 'levelup' && player.spellChoices?.length && player.pendingLevelUps > 0) {
+      // Flag off: resolve na hora (Match.autoResolveBotLevelUpsIfDisabled também cobre).
+      if (!this.match.botLevelUpChoiceEnabled) {
+        this.pickRandomSpell(player);
+        return;
+      }
+
+      // Flag on: espera um tempo “pensando” e escolhe aleatório; humanos ficam na tela de espera.
+      if (this.levelUpChoiceSetId !== player.choiceSetId) {
+        this.levelUpChoiceSetId = player.choiceSetId;
+        this.levelUpThinkTimer = 1.8 + Math.random() * 2.4; // ~1.8–4.2s
+      }
+      this.levelUpThinkTimer -= dt;
+      if (this.levelUpThinkTimer <= 0) {
+        this.pickRandomSpell(player);
       }
       return;
     }

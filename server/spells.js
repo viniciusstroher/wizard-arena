@@ -9,7 +9,7 @@ export const SPELLS = {
     playerUsable: true,
     /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
     autocast: true,
-    cooldown: 0.35,
+    cooldown: 0.40,
     manaCost: 0,
     damage: 18,
     range: 340,
@@ -141,7 +141,7 @@ export const SPELLS = {
     playerUsable: true,
     /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
     autocast: true,
-    cooldown: 0.55,
+    cooldown: 0.63,
     manaCost: 0,
     damage: 22,
     range: 320,
