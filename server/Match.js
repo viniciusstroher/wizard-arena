@@ -208,6 +208,7 @@ export class Match {
         dash: null,
       },
       shield: 0,
+      maxShield: 0,
       shieldTimer: 0,
       slow: 0,
       slowTimer: 0,
@@ -328,6 +329,7 @@ export class Match {
       p.hp = p.maxHp;
       p.alive = true;
       p.shield = 0;
+      p.maxShield = 0;
       p.shieldTimer = 0;
       p.slow = 0;
       p.slowTimer = 0;
@@ -578,6 +580,11 @@ export class Match {
       const absorbed = Math.min(target.shield, dmg);
       target.shield -= absorbed;
       dmg -= absorbed;
+      if (target.shield <= 0) {
+        target.shield = 0;
+        target.maxShield = 0;
+        target.shieldTimer = 0;
+      }
     }
     if (dmg <= 0) return false;
     target.hp -= dmg;
@@ -1243,6 +1250,7 @@ export class Match {
       }
       case 'barrier':
         player.shield = stats.shield;
+        player.maxShield = stats.shield;
         player.shieldTimer = stats.duration;
         this.effects.push({
           type: 'barrier',
@@ -1516,7 +1524,11 @@ export class Match {
       p.slowTimer = Math.max(0, p.slowTimer - dt);
       if (p.slowTimer <= 0) p.slow = 0;
       p.shieldTimer = Math.max(0, p.shieldTimer - dt);
-      if (p.shieldTimer <= 0) p.shield = 0;
+      if (p.shieldTimer <= 0 || p.shield <= 0) {
+        p.shield = 0;
+        p.maxShield = 0;
+        p.shieldTimer = 0;
+      }
       p.dashCooldown = Math.max(0, p.dashCooldown - dt);
       p.dashBuffer = Math.max(0, (p.dashBuffer || 0) - dt);
 
@@ -1835,6 +1847,8 @@ export class Match {
       wizardType: p.wizardType,
       color: p.color,
       shield: p.shield,
+      maxShield: p.maxShield || 0,
+      shieldTimer: +Math.max(0, p.shieldTimer || 0).toFixed(2),
       slow: p.slow,
       stun: p.stunTimer > 0,
       dashing: p.dashTimer > 0,

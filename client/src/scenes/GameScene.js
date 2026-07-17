@@ -129,6 +129,31 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
 
+    // Barra de escudo (Barrier) — canto superior direito
+    const shieldW = 220;
+    const shieldX = width - 20 - shieldW;
+    this.shieldBarBg = this.add
+      .rectangle(shieldX, 20, shieldW, 18, 0x152033)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(100)
+      .setVisible(false);
+    this.shieldBar = this.add
+      .rectangle(shieldX, 20, shieldW, 18, 0x4a90ff)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(101)
+      .setVisible(false);
+    this.shieldText = this.add
+      .text(shieldX + 4, 21, 'ESCUTO 0', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        color: '#dcecff',
+      })
+      .setScrollFactor(0)
+      .setDepth(102)
+      .setVisible(false);
+
     this.xpBarBg = this.add.rectangle(20, 42, 220, 10, 0x221833).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     this.xpBar = this.add.rectangle(20, 42, 0, 10, 0xf1c40f).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.levelText = this.add
@@ -1259,6 +1284,14 @@ export class GameScene extends Phaser.Scene {
         .setDepth(depth + 1);
       sprite.hpBg = this.add.rectangle(0, 0, 36, 5, 0x000000, 0.6).setDepth(depth + 1);
       sprite.hpFg = this.add.rectangle(0, 0, 36, 5, 0x2ecc71).setDepth(depth + 2);
+      sprite.shieldBg = this.add
+        .rectangle(0, 0, 36, 4, 0x0a1830, 0.75)
+        .setDepth(depth + 1)
+        .setVisible(false);
+      sprite.shieldFg = this.add
+        .rectangle(0, 0, 36, 4, 0x4a90ff)
+        .setDepth(depth + 2)
+        .setVisible(false);
       map.set(id, sprite);
     }
     return sprite;
@@ -1340,15 +1373,35 @@ export class GameScene extends Phaser.Scene {
       }
       this.updateLavaBurn(s, p.x, p.y, onLava);
 
+      const hasShield = p.alive && p.shield > 0;
+      const hpY = p.y - 20;
+      const shieldY = hpY - 7;
+      const nameY = hasShield ? p.y - 36 : p.y - 28;
+
       s.nameTag.setText(p.name + (p.alive ? '' : ' ✝'));
-      s.nameTag.setPosition(p.x, p.y - 28);
-      s.hpBg.setPosition(p.x, p.y - 20);
+      s.nameTag.setPosition(p.x, nameY);
+      s.hpBg.setPosition(p.x, hpY);
       const ratio = p.maxHp ? p.hp / p.maxHp : 0;
-      s.hpFg.setPosition(p.x - 18 + 18 * ratio, p.y - 20);
+      s.hpFg.setPosition(p.x - 18 + 18 * ratio, hpY);
       s.hpFg.width = 36 * ratio;
       s.hpFg.setFillStyle(ratio > 0.35 ? 0x2ecc71 : 0xe74c3c);
       s.hpBg.setVisible(p.alive);
       s.hpFg.setVisible(p.alive);
+
+      if (hasShield) {
+        const maxShield = p.maxShield > 0 ? p.maxShield : p.shield;
+        const sRatio = Math.min(1, p.shield / maxShield);
+        if (!s.shieldBg) {
+          s.shieldBg = this.add.rectangle(0, 0, 36, 4, 0x0a1830, 0.75).setDepth(21);
+          s.shieldFg = this.add.rectangle(0, 0, 36, 4, 0x4a90ff).setDepth(22);
+        }
+        s.shieldBg.setPosition(p.x, shieldY).setVisible(true);
+        s.shieldFg.setPosition(p.x - 18 + 18 * sRatio, shieldY).setVisible(true);
+        s.shieldFg.width = 36 * sRatio;
+      } else if (s.shieldBg) {
+        s.shieldBg.setVisible(false);
+        s.shieldFg.setVisible(false);
+      }
 
       if (!p.alive && !s.corpseDropped) {
         s.corpseDropped = true;
@@ -1356,7 +1409,7 @@ export class GameScene extends Phaser.Scene {
       }
       if (p.alive) s.corpseDropped = false;
 
-      if (p.shield > 0 && p.alive) {
+      if (hasShield) {
         const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 140);
         if (!s.shieldRing) {
           s.shieldRing = this.add
@@ -1387,6 +1440,8 @@ export class GameScene extends Phaser.Scene {
         s.nameTag.destroy();
         s.hpBg.destroy();
         s.hpFg.destroy();
+        s.shieldBg?.destroy();
+        s.shieldFg?.destroy();
         s.shieldRing?.destroy();
         s.shieldRingOuter?.destroy();
         s.burnGlow?.destroy();
@@ -2118,6 +2173,22 @@ export class GameScene extends Phaser.Scene {
     const hpRatio = me.alive ? me.hp / me.maxHp : 0;
     this.hpBar.width = 220 * hpRatio;
     this.hpText.setText(me.alive ? `HP ${Math.ceil(me.hp)} / ${me.maxHp}` : 'MORTO — próximo round');
+
+    const showShield = me.alive && me.shield > 0;
+    if (showShield) {
+      const maxShield = me.maxShield > 0 ? me.maxShield : me.shield;
+      const shieldRatio = Math.min(1, me.shield / maxShield);
+      this.shieldBarBg.setVisible(true);
+      this.shieldBar.setVisible(true);
+      this.shieldBar.width = 220 * shieldRatio;
+      this.shieldText
+        .setVisible(true)
+        .setText(`ESCUTO ${Math.ceil(me.shield)} / ${Math.ceil(maxShield)}`);
+    } else {
+      this.shieldBarBg.setVisible(false);
+      this.shieldBar.setVisible(false);
+      this.shieldText.setVisible(false);
+    }
 
     const xpRatio = me.xpToNext ? Math.min(1, me.xp / me.xpToNext) : 0;
     this.xpBar.width = 220 * xpRatio;
