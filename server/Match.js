@@ -837,10 +837,11 @@ export class Match {
     if (!player.alive || player.stunTimer > 0) return;
     if (this.phase !== 'playing') return;
 
+    // Slots 0–2 = magias básicas; 3 = ultimate (dash é input separado)
     let spellInst = null;
-    if (slot >= 0 && slot < 4) {
+    if (slot >= 0 && slot < 3) {
       spellInst = player.spells[slot];
-    } else if (slot === 4) {
+    } else if (slot === 3) {
       spellInst = player.ultimate;
     }
     if (!spellInst) {

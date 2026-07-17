@@ -147,6 +147,9 @@ export const ULTIMATES = {
 const BASIC_IDS = Object.keys(SPELLS);
 const ULTIMATE_IDS = Object.keys(ULTIMATES);
 
+/** Máximo de magias básicas (além de ultimate e dash). */
+export const MAX_BASIC_SPELLS = 3;
+
 export function getSpellDef(id) {
   return SPELLS[id] || ULTIMATES[id] || null;
 }
@@ -213,7 +216,7 @@ export function rollSpellChoices(player, forLevel) {
     }
   }
 
-  const canLearnNew = owned.length < 4;
+  const canLearnNew = owned.length < MAX_BASIC_SPELLS;
   while (choices.length < 3) {
     if (canLearnNew) {
       const pool = BASIC_IDS.filter((id) => !owned.includes(id) && !used.has(id));
@@ -275,7 +278,7 @@ export function applySpellChoice(player, choice) {
     return true;
   }
 
-  if (player.spells.length >= 4) return false;
+  if (player.spells.length >= MAX_BASIC_SPELLS) return false;
   if (player.spells.some((s) => s.id === choice.spellId)) return false;
   player.spells.push(createSpellInstance(choice.spellId, 1));
   return true;

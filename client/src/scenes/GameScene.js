@@ -70,7 +70,6 @@ export class GameScene extends Phaser.Scene {
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
-      four: Phaser.Input.Keyboard.KeyCodes.FOUR,
       ult: Phaser.Input.Keyboard.KeyCodes.R,
       cast: Phaser.Input.Keyboard.KeyCodes.SPACE,
     });
@@ -170,10 +169,10 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    // 1–4 magias, R = ultimate, Shift = dash (depois do ultimate, com gap)
-    const slotLabels = ['1', '2', '3', '4', 'R', 'Shift'];
-    for (let i = 0; i < 6; i++) {
-      const gapAfterUlt = i === 5 ? 24 : 0;
+    // 1–3 magias, R = ultimate, Shift = dash (depois do ultimate, com gap)
+    const slotLabels = ['1', '2', '3', 'R', 'Shift'];
+    for (let i = 0; i < 5; i++) {
+      const gapAfterUlt = i === 4 ? 24 : 0;
       const x = 24 + i * 70 + gapAfterUlt;
       const y = this.scale.height - 70;
       const slot = this.add.container(x, y).setScrollFactor(0).setDepth(100);
@@ -182,7 +181,7 @@ export class GameScene extends Phaser.Scene {
       const key = this.add
         .text(-26, -26, slotLabels[i], {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: i === 5 ? '9px' : '11px',
+          fontSize: i === 4 ? '9px' : '11px',
           color: '#9a8bb8',
         })
         .setOrigin(0);
@@ -207,8 +206,8 @@ export class GameScene extends Phaser.Scene {
       slot.name = name;
       slot.cd = cd;
       slot.slotIndex = i;
-      // Slot 5 = dash (não selecionável como magia)
-      if (i < 5) {
+      // Slot 4 = dash (não selecionável como magia)
+      if (i < 4) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
@@ -720,8 +719,7 @@ export class GameScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.selectedSpellSlot = 0;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.selectedSpellSlot = 1;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.selectedSpellSlot = 2;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.selectedSpellSlot = 3;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.ult)) this.selectedSpellSlot = 4;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.ult)) this.selectedSpellSlot = 3;
 
     // Hold SPACE to cast (server latches + respects cooldown).
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
@@ -1489,8 +1487,8 @@ export class GameScene extends Phaser.Scene {
     }
     this.roundText.setText(`Round ${displayRound}/${maxRounds} · ${zoneLabel}`);
 
-    // Spells
-    for (let i = 0; i < 4; i++) {
+    // Spells (máx. 3 básicas)
+    for (let i = 0; i < 3; i++) {
       const slot = this.spellSlots[i];
       const spell = me.spells[i];
       const selected = this.selectedSpellSlot === i;
@@ -1510,8 +1508,8 @@ export class GameScene extends Phaser.Scene {
       slot.bg.setFillStyle(selected ? 0x2a2250 : 0x1a1430, 0.95);
     }
     const ult = me.ultimate;
-    const ultSlot = this.spellSlots[4];
-    const ultSelected = this.selectedSpellSlot === 4;
+    const ultSlot = this.spellSlots[3];
+    const ultSelected = this.selectedSpellSlot === 3;
     if (!ult) {
       ultSlot.name.setText('Ult');
       ultSlot.cd.setText('');
@@ -1528,7 +1526,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Slot depois do ultimate (R): cooldown do dash
-    const dashSlot = this.spellSlots[5];
+    const dashSlot = this.spellSlots[4];
     const dashCd = me.dashCooldown || 0;
     const dashing = !!me.dashing;
     this.setSpellSlotIcon(dashSlot, 'dash');
