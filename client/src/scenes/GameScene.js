@@ -518,13 +518,20 @@ export class GameScene extends Phaser.Scene {
     return sprite;
   }
 
+  wizardTexture(type) {
+    const key = `wizard_${type}`;
+    return this.textures.exists(key) ? key : 'wizard';
+  }
+
   renderPlayers() {
     const seen = new Set();
     for (const p of this.state.players) {
       seen.add(p.id);
-      const s = this.ensureActor(this.playerSprites, p.id, 'wizard', 20);
+      const tex = this.wizardTexture(p.wizardType);
+      const s = this.ensureActor(this.playerSprites, p.id, tex, 20);
+      if (s.texture.key !== tex) s.setTexture(tex);
+      s.clearTint();
       s.setPosition(p.x, p.y);
-      s.setTint(p.color);
       s.setAlpha(p.alive ? 1 : 0.25);
       s.setScale(p.id === this.playerId ? 1.15 : 1);
       if (p.stun) s.setAngle(Math.sin(this.time.now / 40) * 8);

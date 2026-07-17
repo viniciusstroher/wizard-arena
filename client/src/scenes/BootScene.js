@@ -57,8 +57,82 @@ export class BootScene extends Phaser.Scene {
 
     g.destroy();
 
+    this.createWizardSprites();
     this.createMonsterSprites();
     this.scene.start('Lobby');
+  }
+
+  createWizardSprites() {
+    // Shared pose: pointed hat, face, robe, boots + staff on the side
+    const pose = [
+      '................',
+      '......H.........',
+      '.....HHH........',
+      '....HHHHH.......',
+      '...HHHBHHH......',
+      '....HSSSSH...W..',
+      '...SSSEESSS..T..',
+      '...SSSSSSS...T..',
+      '....SKKKKS...T..',
+      '...RKKKKKKR..T..',
+      '..RRKKKKKKRR.T..',
+      '..RR.KKKK.RR.T..',
+      '..RR......RR.T..',
+      '..LL......LL....',
+      '................',
+      '................',
+    ];
+
+    const schools = {
+      crimson: {
+        H: 0x8b1a1a,
+        B: 0xf1c40f,
+        S: 0xe8c39e,
+        E: 0x1a1a1a,
+        K: 0xc0392b,
+        R: 0x922b21,
+        L: 0x5d1a14,
+        W: 0xf39c12,
+        T: 0x6e2c00,
+      },
+      azure: {
+        H: 0x1a3a6b,
+        B: 0xaed6f1,
+        S: 0xf5cba7,
+        E: 0x1a1a1a,
+        K: 0x3498db,
+        R: 0x1f618d,
+        L: 0x154360,
+        W: 0x5dade2,
+        T: 0x5d4037,
+      },
+      emerald: {
+        H: 0x145a32,
+        B: 0xf7dc6f,
+        S: 0xedbb99,
+        E: 0x1a1a1a,
+        K: 0x27ae60,
+        R: 0x1e8449,
+        L: 0x0e3d22,
+        W: 0x58d68d,
+        T: 0x5d4037,
+      },
+      amber: {
+        H: 0x7d3c00,
+        B: 0xf9e79f,
+        S: 0xf0b27a,
+        E: 0x1a1a1a,
+        K: 0xe67e22,
+        R: 0xba4a00,
+        L: 0x6e2c00,
+        W: 0xf4d03f,
+        T: 0x4e342e,
+      },
+    };
+
+    for (const [type, palette] of Object.entries(schools)) {
+      makePixelTexture(this, `wizard_${type}`, pose, palette);
+    }
   }
 
   createMonsterSprites() {

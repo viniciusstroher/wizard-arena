@@ -31,6 +31,17 @@ function xpForLevel(level) {
   return last + extra * 280;
 }
 
+const WIZARD_TYPES = [
+  { type: 'crimson', color: 0xff5555 },
+  { type: 'azure', color: 0x55aaff },
+  { type: 'emerald', color: 0x55ff99 },
+  { type: 'amber', color: 0xffaa33 },
+];
+
+function randomWizard() {
+  return WIZARD_TYPES[Math.floor(Math.random() * WIZARD_TYPES.length)];
+}
+
 export class Match {
   constructor(id, io) {
     this.id = id;
@@ -59,6 +70,7 @@ export class Match {
 
   createPlayerState(id, name, isBot = false) {
     const angle = (this.players.size / CONFIG.MAX_PLAYERS) * Math.PI * 2;
+    const wizard = randomWizard();
     return {
       id,
       entityId: eid(),
@@ -88,7 +100,8 @@ export class Match {
       phoenixReady: false,
       kills: 0,
       monsterKills: 0,
-      color: [0xff5555, 0x55aaff, 0x55ff99, 0xffaa33][this.players.size % 4],
+      wizardType: wizard.type,
+      color: wizard.color,
       zoneDmgAcc: 0,
       score: 0,
     };
@@ -859,6 +872,7 @@ export class Match {
         id: p.id,
         name: p.name,
         ready: p.ready,
+        wizardType: p.wizardType,
         color: p.color,
         isBot: !!p.isBot,
       })),
@@ -882,6 +896,7 @@ export class Match {
       level: p.level,
       xp: p.xp,
       xpToNext: p.xpToNext,
+      wizardType: p.wizardType,
       color: p.color,
       shield: p.shield,
       slow: p.slow,
