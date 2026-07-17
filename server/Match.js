@@ -3,6 +3,7 @@ import { BotController } from './Bot.js';
 import {
   applySpellChoice,
   createSpellInstance,
+  isPlayerUsableSpell,
   rollSpellChoices,
   spellStats,
 } from './spells.js';
@@ -1184,7 +1185,7 @@ export class Match {
         attackCooldown: 1.35,
         weight: boss,
       },
-      // Dragão — Firebolt à distância + Flame Nova de perto
+      // Dragão — Firebreath / Firebolt + Flame Nova de perto
       dragon: {
         hpMul: 3.8,
         speedMul: 0.5,
@@ -1192,7 +1193,7 @@ export class Match {
         radius: 28,
         color: 0xe74c3c,
         attack: 'caster',
-        spells: ['firebolt', 'flame_nova'],
+        spells: ['firebreath', 'firebolt', 'flame_nova'],
         range: 300,
         preferRange: 170,
         projectileSpeed: 480,
@@ -1220,7 +1221,7 @@ export class Match {
         attackCooldown: 1.25,
         weight: boss,
       },
-      // Elemental de fogo — chama viva: Firebolt + Flame Nova
+      // Elemental de fogo — chama viva: Firebreath / Firebolt + Flame Nova
       fire_elemental: {
         hpMul: 1.8,
         speedMul: 1.1,
@@ -1228,7 +1229,7 @@ export class Match {
         radius: 16,
         color: 0xff6622,
         attack: 'caster',
-        spells: ['firebolt', 'flame_nova'],
+        spells: ['firebreath', 'firebolt', 'flame_nova'],
         range: 250,
         preferRange: 145,
         projectileSpeed: 440,
@@ -1451,6 +1452,49 @@ export class Match {
         monster.novaCd = monster.novaCooldown || 4;
         break;
       }
+      case 'firebreath': {
+        if (!target) return;
+        const range = stats.range || 170;
+        const dx = target.x - monster.x;
+        const dy = target.y - monster.y;
+        const len = Math.hypot(dx, dy) || 1;
+        if (len > range * 1.15) return;
+        const dirX = dx / len;
+        const dirY = dy / len;
+        const halfAngle = ((stats.coneAngle || 38) * Math.PI) / 180;
+        const cosMin = Math.cos(halfAngle);
+        const dmg = Math.round(monster.damage * 1.35);
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          const pdx = p.x - monster.x;
+          const pdy = p.y - monster.y;
+          const pd = Math.hypot(pdx, pdy);
+          if (pd > range) continue;
+          if (pd < 0.001) {
+            this.damageEntity(p, dmg, monster.entityId, true, true);
+            continue;
+          }
+          const dot = (pdx / pd) * dirX + (pdy / pd) * dirY;
+          if (dot >= cosMin) {
+            this.damageEntity(p, dmg, monster.entityId, true, true);
+          }
+        }
+        this.effects.push({
+          type: 'firebreath',
+          spellId: 'firebreath',
+          x: monster.x,
+          y: monster.y,
+          dirX,
+          dirY,
+          range,
+          coneAngle: stats.coneAngle || 38,
+          life: 0.55,
+          maxLife: 0.55,
+          color: stats.color,
+        });
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 1.8;
+        break;
+      }
       default:
         return;
     }
@@ -1522,7 +1566,7 @@ export class Match {
     }
 
     const stats = spellStats(spellInst.id, spellInst.level);
-    if (!stats) {
+    if (!stats || !isPlayerUsableSpell(spellInst.id)) {
       player.input.castSlot = -1;
       return;
     }
@@ -2142,12 +2186,15 @@ export class Match {
 
           if (m.attackCd <= 0) {
             let spell = null;
+            const breathRange = spellStats('firebreath')?.range || 170;
             if (
               spells.includes('flame_nova') &&
               nearestD <= novaR &&
               (m.novaCd || 0) <= 0
             ) {
               spell = 'flame_nova';
+            } else if (spells.includes('firebreath') && nearestD <= breathRange) {
+              spell = 'firebreath';
             } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
               spell = 'arc_lightning';
             } else if (spells.includes('ice_shard') && nearestD <= shootRange) {

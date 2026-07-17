@@ -1449,9 +1449,16 @@ export class GameScene extends Phaser.Scene {
     const spell = e.spellId || e.type;
     const x = e.x ?? e.x1 ?? 0;
     const y = e.y ?? e.y1 ?? 0;
-    if (spell === 'firebolt' || spell === 'fireball' || e.type === 'nova' || spell === 'flame_nova') {
-      this.fireballFx?.emitParticleAt(x, y, 14);
-      this.sparkFx?.emitParticleAt(x, y, 8);
+    if (
+      spell === 'firebolt' ||
+      spell === 'fireball' ||
+      spell === 'firebreath' ||
+      e.type === 'nova' ||
+      e.type === 'firebreath' ||
+      spell === 'flame_nova'
+    ) {
+      this.fireballFx?.emitParticleAt(x, y, e.type === 'firebreath' ? 22 : 14);
+      this.sparkFx?.emitParticleAt(x, y, e.type === 'firebreath' ? 12 : 8);
     } else if (spell === 'ice_shard' || e.type === 'freeze') {
       this.iceFx?.emitParticleAt(x, y, 16);
       this.sparkFx?.emitParticleAt(x, y, 6);
@@ -2372,6 +2379,50 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  drawFirebreath(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xff6622;
+    const range = (e.range || 170) * (0.55 + 0.45 * Math.min(1, p * 1.6));
+    const half = ((e.coneAngle || 38) * Math.PI) / 180;
+    const baseAng = Math.atan2(e.dirY || 0, e.dirX || 1);
+
+    // Preenche o cone
+    g.fillStyle(color, 0.2 * fade * (1 - p * 0.4));
+    g.beginPath();
+    g.moveTo(e.x, e.y);
+    const steps = 10;
+    for (let i = 0; i <= steps; i++) {
+      const a = baseAng - half + (i / steps) * half * 2;
+      g.lineTo(e.x + Math.cos(a) * range, e.y + Math.sin(a) * range);
+    }
+    g.closePath();
+    g.fillPath();
+
+    g.fillStyle(0xffee88, 0.14 * fade * (1 - p));
+    g.beginPath();
+    g.moveTo(e.x, e.y);
+    for (let i = 0; i <= steps; i++) {
+      const a = baseAng - half * 0.55 + (i / steps) * half * 1.1;
+      g.lineTo(e.x + Math.cos(a) * range * 0.7, e.y + Math.sin(a) * range * 0.7);
+    }
+    g.closePath();
+    g.fillPath();
+
+    // Línguas de fogo no cone
+    const tongues = 7;
+    for (let i = 0; i < tongues; i++) {
+      const t = i / (tongues - 1);
+      const a = baseAng - half + t * half * 2;
+      const len = range * (0.65 + 0.35 * Math.sin(p * 10 + i));
+      g.lineStyle(2.5, i % 2 === 0 ? 0xffee88 : 0xff8844, 0.65 * fade);
+      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+      g.fillStyle(0xffee88, 0.5 * fade);
+      g.fillCircle(e.x + Math.cos(a) * len, e.y + Math.sin(a) * len, 3);
+    }
+  }
+
   drawHeal(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
@@ -2866,6 +2917,7 @@ export class GameScene extends Phaser.Scene {
       if (
         e.type === 'impact' ||
         e.type === 'nova' ||
+        e.type === 'firebreath' ||
         e.type === 'heal' ||
         e.type === 'blink' ||
         e.type === 'barrier' ||
@@ -2900,6 +2952,8 @@ export class GameScene extends Phaser.Scene {
         );
       } else if (e.type === 'nova') {
         this.drawNova(e);
+      } else if (e.type === 'firebreath') {
+        this.drawFirebreath(e);
       } else if (e.type === 'heal') {
         this.drawHeal(e);
       } else if (e.type === 'barrier') {

@@ -6,6 +6,7 @@ export const SPELLS = {
     name: 'Firebolt',
     description: 'Projétil de fogo que causa dano a distância.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 0.35,
     manaCost: 0,
     damage: 18,
@@ -19,6 +20,7 @@ export const SPELLS = {
     name: 'Ice Shard',
     description: 'Fragmento de gelo que causa dano e reduz velocidade por 5s.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 0.45,
     manaCost: 0,
     damage: 14,
@@ -34,6 +36,7 @@ export const SPELLS = {
     name: 'Arc Lightning',
     description: 'Raio elétrico no inimigo mais próximo.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 1.4,
     manaCost: 0,
     damage: 22,
@@ -45,6 +48,7 @@ export const SPELLS = {
     name: 'Flame Nova',
     description: 'Explosão circular ao redor do mago.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 2.5,
     manaCost: 0,
     damage: 28,
@@ -56,6 +60,7 @@ export const SPELLS = {
     name: 'Mend',
     description: 'Cura rápida.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 4.0,
     manaCost: 0,
     heal: 28,
@@ -66,6 +71,7 @@ export const SPELLS = {
     name: 'Poison Cloud',
     description: 'Nuvem tóxica: ao pisar, aplica veneno (3 de dano/s por 5s). Reentrar renova o efeito.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 3.0,
     manaCost: 0,
     /** Dano por tick do veneno aplicado. */
@@ -84,6 +90,7 @@ export const SPELLS = {
     name: 'Blink',
     description: 'Teleporte curto na direção do cursor.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 3.5,
     manaCost: 0,
     range: 180,
@@ -94,6 +101,7 @@ export const SPELLS = {
     name: 'Barrier',
     description: 'Escudo que absorve dano por alguns segundos.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 6.0,
     manaCost: 0,
     shield: 35,
@@ -105,6 +113,7 @@ export const SPELLS = {
     name: 'Skull Bolt',
     description: 'Caveira amaldiçoada com raios negros.',
     type: 'basic',
+    playerUsable: true,
     cooldown: 0.55,
     manaCost: 0,
     damage: 22,
@@ -112,6 +121,21 @@ export const SPELLS = {
     speed: 500,
     radius: 12,
     color: 0x4a0080,
+  },
+  /** Exclusiva de dragon / fire_elemental — não entra no pool de jogadores. */
+  firebreath: {
+    id: 'firebreath',
+    name: 'Firebreath',
+    description: 'Sopro de fogo em cone à frente. Uso exclusivo de certos monstros.',
+    type: 'basic',
+    playerUsable: false,
+    cooldown: 1.8,
+    manaCost: 0,
+    damage: 26,
+    range: 170,
+    /** Meia-abertura do cone em graus. */
+    coneAngle: 38,
+    color: 0xff6622,
   },
 };
 
@@ -121,6 +145,7 @@ export const ULTIMATES = {
     name: 'Apocalypse',
     description: 'Chuva de meteoros em grande área. 1x por round.',
     type: 'ultimate',
+    playerUsable: true,
     cooldown: 9999,
     oncePerRound: true,
     damage: 70,
@@ -132,6 +157,7 @@ export const ULTIMATES = {
     name: 'Time Freeze',
     description: 'Congela inimigos próximos. 1x por round.',
     type: 'ultimate',
+    playerUsable: true,
     cooldown: 9999,
     oncePerRound: true,
     duration: 3,
@@ -143,6 +169,7 @@ export const ULTIMATES = {
     name: 'Storm Call',
     description: 'Cadeia de raios em todos os inimigos próximos. 1x por round.',
     type: 'ultimate',
+    playerUsable: true,
     cooldown: 9999,
     oncePerRound: true,
     damage: 45,
@@ -154,11 +181,21 @@ export const ULTIMATES = {
 const BASIC_IDS = Object.keys(SPELLS);
 const ULTIMATE_IDS = Object.keys(ULTIMATES);
 
+/** Magias básicas que jogadores podem aprender / sortear. */
+export const PLAYER_BASIC_IDS = BASIC_IDS.filter((id) => SPELLS[id].playerUsable !== false);
+/** Ultimates disponíveis para jogadores. */
+export const PLAYER_ULTIMATE_IDS = ULTIMATE_IDS.filter((id) => ULTIMATES[id].playerUsable !== false);
+
 /** Máximo de magias básicas (além de ultimate e dash). */
 export const MAX_BASIC_SPELLS = 3;
 
 export function getSpellDef(id) {
   return SPELLS[id] || ULTIMATES[id] || null;
+}
+
+export function isPlayerUsableSpell(id) {
+  const def = getSpellDef(id);
+  return !!(def && def.playerUsable !== false);
 }
 
 export function createSpellInstance(id, level = 1) {
@@ -205,7 +242,7 @@ export function rollSpellChoices(player, forLevel) {
 
   const wantUltimate = forLevel >= 4 && !hasUltimate;
   if (wantUltimate) {
-    const pool = ULTIMATE_IDS.filter((id) => !used.has(id));
+    const pool = PLAYER_ULTIMATE_IDS.filter((id) => !used.has(id));
     const pick = pool[Math.floor(Math.random() * pool.length)];
     if (pick) {
       choices.push({ kind: 'new', spellId: pick, label: 'ULTIMATE' });
@@ -226,7 +263,7 @@ export function rollSpellChoices(player, forLevel) {
   const canLearnNew = owned.length < MAX_BASIC_SPELLS;
   while (choices.length < 3) {
     if (canLearnNew) {
-      const pool = BASIC_IDS.filter((id) => !owned.includes(id) && !used.has(id));
+      const pool = PLAYER_BASIC_IDS.filter((id) => !owned.includes(id) && !used.has(id));
       if (pool.length) {
         const pick = pool[Math.floor(Math.random() * pool.length)];
         choices.push({ kind: 'new', spellId: pick });
@@ -274,6 +311,7 @@ export function applySpellChoice(player, choice) {
   if (!choice) return false;
   const def = getSpellDef(choice.spellId);
   if (!def) return false;
+  if (def.playerUsable === false) return false;
 
   if (def.type === 'ultimate') {
     if (player.ultimate) return false;

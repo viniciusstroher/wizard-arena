@@ -289,6 +289,27 @@ export class BootScene extends Phaser.Scene {
         ],
         palette: { O: 0xff6622, R: 0xff4422, Y: 0xffcc44, D: 0xaa2200 },
       },
+      firebreath: {
+        rows: [
+          '................',
+          'Y...............',
+          'OY..............',
+          'ROY.............',
+          'RROY..Y.........',
+          'RRROY.YOY.......',
+          'RRRROYOOROY.....',
+          'RRRRROOORROY....',
+          'RRRROYOOROY.....',
+          'RRROY.YOY.......',
+          'RROY..Y.........',
+          'ROY.............',
+          'OY..............',
+          'Y...............',
+          '................',
+          '................',
+        ],
+        palette: { Y: 0xffe066, O: 0xff8844, R: 0xff4422 },
+      },
       mend: {
         rows: [
           '................',
