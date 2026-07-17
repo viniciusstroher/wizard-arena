@@ -62,7 +62,76 @@ export class BootScene extends Phaser.Scene {
     this.createBruxaoSprite();
     this.createArenaBrickTexture();
     this.createLavaTextures();
+    this.createRockSprites();
     this.scene.start('Lobby');
+  }
+
+  createRockSprites() {
+    // Pedra pequena
+    makePixelTexture(
+      this,
+      'rock_stone',
+      [
+        '........',
+        '..DDDD..',
+        '.DLLLLD.',
+        '.DLHHLD.',
+        '.DLLLLD.',
+        '..DDDD..',
+        '........',
+        '........',
+      ],
+      { D: 0x4a4a52, L: 0x7a7a84, H: 0xa8a8b0 },
+      3
+    );
+
+    // Rocha média
+    makePixelTexture(
+      this,
+      'rock_rock',
+      [
+        '............',
+        '....DDDD....',
+        '..DDLLLLDD..',
+        '.DLLHHHHLLD.',
+        '.DLHHHHHHLD.',
+        '.DLLHHHHLLD.',
+        '..DDLLLLDD..',
+        '....DDDD....',
+        '............',
+        '............',
+        '............',
+        '............',
+      ],
+      { D: 0x3d3d45, L: 0x6e6e78, H: 0x9a9aa4 },
+      3
+    );
+
+    // Pedrão
+    makePixelTexture(
+      this,
+      'rock_boulder',
+      [
+        '................',
+        '......DDDD......',
+        '....DDLLLLDD....',
+        '...DLLHHHHLLD...',
+        '..DLHHHHHHHHLD..',
+        '.DLHHHHHHHHHHLD.',
+        '.DLHHHHHHHHHHLD.',
+        '.DLLHHHHHHHHLLD.',
+        '..DLHHHHHHHHLD..',
+        '...DLLHHHHLLD...',
+        '....DDLLLLDD....',
+        '......DDDD......',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      { D: 0x2f2f36, L: 0x5c5c66, H: 0x8a8a96 },
+      3
+    );
   }
 
   createLavaTextures() {

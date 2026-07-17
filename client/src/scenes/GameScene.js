@@ -12,6 +12,7 @@ export class GameScene extends Phaser.Scene {
     this.playerSprites = new Map();
     this.monsterSprites = new Map();
     this.projectileSprites = new Map();
+    this.rockSprites = new Map();
     this.aoeGraphics = null;
     this.arenaGraphics = null;
     this.effectGraphics = null;
@@ -446,6 +447,7 @@ export class GameScene extends Phaser.Scene {
       this.sendInput();
     }
     this.renderArena();
+    this.renderRocks();
     this.renderPlayers();
     this.renderMonsters();
     this.renderProjectiles();
@@ -596,13 +598,41 @@ export class GameScene extends Phaser.Scene {
   }
 
   updateLavaEffects(arena) {
-    this.lavaFloor.tilePositionX += 0.35;
-    this.lavaFloor.tilePositionY += 0.18;
-
     for (const fx of this.lavaFx) {
       const dist = Math.hypot(fx.homeX - arena.x, fx.homeY - arena.y);
       const outside = dist > arena.radius + 8;
       fx.sprite.setVisible(outside);
+    }
+  }
+
+  renderRocks() {
+    const rocks = this.state.rocks || [];
+    const seen = new Set();
+    const tex = {
+      stone: 'rock_stone',
+      rock: 'rock_rock',
+      boulder: 'rock_boulder',
+    };
+
+    for (const rock of rocks) {
+      seen.add(rock.id);
+      let s = this.rockSprites.get(rock.id);
+      if (!s) {
+        s = this.add
+          .image(rock.x, rock.y, tex[rock.type] || 'rock_rock')
+          .setDepth(3)
+          .setOrigin(0.5, 0.65);
+        this.rockSprites.set(rock.id, s);
+      } else {
+        s.setPosition(rock.x, rock.y);
+      }
+    }
+
+    for (const [id, s] of this.rockSprites) {
+      if (!seen.has(id)) {
+        s.destroy();
+        this.rockSprites.delete(id);
+      }
     }
   }
 

@@ -66,6 +66,76 @@ export class Match {
     this.running = false;
     this._interval = null;
     this.bots = [];
+    this.rocks = [];
+    this.generateRocks();
+  }
+
+  generateRocks() {
+    const types = [
+      { type: 'stone', radius: 12 },
+      { type: 'rock', radius: 18 },
+      { type: 'boulder', radius: 26 },
+    ];
+    const count =
+      CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
+    const rocks = [];
+    const cx = CONFIG.ARENA_CENTER_X;
+    const cy = CONFIG.ARENA_CENTER_Y;
+    let attempts = 0;
+
+    while (rocks.length < count && attempts < count * 40) {
+      attempts += 1;
+      const def = types[Math.floor(Math.random() * types.length)];
+      const x = 48 + Math.random() * (1280 - 96);
+      const y = 40 + Math.random() * (720 - 80);
+      const fromCenter = Math.hypot(x - cx, y - cy);
+      if (fromCenter < CONFIG.ROCK_SPAWN_CLEAR_RADIUS + def.radius) continue;
+
+      let overlaps = false;
+      for (const r of rocks) {
+        if (Math.hypot(x - r.x, y - r.y) < r.radius + def.radius + 10) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) continue;
+
+      rocks.push({
+        id: eid(),
+        type: def.type,
+        x: +x.toFixed(1),
+        y: +y.toFixed(1),
+        radius: def.radius,
+      });
+    }
+
+    this.rocks = rocks;
+  }
+
+  resolveRockCollision(entity, entityRadius) {
+    if (!this.rocks.length) return;
+    for (const rock of this.rocks) {
+      const dx = entity.x - rock.x;
+      const dy = entity.y - rock.y;
+      const d = Math.hypot(dx, dy);
+      const min = rock.radius + entityRadius;
+      if (d >= min) continue;
+      if (d < 0.001) {
+        entity.x = rock.x + min;
+        entity.y = rock.y;
+        continue;
+      }
+      const push = (min - d) / d;
+      entity.x += dx * push;
+      entity.y += dy * push;
+    }
+  }
+
+  isBlockedByRock(x, y, radius) {
+    for (const rock of this.rocks) {
+      if (Math.hypot(x - rock.x, y - rock.y) < rock.radius + radius) return true;
+    }
+    return false;
   }
 
   createPlayerState(id, name, isBot = false) {
@@ -181,6 +251,7 @@ export class Match {
   startCountdown() {
     this.phase = 'countdown';
     this.countdown = 3;
+    if (!this.rocks.length) this.generateRocks();
     this.broadcast({ type: 'countdown', seconds: this.countdown });
     this.broadcastState(true);
     this.ensureLoop();
@@ -422,17 +493,26 @@ export class Match {
 
   spawnMonster() {
     if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
-    const angle = Math.random() * Math.PI * 2;
-    const r = this.arenaRadius * (0.35 + Math.random() * 0.5);
     const types = ['imp', 'slime', 'wraith'];
     const type = types[Math.floor(Math.random() * types.length)];
     const hpMul = type === 'wraith' ? 1.3 : type === 'slime' ? 1.5 : 1;
     const speedMul = type === 'imp' ? 1.25 : type === 'wraith' ? 1.1 : 0.8;
+
+    let x = CONFIG.ARENA_CENTER_X;
+    let y = CONFIG.ARENA_CENTER_Y;
+    for (let i = 0; i < 16; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const r = this.arenaRadius * (0.35 + Math.random() * 0.5);
+      x = CONFIG.ARENA_CENTER_X + Math.cos(angle) * r;
+      y = CONFIG.ARENA_CENTER_Y + Math.sin(angle) * r;
+      if (!this.isBlockedByRock(x, y, CONFIG.MONSTER_RADIUS)) break;
+    }
+
     this.monsters.push({
       entityId: eid(),
       type,
-      x: CONFIG.ARENA_CENTER_X + Math.cos(angle) * r,
-      y: CONFIG.ARENA_CENTER_Y + Math.sin(angle) * r,
+      x,
+      y,
       hp: Math.round(CONFIG.MONSTER_HP * hpMul),
       maxHp: Math.round(CONFIG.MONSTER_HP * hpMul),
       alive: true,
@@ -547,6 +627,7 @@ export class Match {
           CONFIG.ARENA_CENTER_Y - 900,
           CONFIG.ARENA_CENTER_Y + 900
         );
+        this.resolveRockCollision(player, CONFIG.PLAYER_RADIUS);
         this.effects.push({ type: 'blink', x: player.x, y: player.y, life: 0.2, color: stats.color });
         break;
       }
@@ -749,7 +830,9 @@ export class Match {
         }
         const speed = CONFIG.PLAYER_SPEED * (1 - p.slow);
         p.x += mx * speed * dt;
+        this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
         p.y += my * speed * dt;
+        this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
       }
 
       // Zone damage
@@ -794,7 +877,9 @@ export class Match {
         const dy = nearest.y - m.y;
         const len = Math.hypot(dx, dy) || 1;
         m.x += (dx / len) * m.speed * dt;
+        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
         m.y += (dy / len) * m.speed * dt;
+        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
       } else if (m.attackCd <= 0) {
         this.damageEntity(nearest, m.damage, null, true);
         m.attackCd = CONFIG.MONSTER_ATTACK_COOLDOWN;
@@ -937,6 +1022,7 @@ export class Match {
         radius: this.arenaRadius,
         nextShrinkAt: this.nextShrinkAt,
       },
+      rocks: this.rocks,
       players: [...this.players.values()].map((p) => this.serializePlayer(p)),
       monsters: this.monsters.map((m) => ({
         entityId: m.entityId,
