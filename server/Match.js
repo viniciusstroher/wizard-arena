@@ -2236,6 +2236,7 @@ export class Match {
       dashCooldown: +Math.max(0, p.dashCooldown).toFixed(2),
       kills: p.kills,
       deaths: p.deaths,
+      monsterKills: p.monsterKills || 0,
       score: p.score,
       damageDealt: Math.round(p.damageDealt || 0),
       pendingLevelUps: p.pendingLevelUps,

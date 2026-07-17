@@ -204,7 +204,7 @@ export class GameScene extends Phaser.Scene {
       .setDepth(101)
       .setVisible(false);
     this.shieldText = this.add
-      .text(24, 56, 'ESCUTO 0', {
+      .text(24, 56, 'ESCUDO 0', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '11px',
         color: '#dcecff',
@@ -395,7 +395,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
     this.scoreboardHeaderStats = this.add
-      .text(panelX + panelW - 12, panelY + 36, 'K/M   Dmg  Pts', {
+      .text(panelX + panelW - 12, panelY + 36, 'K/M  Mob  Dmg  Pts', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '10px',
         color: '#7a6d9a',
@@ -485,7 +485,9 @@ export class GameScene extends Phaser.Scene {
         .setPosition(panelX + 12, y)
         .setVisible(true);
       row.stats
-        .setText(`${p.kills || 0}/${p.deaths || 0}   ${p.damageDealt || 0}  ${p.score || 0}`)
+        .setText(
+          `${p.kills || 0}/${p.deaths || 0}  ${p.monsterKills || 0}  ${p.damageDealt || 0}  ${p.score || 0}`
+        )
         .setColor(color)
         .setPosition(panelX + panelW - 12, y)
         .setVisible(true);
@@ -2957,7 +2959,7 @@ export class GameScene extends Phaser.Scene {
       this.shieldText
         .setPosition(PAD_X + 4, y)
         .setVisible(true)
-        .setText(`ESCUTO ${Math.ceil(me.shield)} / ${Math.ceil(maxShield)}`);
+        .setText(`ESCUDO ${Math.ceil(me.shield)} / ${Math.ceil(maxShield)}`);
       y += 16;
     } else {
       this.shieldBarBg.setVisible(false);

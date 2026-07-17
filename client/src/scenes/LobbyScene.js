@@ -203,7 +203,7 @@ export class LobbyScene extends Phaser.Scene {
     this.botsBtn = this.makeButton(
       panelX,
       btnStartY + step * 2,
-      '+ Bot (testar solo)',
+      '+ Adicionar Bot',
       0xff8c42,
       () => this.addBot(),
       btnW
