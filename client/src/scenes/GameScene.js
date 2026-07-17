@@ -2081,11 +2081,29 @@ export class GameScene extends Phaser.Scene {
       seen.add(m.entityId);
       const tex = this.monsterTexture(m.type);
       const s = this.ensureActor(this.monsterSprites, m.entityId, tex, 15);
-      if (s.texture.key !== tex) s.setTexture(tex);
       s.clearTint();
       const scale = (m.radius || 14) / 14;
       s.setScale(scale);
-      s.setPosition(m.x, m.y);
+
+      const speed = Math.hypot(m.vx || 0, m.vy || 0);
+      const walking = speed > 16;
+      const walkKey = `${tex}_walk`;
+      if (walking && this.anims.exists(walkKey)) {
+        if (s.anims.currentAnim?.key !== walkKey || !s.anims.isPlaying) {
+          s.play(walkKey);
+        }
+        s.anims.timeScale = Phaser.Math.Clamp(speed / 100, 0.7, 1.8);
+        if (s.walkPhase == null) s.walkPhase = Math.random() * Math.PI * 2;
+        const bob = Math.sin(this.time.now / 70 + s.walkPhase) * 1.2 * scale;
+        s.setPosition(m.x, m.y + bob);
+      } else {
+        if (s.anims?.isPlaying) s.anims.stop();
+        if (s.texture.key !== tex) s.setTexture(tex);
+        s.setPosition(m.x, m.y);
+      }
+
+      if (Math.abs(m.vx || 0) > 10) s.setFlipX(m.vx < 0);
+
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
       const tagY = m.y - 26 * scale;
       s.nameTag.setText(`${this.monsterLabel(m.type)} Lv${m.level || 1}`);

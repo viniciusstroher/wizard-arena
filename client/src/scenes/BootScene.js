@@ -18,6 +18,66 @@ function makePixelTexture(scene, key, rows, palette, scale = 2) {
   scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
 }
 
+/** Offset lower-body pixels to fake a walk / limb cycle. side: -1 left, +1 right. */
+function makeWalkPose(rows, side) {
+  const h = rows.length;
+  const w = rows[0].length;
+  const src = rows.map((r) => r.split(''));
+  const dst = Array.from({ length: h }, () => Array(w).fill('.'));
+  let last = 0;
+  for (let y = 0; y < h; y++) {
+    if (src[y].some((c) => c !== '.')) last = y;
+  }
+  const fromRow = Math.max(0, last - 3);
+  const mid = Math.floor(w / 2);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ch = src[y][x];
+      if (ch === '.') continue;
+      let nx = x;
+      let ny = y;
+      if (y >= fromRow) {
+        const left = x < mid;
+        if (side < 0) {
+          nx = x + (left ? -1 : 1);
+          ny = y + (left ? 1 : -1);
+        } else {
+          nx = x + (left ? 1 : -1);
+          ny = y + (left ? -1 : 1);
+        }
+      }
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
+        dst[ny][nx] = ch;
+      }
+    }
+  }
+  return dst.map((row) => row.join(''));
+}
+
+/** Idle + walk frames + Phaser anim for a monster type. */
+function registerMonsterSprite(scene, type, idle, palette) {
+  const base = `monster_${type}`;
+  makePixelTexture(scene, base, idle, palette);
+  makePixelTexture(scene, `${base}_wL`, makeWalkPose(idle, -1), palette);
+  makePixelTexture(scene, `${base}_wR`, makeWalkPose(idle, 1), palette);
+
+  const walkKey = `${base}_walk`;
+  if (!scene.anims.exists(walkKey)) {
+    scene.anims.create({
+      key: walkKey,
+      frames: [
+        { key: base },
+        { key: `${base}_wL` },
+        { key: base },
+        { key: `${base}_wR` },
+      ],
+      frameRate: 8,
+      repeat: -1,
+    });
+  }
+}
+
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
@@ -1205,9 +1265,9 @@ export class BootScene extends Phaser.Scene {
 
   createMonsterSprites() {
     // Imp — small red demon with horns
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_imp',
+      'imp',
       [
         '................',
         '....H......H....',
@@ -1236,9 +1296,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Slime — round green blob
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_slime',
+      'slime',
       [
         '................',
         '................',
@@ -1267,9 +1327,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Wraith — floating purple spirit
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_wraith',
+      'wraith',
       [
         '................',
         '.....LLLLL......',
@@ -1297,9 +1357,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Goblin — small green skirmisher with big ears
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_goblin',
+      'goblin',
       [
         '................',
         '.EE..........EE.',
@@ -1329,9 +1389,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Orc — bulky green bruiser with tusks
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_orc',
+      'orc',
       [
         '................',
         '....OOOOOOOO....',
@@ -1359,9 +1419,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Skeleton — melee undead with rusty blade
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_skeleton',
+      'skeleton',
       [
         '................',
         '.....WWWWWW.....',
@@ -1389,9 +1449,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Skeleton archer — ranged-only with bow
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_skeleton_archer',
+      'skeleton_archer',
       [
         '................',
         '.....WWWWWW.....',
@@ -1420,9 +1480,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Wolf — lean brown hunter
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_wolf',
+      'wolf',
       [
         '................',
         '................',
@@ -1451,9 +1511,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Giant spider — dark arachnid with many legs
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_giant_spider',
+      'giant_spider',
       [
         '................',
         'L..L........L..L',
@@ -1481,9 +1541,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Bat — small flying skirmisher
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_bat',
+      'bat',
       [
         '................',
         '................',
@@ -1511,9 +1571,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Elf — nimble forest archer with pointed ears + bow
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_elf',
+      'elf',
       [
         '................',
         '....N......N....',
@@ -1546,9 +1606,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Beholder — olho central + pedúnculos
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_beholder',
+      'beholder',
       [
         '................',
         '..E..E....E..E..',
@@ -1578,9 +1638,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Dragon — corpo vermelho + asas + chifres
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_dragon',
+      'dragon',
       [
         '................',
         '..H..........H..',
@@ -1610,9 +1670,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Lich — capuz + crânio + orbe de gelo
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_lich',
+      'lich',
       [
         '................',
         '.....HHHHH......',
@@ -1644,9 +1704,9 @@ export class BootScene extends Phaser.Scene {
     );
 
     // Fire Elemental — chama viva com núcleo branco
-    makePixelTexture(
+    registerMonsterSprite(
       this,
-      'monster_fire_elemental',
+      'fire_elemental',
       [
         '................',
         '......YY........',
