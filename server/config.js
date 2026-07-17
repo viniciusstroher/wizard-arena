@@ -127,7 +127,7 @@ export const CONFIG = {
    * PvP: true = jogadores/bots podem se atacar (comportamento atual).
    * false = PvE: sem dano entre jogadores/bots; bots só miram mobs.
    */
-  PVP_ENABLED: envBool('PVP_ENABLED', true),
+  PVP_ENABLED: envBool('PVP_ENABLED', false),
   /**
    * Tempo máximo (segundos) na tela de escolha de magia.
    * Ao expirar, escolhe automaticamente. 0 = sem limite.
