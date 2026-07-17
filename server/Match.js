@@ -1474,7 +1474,7 @@ export class Match {
         hpMul: 2.2,
         speedMul: 0.85,
         dmgMul: 1.4,
-        radius: 18,
+        radius: 28,
         color: 0x8b1a2b,
         attack: 'caster',
         spells: ['electric_bolt', 'electric_storm'],
