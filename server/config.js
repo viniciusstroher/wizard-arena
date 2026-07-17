@@ -40,7 +40,8 @@ export const CONFIG = {
   /** Duração total estimada dos rounds (sem intermissões). */
   MATCH_DURATION: MAX_ROUNDS * ROUND_DURATION,
   PLAYER_MAX_HP: 100,
-  PLAYER_SPEED: 180,
+  /** Velocidade de movimento de jogadores/bots (px/s). */
+  PLAYER_SPEED: envNumber('PLAYER_SPEED', 180),
   PLAYER_RADIUS: 16,
   /**
    * Inércia do jogador (segundos para aproximar da velocidade alvo).
@@ -80,7 +81,8 @@ export const CONFIG = {
   MONSTER_MAX: 18,
   MONSTER_HP: 40,
   MONSTER_DAMAGE: 8,
-  MONSTER_SPEED: 95,
+  /** Velocidade base dos mobs (px/s); tipos aplicam speedMul em cima. */
+  MONSTER_SPEED: envNumber('MONSTER_SPEED', 95),
   /** Chance de crítico de monstros (0–1). */
   MONSTER_CRIT_CHANCE: envNumber('MONSTER_CRIT_CHANCE', 0.1),
   /** Multiplicador de dano em crítico (monstros). */
