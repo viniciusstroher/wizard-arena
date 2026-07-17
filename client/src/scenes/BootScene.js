@@ -29,7 +29,9 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('round_end', '/assets/fogos-caruaru-foguete-12x1-8.mp3');
     this.load.audio('round_start', '/assets/buzina-3.mp3');
     this.load.audio('player_hurt', '/assets/soco_8rPimgT.mp3');
-    this.load.audio('lobby_music', '/assets/gangstas-paradise-choir-sound-effect_16MrjlV.mp3');
+    this.load.audio('lobby_music_a', '/assets/tavern-festival.mp3');
+    this.load.audio('lobby_music_b', '/assets/tavern-festival-1.mp3');
+    this.load.audio('battle_music', '/assets/pao-queijo-escuridao.mp3');
   }
 
   create() {

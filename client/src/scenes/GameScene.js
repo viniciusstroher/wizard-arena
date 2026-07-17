@@ -56,11 +56,13 @@ export class GameScene extends Phaser.Scene {
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
     this.lastHurtSoundAt = 0;
+    this.battleMusic = null;
   }
 
   create() {
     this.socket = getSocket();
     this.cameras.main.setBackgroundColor('#1a0500');
+    this.startBattleMusic();
 
     this.lavaFloor = this.add
       .tileSprite(640, 360, 1280, 720, 'lava_tile')
@@ -119,12 +121,43 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.events.on('shutdown', () => {
+      this.stopBattleMusic();
       this.socket.off('game_state');
       this.socket.off('game_event');
     });
 
     // Garante snapshot da arena/spawns mesmo se o state inicial chegou antes da cena
     this.socket.emit('request_state');
+  }
+
+  startBattleMusic() {
+    if (!this.cache.audio.exists('battle_music')) return;
+    this.stopBattleMusic();
+    const volRaw = localStorage.getItem('wa_lobby_music_vol');
+    const volN = Number(volRaw);
+    const volume = Number.isFinite(volN) ? Phaser.Math.Clamp(volN, 0, 1) : 0.2;
+    this.battleMusic = this.sound.add('battle_music', {
+      loop: true,
+      volume,
+    });
+    const play = () => {
+      if (this.battleMusic && !this.battleMusic.isPlaying) {
+        this.battleMusic.play();
+      }
+    };
+    if (this.sound.locked) {
+      this.sound.once('unlocked', play);
+    } else {
+      play();
+    }
+  }
+
+  stopBattleMusic() {
+    if (this.battleMusic) {
+      this.battleMusic.stop();
+      this.battleMusic.destroy();
+      this.battleMusic = null;
+    }
   }
 
   createHud() {

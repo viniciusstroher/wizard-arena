@@ -43,9 +43,13 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   startLobbyMusic() {
-    if (!this.cache.audio.exists('lobby_music')) return;
+    const tracks = ['lobby_music_a', 'lobby_music_b'].filter((key) =>
+      this.cache.audio.exists(key)
+    );
+    if (!tracks.length) return;
     this.stopLobbyMusic();
-    this.lobbyMusic = this.sound.add('lobby_music', {
+    const key = tracks[Math.floor(Math.random() * tracks.length)];
+    this.lobbyMusic = this.sound.add(key, {
       loop: true,
       volume: this.lobbyMusicVolume,
     });
