@@ -638,6 +638,11 @@ export class GameScene extends Phaser.Scene {
     this.sound.play('round_end', { volume: 0.9 });
   }
 
+  playRoundStartSound() {
+    if (!this.cache.audio.exists('round_start')) return;
+    this.sound.play('round_start', { volume: 0.9 });
+  }
+
   onState(state) {
     const prevPhase = this.state?.phase;
     this.state = state;
@@ -664,6 +669,9 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'player_death' && ev.playerId === this.playerId) {
         this.playDeathSound();
+      }
+      if (ev.type === 'round_start') {
+        this.playRoundStartSound();
       }
       if (ev.type === 'round_win') {
         roundEnded = true;
