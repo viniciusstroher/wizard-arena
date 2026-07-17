@@ -118,6 +118,7 @@ export class Match {
     this.botAiEnabled = CONFIG.BOT_AI_ENABLED;
     this.monsterSpawnEnabled = CONFIG.MONSTER_SPAWN_ENABLED;
     this.botLevelUpChoiceEnabled = CONFIG.BOT_LEVELUP_CHOICE_ENABLED;
+    this.pvpEnabled = CONFIG.PVP_ENABLED;
     this.generateRocks();
   }
 
@@ -131,13 +132,27 @@ export class Match {
     if (payload.botLevelUpChoiceEnabled !== undefined) {
       this.botLevelUpChoiceEnabled = !!payload.botLevelUpChoiceEnabled;
     }
+    if (payload.pvpEnabled !== undefined) {
+      this.pvpEnabled = !!payload.pvpEnabled;
+    }
     this.broadcastLobby();
     return {
       ok: true,
       botAiEnabled: this.botAiEnabled,
       monsterSpawnEnabled: this.monsterSpawnEnabled,
       botLevelUpChoiceEnabled: this.botLevelUpChoiceEnabled,
+      pvpEnabled: this.pvpEnabled,
     };
+  }
+
+  /**
+   * Em PvE, jogadores/bots não causam dano/efeitos em outros jogadores/bots.
+   * Monstros, zona e eventos da arena continuam normais.
+   */
+  playerCanHarmPlayers(sourceId) {
+    if (this.pvpEnabled) return true;
+    if (sourceId == null) return true;
+    return !this.players.has(sourceId);
   }
 
   /** Com a flag off, bots escolhem na hora (não travam a partida). */
@@ -1294,6 +1309,7 @@ export class Match {
   /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
   damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false) {
     if (!target.alive) return false;
+    if (isPlayer && !this.playerCanHarmPlayers(sourcePlayerId)) return false;
 
     let crit = false;
     let dmg = amount;
@@ -1880,6 +1896,7 @@ export class Match {
   /** Aplica/renova veneno (duração sempre no máximo). */
   applyPoison(target, ownerId, damage, tick, duration) {
     if (!target?.alive) return;
+    if (this.isPlayerEntity(target) && !this.playerCanHarmPlayers(ownerId)) return;
     const wasPoisoned = (target.poisonTimer || 0) > 0;
     const dmg = Math.max(0, Math.round(Number(damage) || 0));
     target.poisonTimer = Math.max(0.05, Number(duration) || 5);
@@ -1916,6 +1933,7 @@ export class Match {
   /** Aplica/renova queimadura (duração sempre no máximo). */
   applyBurn(target, ownerId, damage, tick, duration) {
     if (!target?.alive) return;
+    if (this.isPlayerEntity(target) && !this.playerCanHarmPlayers(ownerId)) return;
     const wasBurning = (target.burnTimer || 0) > 0;
     const dmg = Math.max(0, Math.round(Number(damage) || 0));
     target.burnTimer = Math.max(0.05, Number(duration) || 10);
@@ -1982,11 +2000,13 @@ export class Match {
     const burnTickSafe = Math.max(0.05, Number(burnTick) || 1);
     const burnDurationSafe = Math.max(0.5, Number(burnDuration) || 10);
 
-    for (const p of this.players.values()) {
-      if (!p.alive || p.id === ownerId || p.entityId === ownerId) continue;
-      if (dist(origin, p) <= radius + CONFIG.PLAYER_RADIUS) {
-        this.damageEntity(p, burst, ownerId, true, true);
-        this.applyBurn(p, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
+    if (this.playerCanHarmPlayers(ownerId)) {
+      for (const p of this.players.values()) {
+        if (!p.alive || p.id === ownerId || p.entityId === ownerId) continue;
+        if (dist(origin, p) <= radius + CONFIG.PLAYER_RADIUS) {
+          this.damageEntity(p, burst, ownerId, true, true);
+          this.applyBurn(p, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
+        }
       }
     }
     if (hitMonsters) {
@@ -2485,8 +2505,10 @@ export class Match {
 
   listHostiles(player) {
     const list = [];
-    for (const p of this.players.values()) {
-      if (p.id !== player.id && p.alive) list.push({ ...p, _isPlayer: true, ref: p });
+    if (this.pvpEnabled) {
+      for (const p of this.players.values()) {
+        if (p.id !== player.id && p.alive) list.push({ ...p, _isPlayer: true, ref: p });
+      }
     }
     for (const m of this.monsters) {
       if (m.alive) list.push({ ...m, _isPlayer: false, ref: m });
@@ -2516,9 +2538,11 @@ export class Match {
   }
 
   applyNova(origin, radius, damage, sourceId) {
-    for (const p of this.players.values()) {
-      if (p.id === sourceId || !p.alive) continue;
-      if (dist(origin, p) <= radius) this.damageEntity(p, damage, sourceId, true, true);
+    if (this.playerCanHarmPlayers(sourceId)) {
+      for (const p of this.players.values()) {
+        if (p.id === sourceId || !p.alive) continue;
+        if (dist(origin, p) <= radius) this.damageEntity(p, damage, sourceId, true, true);
+      }
     }
     for (const m of this.monsters) {
       if (!m.alive) continue;
@@ -2921,18 +2945,21 @@ export class Match {
       let hit = false;
       if (!ended) {
         const fromMonster = proj.team === 'monster';
-        for (const p of this.players.values()) {
-          if (!p.alive) continue;
-          if (!fromMonster && p.id === proj.ownerId) continue;
-          if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
-            this.damageEntity(p, proj.damage, proj.ownerId, true, true);
-            this.applyProjectileKnockback(p, proj);
-            if (proj.slow) {
-              p.slow = Math.max(p.slow, proj.slow);
-              p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
+        const canHitPlayers = fromMonster || this.playerCanHarmPlayers(proj.ownerId);
+        if (canHitPlayers) {
+          for (const p of this.players.values()) {
+            if (!p.alive) continue;
+            if (!fromMonster && p.id === proj.ownerId) continue;
+            if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
+              this.damageEntity(p, proj.damage, proj.ownerId, true, true);
+              this.applyProjectileKnockback(p, proj);
+              if (proj.slow) {
+                p.slow = Math.max(p.slow, proj.slow);
+                p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
+              }
+              hit = true;
+              break;
             }
-            hit = true;
-            break;
           }
         }
         if (!hit && !fromMonster) {
@@ -3048,6 +3075,7 @@ export class Match {
       botAiEnabled: this.botAiEnabled,
       monsterSpawnEnabled: this.monsterSpawnEnabled,
       botLevelUpChoiceEnabled: this.botLevelUpChoiceEnabled,
+      pvpEnabled: this.pvpEnabled,
       players: [...this.players.values()].map((p) => ({
         id: p.id,
         name: p.name,
@@ -3137,6 +3165,7 @@ export class Match {
       roundTime: +this.roundTime.toFixed(2),
       roundDuration: CONFIG.ROUND_DURATION,
       countdown: this.countdown,
+      pvpEnabled: this.pvpEnabled,
       arena: {
         x: CONFIG.ARENA_CENTER_X,
         y: CONFIG.ARENA_CENTER_Y,

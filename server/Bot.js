@@ -73,8 +73,10 @@ export class BotController {
     this.castTimer -= dt;
 
     const hostiles = [];
-    for (const p of this.match.players.values()) {
-      if (p.id !== player.id && p.alive) hostiles.push(p);
+    if (this.match.pvpEnabled) {
+      for (const p of this.match.players.values()) {
+        if (p.id !== player.id && p.alive) hostiles.push(p);
+      }
     }
     for (const m of this.match.monsters) {
       if (m.alive) hostiles.push(m);
