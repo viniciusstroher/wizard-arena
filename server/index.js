@@ -94,6 +94,12 @@ io.on('connection', (socket) => {
     match.setInput(socket.id, input || {});
   });
 
+  socket.on('request_state', () => {
+    const match = findMatchBySocket(socket.id);
+    if (!match || match.phase === 'lobby') return;
+    socket.emit('game_state', match.stateSnapshot());
+  });
+
   socket.on('choose_spell', (payload = {}) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;

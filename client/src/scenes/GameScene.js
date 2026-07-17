@@ -75,9 +75,9 @@ export class GameScene extends Phaser.Scene {
     this.socket.on('game_state', (state) => this.onState(state));
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
-        this.bannerText.setText(`Começa em ${ev.seconds}`);
+        const nextRound = (this.state?.round ?? 0) + 1;
+        this.bannerText.setText(`Round ${nextRound}\nComeça em ${ev.seconds}`);
         this.bannerText.setAlpha(1);
-        this.pushBoardEvent(`Partida começa em ${ev.seconds}s`);
       }
     });
 
@@ -85,6 +85,9 @@ export class GameScene extends Phaser.Scene {
       this.socket.off('game_state');
       this.socket.off('game_event');
     });
+
+    // Garante snapshot da arena/spawns mesmo se o state inicial chegou antes da cena
+    this.socket.emit('request_state');
   }
 
   createHud() {
@@ -883,7 +886,13 @@ export class GameScene extends Phaser.Scene {
     const m = Math.floor(remain / 60);
     const s = Math.floor(remain % 60);
     this.timerText.setText(`${m}:${String(s).padStart(2, '0')}`);
-    this.roundText.setText(`Round ${this.state.round} · zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`);
+    const displayRound =
+      this.state.phase === 'countdown' ? Math.max(1, (this.state.round || 0) + 1) : this.state.round || 1;
+    const zoneLabel =
+      this.state.phase === 'countdown'
+        ? 'posicionando'
+        : `zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`;
+    this.roundText.setText(`Round ${displayRound} · ${zoneLabel}`);
 
     // Spells
     for (let i = 0; i < 4; i++) {
@@ -926,7 +935,12 @@ export class GameScene extends Phaser.Scene {
 
   handleBanners() {
     if (!this.state) return;
-    if (this.state.phase === 'intermission') {
+    if (this.state.phase === 'countdown') {
+      const nextRound = (this.state.round || 0) + 1;
+      const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
+      this.bannerText.setText(`Round ${nextRound}\nComeça em ${sec}`);
+      this.bannerText.setAlpha(1);
+    } else if (this.state.phase === 'intermission') {
       const w = this.state.players.find((p) => p.id === this.state.winnerId);
       this.bannerText.setText(
         w

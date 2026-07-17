@@ -213,14 +213,19 @@ export class LobbyScene extends Phaser.Scene {
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
         this.statusText.setText(`Partida iniciando em ${ev.seconds}...`);
-        this.scene.start('Game', { playerId: this.socket.id });
+        this.enterGame();
       }
     });
 
     this.socket.on('game_state', (state) => {
       if (state.phase === 'lobby') return;
-      this.scene.start('Game', { playerId: this.socket.id });
+      this.enterGame();
     });
+  }
+
+  enterGame() {
+    if (this.scene.isActive('Game') || this.scene.isSleeping('Game')) return;
+    this.scene.start('Game', { playerId: this.socket.id });
   }
 
   joinLobby() {

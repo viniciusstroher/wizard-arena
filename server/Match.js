@@ -250,29 +250,23 @@ export class Match {
     this.startCountdown();
   }
 
-  startCountdown() {
-    this.phase = 'countdown';
-    this.countdown = 3;
-    if (!this.rocks.length) this.generateRocks();
-    this.broadcast({ type: 'countdown', seconds: this.countdown });
-    this.broadcastState(true);
-    this.ensureLoop();
-  }
-
-  startRound() {
-    this.round += 1;
-    this.phase = 'playing';
-    this.roundTime = 0;
-    this.xpPassiveTimer = 0;
+  /** Limpa entidades/efeitos e regenera o chão da arena para o próximo round. */
+  clearArena() {
     this.arenaRadius = CONFIG.ARENA_START_RADIUS;
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
     this.monsterSpawnTimer = 1;
+    this.xpPassiveTimer = 0;
     this.monsters = [];
     this.projectiles = [];
     this.aoes = [];
+    this.effects = [];
     this.events = [];
     this.winnerId = null;
+    this.generateRocks();
+  }
 
+  /** Posiciona e reseta os jogadores nos spawns do round. */
+  placePlayersForRound() {
     const list = [...this.players.values()];
     list.forEach((p, i) => {
       const angle = (i / list.length) * Math.PI * 2 - Math.PI / 2;
@@ -295,7 +289,27 @@ export class Match {
         if (p.ultimate.id === 'phoenix') p.phoenixReady = true;
       }
     });
+  }
 
+  /** Prepara arena limpa + spawns visíveis antes da contagem. */
+  prepareRound() {
+    this.clearArena();
+    this.placePlayersForRound();
+  }
+
+  startCountdown() {
+    this.prepareRound();
+    this.phase = 'countdown';
+    this.countdown = 3;
+    this.broadcast({ type: 'countdown', seconds: this.countdown });
+    this.broadcastState(true);
+    this.ensureLoop();
+  }
+
+  startRound() {
+    this.round += 1;
+    this.phase = 'playing';
+    this.roundTime = 0;
     this.pushEvent({ type: 'round_start', round: this.round });
     this.broadcastState(true);
   }
@@ -765,10 +779,11 @@ export class Match {
     if (this.phase === 'countdown') {
       this.countdown -= dt;
       if (this.countdown <= 0) {
-        this.matchTime = 0;
+        if (this.round === 0) this.matchTime = 0;
         this.startRound();
       } else {
         this.broadcast({ type: 'countdown', seconds: Math.ceil(this.countdown) });
+        this.broadcastState();
       }
       return;
     }
@@ -780,7 +795,7 @@ export class Match {
         if (this.matchTime >= CONFIG.MATCH_DURATION) {
           this.endMatch(this.winnerId ? this.players.get(this.winnerId) : null);
         } else {
-          this.startRound();
+          this.startCountdown();
         }
       } else {
         this.broadcastState();
@@ -1062,6 +1077,7 @@ export class Match {
       matchTime: +this.matchTime.toFixed(2),
       matchDuration: CONFIG.MATCH_DURATION,
       roundTime: +this.roundTime.toFixed(2),
+      countdown: this.countdown,
       arena: {
         x: CONFIG.ARENA_CENTER_X,
         y: CONFIG.ARENA_CENTER_Y,
