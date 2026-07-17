@@ -20,6 +20,7 @@ export class GameScene extends Phaser.Scene {
     this.arenaGraphics = null;
     this.effectGraphics = null;
     this.levelUpOpen = false;
+    this.levelUpWaitOpen = false;
     this.levelUpSubmitting = false;
     this.levelUpSubmitAt = 0;
     this.levelUpChoiceKey = null;
@@ -27,6 +28,8 @@ export class GameScene extends Phaser.Scene {
     this.levelUpChoices = [];
     this.choiceCards = [];
     this.levelUpHint = null;
+    this.levelUpDim = null;
+    this.levelUpWaitText = null;
     this.eventLog = [];
     this.eventScroll = 0;
     this.disconnectConfirmOpen = false;
@@ -823,11 +826,11 @@ export class GameScene extends Phaser.Scene {
 
   sendInput() {
     const pointer = this.input.activePointer;
-    const pickingSpell = this.levelUpOpen || this.levelUpSubmitting;
+    const levelUpPaused = this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting;
 
-    // Durante escolha de magia: só hotkeys 1–4 escolhem o card; Tab cicla o slot 1→2→3→4.
-    if (pickingSpell) {
-      if (!this.levelUpSubmitting) {
+    // Durante level-up: combate pausado. Quem escolhe usa 1–4 / Tab; quem espera só aguarda.
+    if (levelUpPaused) {
+      if (this.levelUpOpen && !this.levelUpSubmitting) {
         if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
           this.cycleSpellSlot();
           this.updateLevelUpSlotHint();
@@ -2725,7 +2728,12 @@ export class GameScene extends Phaser.Scene {
     ) {
       this.bannerText.setText('Você morreu\nRevive no próximo round');
       this.bannerText.setAlpha(1);
-    } else if (this.state.phase === 'playing' && this.bannerText.alpha > 0 && !this.levelUpOpen) {
+    } else if (
+      this.state.phase === 'playing' &&
+      this.bannerText.alpha > 0 &&
+      !this.levelUpOpen &&
+      !this.levelUpWaitOpen
+    ) {
       this.bannerText.setAlpha(Math.max(0, this.bannerText.alpha - 0.02));
     }
   }
@@ -2740,18 +2748,28 @@ export class GameScene extends Phaser.Scene {
     return `${base}#${pendingLevelUps}`;
   }
 
+  playersChoosingSpells() {
+    return (this.state?.players || []).filter((p) => p.alive && p.pendingLevelUps > 0);
+  }
+
   updateLevelUpUi() {
     const me = this.me();
-    if (!me) return;
+    if (!me || !this.state) return;
+
+    if (this.state.phase !== 'levelup') {
+      if (this.levelUpOpen || this.levelUpWaitOpen) this.hideLevelUp();
+      return;
+    }
 
     const choices = me.spellChoices;
     const needs = me.pendingLevelUps > 0 && choices?.length;
+
     if (!needs) {
       this.levelUpSubmitting = false;
       this.levelUpSubmittedKey = null;
       this.levelUpChoiceKey = null;
       this.levelUpChoices = [];
-      if (this.levelUpOpen) this.hideLevelUp();
+      this.showLevelUpWait();
       return;
     }
 
@@ -2773,7 +2791,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (!this.levelUpOpen || key !== this.levelUpChoiceKey) {
+    if (!this.levelUpOpen || this.levelUpWaitOpen || key !== this.levelUpChoiceKey) {
       this.showLevelUp(choices, key);
     }
   }
@@ -2834,20 +2852,115 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  fadeInLevelUpOverlay(targets, dimTargetAlpha = 0.7) {
+    for (const obj of targets) {
+      if (!obj || obj === this.levelUpDim) continue;
+      const to = obj.alpha ?? 1;
+      obj.setAlpha(0);
+      this.tweens.add({
+        targets: obj,
+        alpha: to,
+        duration: 320,
+        ease: 'Cubic.Out',
+        delay: 80,
+      });
+    }
+    if (this.levelUpDim) {
+      this.levelUpDim.setAlpha(0);
+      this.tweens.add({
+        targets: this.levelUpDim,
+        alpha: dimTargetAlpha,
+        duration: 380,
+        ease: 'Cubic.Out',
+      });
+    }
+  }
+
+  clearLevelUpLayer() {
+    if (this.levelUpLayer) {
+      for (const child of this.levelUpLayer.list.slice()) {
+        this.tweens.killTweensOf(child);
+      }
+      this.levelUpLayer.removeAll(true);
+    }
+    this.levelUpDim = null;
+    this.levelUpHint = null;
+    this.levelUpWaitText = null;
+    this.choiceCards = [];
+  }
+
+  showLevelUpWait() {
+    const choosers = this.playersChoosingSpells();
+    const waitKey = choosers.map((p) => p.id).sort().join(',') || 'none';
+    if (this.levelUpWaitOpen && this.levelUpChoiceKey === `wait:${waitKey}`) {
+      if (this.levelUpWaitText) {
+        const names = choosers.map((p) => p.name).join(', ');
+        this.levelUpWaitText.setText(
+          names
+            ? `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} escolhendo magia, aguarde!\n${names}`
+            : 'Jogador escolhendo magia, aguarde!'
+        );
+      }
+      return;
+    }
+
+    this.levelUpOpen = false;
+    this.levelUpWaitOpen = true;
+    this.levelUpSubmitting = false;
+    this.levelUpChoiceKey = `wait:${waitKey}`;
+    this.levelUpChoices = [];
+    this.clearLevelUpLayer();
+    this.levelUpLayer.setVisible(true);
+
+    const { width, height } = this.scale;
+    this.levelUpDim = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x000000, 1)
+      .setInteractive();
+
+    const names = choosers.map((p) => p.name).join(', ');
+    const title = this.add
+      .text(width / 2, height / 2 - 24, 'PAUSA', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '34px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5);
+
+    this.levelUpWaitText = this.add
+      .text(
+        width / 2,
+        height / 2 + 28,
+        names
+          ? `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} escolhendo magia, aguarde!\n${names}`
+          : 'Jogador escolhendo magia, aguarde!',
+        {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '20px',
+          color: '#e8dfff',
+          align: 'center',
+          lineSpacing: 10,
+        }
+      )
+      .setOrigin(0.5);
+
+    this.levelUpLayer.add([this.levelUpDim, title, this.levelUpWaitText]);
+    this.fadeInLevelUpOverlay([title, this.levelUpWaitText], 0.72);
+  }
+
   showLevelUp(choices, key = null) {
     const me = this.me();
     this.levelUpOpen = true;
+    this.levelUpWaitOpen = false;
     this.levelUpSubmitting = false;
     this.levelUpChoices = choices || [];
     this.levelUpChoiceKey =
       key ?? this.choicesKey(choices, me?.choiceSetId, me?.pendingLevelUps || 0);
-    this.levelUpLayer.removeAll(true);
+    this.clearLevelUpLayer();
     this.levelUpLayer.setVisible(true);
-    this.choiceCards = [];
 
     const { width, height } = this.scale;
-    const dim = this.add
-      .rectangle(width / 2, height / 2, width, height, 0x000000, 0.65)
+    this.levelUpDim = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x000000, 1)
       .setInteractive();
     const remaining = this.me()?.pendingLevelUps || 1;
     const title = this.add
@@ -2873,7 +2986,9 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.updateLevelUpSlotHint();
 
-    this.levelUpLayer.add([dim, title, this.levelUpHint]);
+    this.levelUpLayer.add([this.levelUpDim, title, this.levelUpHint]);
+
+    const fadeTargets = [title, this.levelUpHint];
 
     choices.forEach((choice, i) => {
       const x = width / 2 + (i - (choices.length - 1) / 2) * 270;
@@ -2944,18 +3059,46 @@ export class GameScene extends Phaser.Scene {
       // Escolha só por hotkeys 1–4 (sem clique)
       this.levelUpLayer.add(card);
       this.choiceCards.push(card);
+      fadeTargets.push(card);
     });
+
+    this.fadeInLevelUpOverlay(fadeTargets, 0.7);
   }
 
   hideLevelUp() {
+    const layer = this.levelUpLayer;
+    const kids = layer?.visible ? layer.list.slice() : [];
     this.levelUpOpen = false;
+    this.levelUpWaitOpen = false;
     this.levelUpSubmitting = false;
     this.levelUpChoiceKey = null;
     this.levelUpSubmittedKey = null;
     this.levelUpChoices = [];
     this.levelUpHint = null;
+    this.levelUpWaitText = null;
     this.choiceCards = [];
-    this.levelUpLayer.removeAll(true);
-    this.levelUpLayer.setVisible(false);
+    this.levelUpDim = null;
+
+    if (!layer?.visible) return;
+
+    if (kids.length) {
+      for (const child of kids) this.tweens.killTweensOf(child);
+      this.tweens.add({
+        targets: kids,
+        alpha: 0,
+        duration: 220,
+        ease: 'Cubic.In',
+        onComplete: () => {
+          // Só limpa se nenhum novo overlay foi aberto no meio tempo
+          if (!this.levelUpOpen && !this.levelUpWaitOpen) {
+            this.clearLevelUpLayer();
+            layer.setVisible(false);
+          }
+        },
+      });
+    } else {
+      this.clearLevelUpLayer();
+      layer.setVisible(false);
+    }
   }
 }
