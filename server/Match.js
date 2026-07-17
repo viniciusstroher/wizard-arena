@@ -195,6 +195,7 @@ export class Match {
       stunTimer: 0,
       dashTimer: 0,
       dashCooldown: 0,
+      dashBuffer: 0,
       dashDx: 0,
       dashDy: 0,
       phoenixReady: false,
@@ -371,6 +372,7 @@ export class Match {
     const castSlot = Number.isInteger(input.castSlot) ? input.castSlot : -1;
     // Latch cast/dash until the next tick consumes them — client frames are much
     // faster than TICK_RATE, so a one-frame press would otherwise be overwritten.
+    if (dash) p.dashBuffer = 0.2;
     p.input = {
       up: !!input.up,
       down: !!input.down,
@@ -385,8 +387,17 @@ export class Match {
 
   tryStartDash(player) {
     const dir = player.input?.dash;
-    if (!dir || !player.alive || player.stunTimer > 0) return;
-    if (player.dashCooldown > 0 || player.dashTimer > 0) return;
+    if (!dir) return;
+    if (!player.alive) {
+      player.input.dash = null;
+      player.dashBuffer = 0;
+      return;
+    }
+    if (player.stunTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) {
+      // Só mantém buffer curto (~200ms); evita dash “fantasma” no fim do CD.
+      if ((player.dashBuffer || 0) <= 0) player.input.dash = null;
+      return;
+    }
 
     let dx = 0;
     let dy = 0;
@@ -394,12 +405,16 @@ export class Match {
     else if (dir === 'down') dy = 1;
     else if (dir === 'left') dx = -1;
     else if (dir === 'right') dx = 1;
-    else return;
+    else {
+      player.input.dash = null;
+      return;
+    }
 
     player.dashDx = dx;
     player.dashDy = dy;
     player.dashTimer = CONFIG.PLAYER_DASH_DURATION;
     player.dashCooldown = CONFIG.PLAYER_DASH_COOLDOWN;
+    player.dashBuffer = 0;
     player.vx = dx * CONFIG.PLAYER_DASH_SPEED;
     player.vy = dy * CONFIG.PLAYER_DASH_SPEED;
     this.effects.push({
@@ -1034,6 +1049,7 @@ export class Match {
       p.shieldTimer = Math.max(0, p.shieldTimer - dt);
       if (p.shieldTimer <= 0) p.shield = 0;
       p.dashCooldown = Math.max(0, p.dashCooldown - dt);
+      p.dashBuffer = Math.max(0, (p.dashBuffer || 0) - dt);
 
       for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
       if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);

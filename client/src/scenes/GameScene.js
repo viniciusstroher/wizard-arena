@@ -31,6 +31,8 @@ export class GameScene extends Phaser.Scene {
     this.moveDust = null;
     this.lavaBurn = null;
     this.dashGhosts = [];
+    /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
+    this.pendingDash = null;
   }
 
   create() {
@@ -73,6 +75,7 @@ export class GameScene extends Phaser.Scene {
 
     this.selectedSpellSlot = 0;
     this.input.keyboard.addCapture('SPACE');
+    this.input.keyboard.on('keydown', this.onDashKeyDown, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
       this.onEventBoardWheel(dy);
@@ -663,7 +666,37 @@ export class GameScene extends Phaser.Scene {
     this.handleBanners();
   }
 
+  heldMoveDir() {
+    if (this.cursors.up.isDown) return 'up';
+    if (this.cursors.down.isDown) return 'down';
+    if (this.cursors.left.isDown) return 'left';
+    if (this.cursors.right.isDown) return 'right';
+    return null;
+  }
+
+  onDashKeyDown(event) {
+    if (event.repeat) return;
+    if (this.disconnectConfirmOpen || this.matchEndOpen || this.leaving) return;
+
+    const dirByCode = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right' };
+    const dir = dirByCode[event.code];
+    const shiftHeld = event.shiftKey || this.cursors.dash?.isDown;
+
+    // Shift + WASD (W/A/S/D apertado com Shift).
+    if (dir && shiftHeld) {
+      this.pendingDash = dir;
+      return;
+    }
+
+    // Já andando e aperta Shift (esquerdo ou direito).
+    if (event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+      const held = this.heldMoveDir();
+      if (held) this.pendingDash = held;
+    }
+  }
+
   detectDash() {
+    // Fallback por frame (JustDown) — o keydown já cobre toques curtos via pendingDash.
     const keys = [
       ['up', this.cursors.up],
       ['down', this.cursors.down],
@@ -673,7 +706,6 @@ export class GameScene extends Phaser.Scene {
     const shiftDown = this.cursors.dash.isDown;
     const shiftJust = Phaser.Input.Keyboard.JustDown(this.cursors.dash);
 
-    // Shift + WASD: direção = tecla pressionada com Shift, ou Shift com WASD já segurado.
     for (const [dir, key] of keys) {
       if (shiftDown && Phaser.Input.Keyboard.JustDown(key)) return dir;
       if (shiftJust && key.isDown) return dir;
@@ -691,6 +723,8 @@ export class GameScene extends Phaser.Scene {
 
     // Hold SPACE to cast (server latches + respects cooldown).
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
+    const dash = this.pendingDash || this.detectDash();
+    if (dash) this.pendingDash = null;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,
@@ -700,7 +734,7 @@ export class GameScene extends Phaser.Scene {
       aimX: pointer.worldX,
       aimY: pointer.worldY,
       castSlot,
-      dash: this.detectDash(),
+      dash,
     });
   }
 
