@@ -119,6 +119,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.addCapture('SPACE');
     this.input.keyboard.addCapture('TAB');
     this.input.keyboard.on('keydown', this.onDashKeyDown, this);
+    this.input.keyboard.on('keydown-ESC', this.onEscapeKey, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
       if (this.onEventBoardWheel(dy)) return;
@@ -139,6 +140,8 @@ export class GameScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       this.stopBattleMusic();
       this.clearAimCursor();
+      this.input.keyboard.off('keydown', this.onDashKeyDown, this);
+      this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.socket.off('game_state');
       this.socket.off('game_event');
     });
@@ -1199,6 +1202,16 @@ export class GameScene extends Phaser.Scene {
     if (this.cursors.left.isDown) return 'left';
     if (this.cursors.right.isDown) return 'right';
     return null;
+  }
+
+  onEscapeKey(event) {
+    if (event?.repeat) return;
+    if (this.leaving || this.matchEndOpen) return;
+    if (this.disconnectConfirmOpen) {
+      this.closeDisconnectConfirm();
+      return;
+    }
+    this.openDisconnectConfirm();
   }
 
   onDashKeyDown(event) {
