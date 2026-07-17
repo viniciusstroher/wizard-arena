@@ -95,4 +95,14 @@ export const CONFIG = {
   PROJECTILE_KNOCKBACK_SPEED: envNumber('PROJECTILE_KNOCKBACK_SPEED', 280),
   /** Duração do empurrão em segundos. */
   PROJECTILE_KNOCKBACK_DURATION: envNumber('PROJECTILE_KNOCKBACK_DURATION', 0.12),
+
+  /** Intervalo mínimo/máximo entre meteoros aleatórios (segundos). */
+  METEOR_EVENT_MIN_INTERVAL: envNumber('METEOR_EVENT_MIN_INTERVAL', 12),
+  METEOR_EVENT_MAX_INTERVAL: envNumber('METEOR_EVENT_MAX_INTERVAL', 24),
+  /** Tempo de aviso (círculo de atenção) antes do impacto. */
+  METEOR_WARN_TIME: envNumber('METEOR_WARN_TIME', 2.2),
+  /** Duração do efeito visual de impacto. */
+  METEOR_IMPACT_TIME: envNumber('METEOR_IMPACT_TIME', 0.85),
+  METEOR_RADIUS: envNumber('METEOR_RADIUS', 78),
+  METEOR_DAMAGE: envNumber('METEOR_DAMAGE', 42),
 };

@@ -583,6 +583,10 @@ export class GameScene extends Phaser.Scene {
         return `${this.playerName(ev.playerId)} renasceu (Fênix)`;
       case 'arena_shrink':
         return 'A arena está encolhendo!';
+      case 'meteor_warn':
+        return 'Atenção: meteoro se aproxima!';
+      case 'meteor_strike':
+        return 'Um meteoro atingiu a arena!';
       case 'match_end': {
         const winner = this.state?.players?.find((p) => p.id === ev.winnerId);
         return winner ? `${winner.name} venceu a partida!` : 'Partida encerrada';
@@ -634,6 +638,16 @@ export class GameScene extends Phaser.Scene {
       // Fallback: ossos de monstro pelo evento (caso o effect do servidor atrase)
       if (ev.type === 'monster_kill' && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {
         this.ensureCorpseAt(ev.x, ev.y);
+      }
+      if (ev.type === 'meteor_strike') {
+        const me = this.me();
+        if (me?.alive && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {
+          const d = Math.hypot(me.x - ev.x, me.y - ev.y);
+          const r = ev.radius || 80;
+          if (d < r * 2.2) {
+            this.cameras.main.shake(d < r ? 220 : 120, d < r ? 0.008 : 0.0035);
+          }
+        }
       }
     }
     if (
@@ -997,7 +1011,7 @@ export class GameScene extends Phaser.Scene {
       this.sparkFx?.emitParticleAt(x, y, 6);
     } else if (e.type === 'poison_burst' || spell === 'poison_cloud') {
       this.poisonFx?.emitParticleAt(x, y, 18);
-    } else if (e.type === 'apocalypse') {
+    } else if (e.type === 'apocalypse' || e.type === 'meteor_strike' || spell === 'meteor') {
       this.fireballFx?.emitParticleAt(x, y, 22);
       this.sparkFx?.emitParticleAt(x, y, 14);
     } else {
@@ -2048,6 +2062,107 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Círculo de atenção antes do meteoro cair. */
+  drawMeteorWarn(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xff4422;
+    const r = e.radius || 78;
+    const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 90);
+    const flash = 0.55 + 0.45 * Math.sin(this.time.now / 55);
+
+    g.fillStyle(color, 0.14 * fade * pulse);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0xffaa33, 0.08 * fade * flash);
+    g.fillCircle(e.x, e.y, r * 0.55);
+
+    g.lineStyle(3.5, color, 0.85 * fade * flash);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(2, 0xffee88, 0.55 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.78);
+
+    // Anel de countdown (encolhe até o impacto)
+    const remain = Math.max(0.05, 1 - p);
+    g.lineStyle(4, 0xffffff, 0.75 * fade);
+    g.beginPath();
+    g.arc(e.x, e.y, r * 0.92, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2, false);
+    g.strokePath();
+
+    // Arcos rotativos de atenção
+    const rot = this.time.now / 280;
+    for (let i = 0; i < 3; i++) {
+      const a0 = rot + (i / 3) * Math.PI * 2;
+      g.lineStyle(2.5, 0xffcc66, 0.65 * fade);
+      g.beginPath();
+      g.arc(e.x, e.y, r * 1.06, a0, a0 + 0.7, false);
+      g.strokePath();
+    }
+
+    // Miras / cruz
+    g.lineStyle(2, 0xffffff, 0.7 * fade * flash);
+    g.lineBetween(e.x - r * 0.35, e.y, e.x + r * 0.35, e.y);
+    g.lineBetween(e.x, e.y - r * 0.35, e.x, e.y + r * 0.35);
+    g.strokeCircle(e.x, e.y, 8);
+
+    // Triângulos de alerta na borda
+    for (let i = 0; i < 4; i++) {
+      const a = -Math.PI / 2 + (i / 4) * Math.PI * 2 + p * 0.4;
+      const tx = e.x + Math.cos(a) * (r + 6);
+      const ty = e.y + Math.sin(a) * (r + 6);
+      g.fillStyle(0xffee66, 0.8 * fade * flash);
+      g.fillTriangle(
+        tx + Math.cos(a) * 7,
+        ty + Math.sin(a) * 7,
+        tx + Math.cos(a + 2.3) * 6,
+        ty + Math.sin(a + 2.3) * 6,
+        tx + Math.cos(a - 2.3) * 6,
+        ty + Math.sin(a - 2.3) * 6
+      );
+    }
+  }
+
+  /** Impacto do meteoro após o aviso. */
+  drawMeteorStrike(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xff2200;
+    const r = e.radius || 78;
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    // Solo em brasa
+    g.fillStyle(color, 0.28 * fade * (1 - p * 0.4));
+    g.fillCircle(e.x, e.y, r * (0.7 + 0.3 * Math.min(1, p * 1.4)));
+    g.lineStyle(3, 0xff8800, 0.7 * fade);
+    g.strokeCircle(e.x, e.y, r);
+
+    // Meteoro caindo
+    const fall = Math.min(1, p * 1.8);
+    const sx = e.x - 55;
+    const sy = e.y - 140 + fall * 140;
+    g.lineStyle(5, 0xffaa33, 0.85 * fade);
+    g.lineBetween(sx, sy - 36, e.x, e.y);
+    g.lineStyle(2.5, 0xffee88, 0.9 * fade);
+    g.lineBetween(sx + 4, sy - 30, e.x, e.y);
+    g.fillStyle(0xffee88, 0.95 * fade);
+    g.fillCircle(sx, sy - 36, 8);
+    g.fillStyle(color, 0.7 * fade);
+    g.fillCircle(e.x, e.y, 10 + fall * 16);
+
+    // Explosão radial
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + p;
+      const len = r * (0.45 + 0.55 * Math.min(1, p * 1.5)) * (0.7 + rand() * 0.3);
+      g.lineStyle(2.5, i % 2 ? 0xffee88 : color, 0.6 * fade);
+      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+    }
+
+    g.fillStyle(0xffffff, 0.45 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, 18 * (1 - p * 0.5));
+  }
+
   renderEffects() {
     this.effectGraphics.clear();
     const seenBlood = new Set();
@@ -2105,7 +2220,8 @@ export class GameScene extends Phaser.Scene {
         e.type === 'apocalypse' ||
         e.type === 'storm' ||
         e.type === 'poison_burst' ||
-        e.type === 'lightning'
+        e.type === 'lightning' ||
+        e.type === 'meteor_strike'
       ) {
         activeBursts.add(burstKey);
         this.burstOnce(burstKey, () => this.burstSpellParticles(e));
@@ -2143,6 +2259,10 @@ export class GameScene extends Phaser.Scene {
         this.drawFreeze(e);
       } else if (e.type === 'apocalypse') {
         this.drawApocalypse(e);
+      } else if (e.type === 'meteor_warn') {
+        this.drawMeteorWarn(e);
+      } else if (e.type === 'meteor_strike') {
+        this.drawMeteorStrike(e);
       } else if (e.type === 'storm') {
         this.drawStorm(e);
       } else if (e.type === 'poison_burst') {

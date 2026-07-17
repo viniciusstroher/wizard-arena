@@ -65,6 +65,8 @@ export class Match {
     this.projectiles = [];
     this.aoes = [];
     this.effects = [];
+    this.meteors = [];
+    this.meteorTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
     this.matchTime = 0;
@@ -314,6 +316,8 @@ export class Match {
     this.projectiles = [];
     this.aoes = [];
     this.effects = [];
+    this.meteors = [];
+    this.meteorTimer = 0;
     this.events = [];
     this.winnerId = null;
     this.generateRocks();
@@ -368,8 +372,114 @@ export class Match {
     this.round += 1;
     this.phase = 'playing';
     this.roundTime = 0;
+    this.scheduleNextMeteor();
     this.pushEvent({ type: 'round_start', round: this.round });
     this.broadcastState(true);
+  }
+
+  scheduleNextMeteor() {
+    const min = CONFIG.METEOR_EVENT_MIN_INTERVAL;
+    const max = Math.max(min, CONFIG.METEOR_EVENT_MAX_INTERVAL);
+    this.meteorTimer = min + Math.random() * (max - min);
+  }
+
+  /** Escolhe um ponto na plataforma segura para o meteoro. */
+  pickMeteorPoint(radius) {
+    for (let i = 0; i < 24; i++) {
+      const ang = Math.random() * Math.PI * 2;
+      const r = this.arenaRadius * (0.15 + Math.random() * 0.7);
+      const x = CONFIG.ARENA_CENTER_X + Math.cos(ang) * r;
+      const y = CONFIG.ARENA_CENTER_Y + Math.sin(ang) * r;
+      if (!this.isBlockedByRock(x, y, Math.min(18, radius * 0.35))) {
+        return { x, y };
+      }
+    }
+    return { x: CONFIG.ARENA_CENTER_X, y: CONFIG.ARENA_CENTER_Y };
+  }
+
+  spawnMeteorEvent() {
+    const radius = CONFIG.METEOR_RADIUS;
+    const { x, y } = this.pickMeteorPoint(radius);
+    const warnMax = CONFIG.METEOR_WARN_TIME;
+    this.meteors.push({
+      entityId: eid(),
+      x,
+      y,
+      radius,
+      damage: CONFIG.METEOR_DAMAGE,
+      phase: 'warn',
+      life: warnMax,
+      maxLife: warnMax,
+      seed: (Math.random() * 1e9) | 0,
+      color: 0xff4422,
+    });
+    this.pushEvent({ type: 'meteor_warn', x, y, radius });
+  }
+
+  applyMeteorDamage(meteor) {
+    for (const p of this.players.values()) {
+      if (!p.alive) continue;
+      if (dist(meteor, p) <= meteor.radius + CONFIG.PLAYER_RADIUS) {
+        this.damageEntity(p, meteor.damage, null, true, true);
+      }
+    }
+    for (const m of this.monsters) {
+      if (!m.alive) continue;
+      if (dist(meteor, m) <= meteor.radius + (m.radius || CONFIG.MONSTER_RADIUS)) {
+        this.damageEntity(m, meteor.damage, null, false, true);
+      }
+    }
+  }
+
+  tickMeteors(dt) {
+    this.meteorTimer -= dt;
+    if (this.meteorTimer <= 0) {
+      this.spawnMeteorEvent();
+      this.scheduleNextMeteor();
+    }
+
+    for (const m of this.meteors) {
+      m.life -= dt;
+      if (m.phase === 'warn' && m.life <= 0) {
+        this.applyMeteorDamage(m);
+        m.phase = 'impact';
+        m.life = CONFIG.METEOR_IMPACT_TIME;
+        m.maxLife = CONFIG.METEOR_IMPACT_TIME;
+        this.pushEvent({
+          type: 'meteor_strike',
+          x: m.x,
+          y: m.y,
+          radius: m.radius,
+          damage: m.damage,
+        });
+        this.effects.push({
+          type: 'impact',
+          spellId: 'meteor',
+          x: m.x,
+          y: m.y,
+          radius: m.radius * 0.55,
+          life: 0.45,
+          maxLife: 0.45,
+          color: m.color,
+          seed: m.seed,
+        });
+      }
+    }
+    this.meteors = this.meteors.filter((m) => m.life > 0);
+  }
+
+  serializeMeteorEffects() {
+    return this.meteors.map((m) => ({
+      type: m.phase === 'warn' ? 'meteor_warn' : 'meteor_strike',
+      entityId: m.entityId,
+      x: m.x,
+      y: m.y,
+      radius: m.radius,
+      life: Math.max(0, m.life),
+      maxLife: m.maxLife,
+      color: m.color,
+      seed: m.seed,
+    }));
   }
 
   ensureLoop() {
@@ -1537,6 +1647,9 @@ export class Match {
       this.monsterSpawnTimer = CONFIG.MONSTER_SPAWN_INTERVAL;
     }
 
+    // Evento aleatório: meteoro com aviso em área
+    this.tickMeteors(dt);
+
     // Players
     for (const p of this.players.values()) {
       if (!p.alive) continue;
@@ -1957,7 +2070,7 @@ export class Match {
         maxLife: a.maxLife || a.life,
         spellId: a.spellId || null,
       })),
-      effects: this.effects,
+      effects: [...this.effects, ...this.serializeMeteorEffects()],
       events: this.events,
       winnerId: this.winnerId,
       intermissionTimer: this.intermissionTimer,
