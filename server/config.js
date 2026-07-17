@@ -150,6 +150,17 @@ export const CONFIG = {
   METEOR_RADIUS: envNumber('METEOR_RADIUS', 78),
   METEOR_DAMAGE: envNumber('METEOR_DAMAGE', 42),
 
+  /** Intervalo mínimo/máximo entre mass heals aleatórios (segundos). */
+  MASS_HEAL_EVENT_MIN_INTERVAL: envNumber('MASS_HEAL_EVENT_MIN_INTERVAL', 12),
+  MASS_HEAL_EVENT_MAX_INTERVAL: envNumber('MASS_HEAL_EVENT_MAX_INTERVAL', 24),
+  /** Tempo de aviso (círculo de atenção) antes do impacto. */
+  MASS_HEAL_WARN_TIME: envNumber('MASS_HEAL_WARN_TIME', 2.2),
+  /** Duração do efeito visual de impacto. */
+  MASS_HEAL_IMPACT_TIME: envNumber('MASS_HEAL_IMPACT_TIME', 0.85),
+  MASS_HEAL_RADIUS: envNumber('MASS_HEAL_RADIUS', 78),
+  /** Cura aplicada a jogadores/bots na área no impacto. */
+  MASS_HEAL_AMOUNT: envNumber('MASS_HEAL_AMOUNT', 42),
+
   /**
    * Risada do Kiko: intervalo min/max entre tentativas (segundos)
    * e chance (0–1) de tocar quando o timer dispara.

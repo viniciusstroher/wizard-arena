@@ -86,6 +86,8 @@ export class Match {
     this.effects = [];
     this.meteors = [];
     this.meteorTimer = 0;
+    this.massHeals = [];
+    this.massHealTimer = 0;
     this.kikoLaughTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
@@ -380,6 +382,8 @@ export class Match {
     this.effects = [];
     this.meteors = [];
     this.meteorTimer = 0;
+    this.massHeals = [];
+    this.massHealTimer = 0;
     this.kikoLaughTimer = 0;
     this.events = [];
     this.winnerId = null;
@@ -466,6 +470,7 @@ export class Match {
     this.phase = 'playing';
     this.roundTime = 0;
     this.scheduleNextMeteor();
+    this.scheduleNextMassHeal();
     this.scheduleNextKikoLaugh();
     this.pushEvent({ type: 'round_start', round: this.round });
     this.broadcastState(true);
@@ -475,6 +480,12 @@ export class Match {
     const min = CONFIG.METEOR_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.METEOR_EVENT_MAX_INTERVAL);
     this.meteorTimer = min + Math.random() * (max - min);
+  }
+
+  scheduleNextMassHeal() {
+    const min = CONFIG.MASS_HEAL_EVENT_MIN_INTERVAL;
+    const max = Math.max(min, CONFIG.MASS_HEAL_EVENT_MAX_INTERVAL);
+    this.massHealTimer = min + Math.random() * (max - min);
   }
 
   scheduleNextKikoLaugh() {
@@ -580,6 +591,84 @@ export class Match {
       maxLife: m.maxLife,
       color: m.color,
       seed: m.seed,
+    }));
+  }
+
+  spawnMassHealEvent() {
+    const radius = CONFIG.MASS_HEAL_RADIUS;
+    const { x, y } = this.pickMeteorPoint(radius);
+    const warnMax = CONFIG.MASS_HEAL_WARN_TIME;
+    this.massHeals.push({
+      entityId: eid(),
+      x,
+      y,
+      radius,
+      heal: CONFIG.MASS_HEAL_AMOUNT,
+      phase: 'warn',
+      life: warnMax,
+      maxLife: warnMax,
+      seed: (Math.random() * 1e9) | 0,
+      color: 0x55ff88,
+    });
+    this.pushEvent({ type: 'mass_heal_warn', x, y, radius });
+  }
+
+  applyMassHeal(event) {
+    for (const p of this.players.values()) {
+      if (!p.alive) continue;
+      if (dist(event, p) > event.radius + CONFIG.PLAYER_RADIUS) continue;
+      const before = p.hp;
+      p.hp = Math.min(p.maxHp, p.hp + event.heal);
+      const gained = p.hp - before;
+      if (gained > 0) {
+        this.pushEvent({
+          type: 'heal',
+          playerId: p.id,
+          amount: gained,
+          x: p.x,
+          y: p.y,
+        });
+      }
+    }
+  }
+
+  tickMassHeals(dt) {
+    this.massHealTimer -= dt;
+    if (this.massHealTimer <= 0) {
+      this.spawnMassHealEvent();
+      this.scheduleNextMassHeal();
+    }
+
+    for (const h of this.massHeals) {
+      h.life -= dt;
+      if (h.phase === 'warn' && h.life <= 0) {
+        this.applyMassHeal(h);
+        h.phase = 'impact';
+        h.life = CONFIG.MASS_HEAL_IMPACT_TIME;
+        h.maxLife = CONFIG.MASS_HEAL_IMPACT_TIME;
+        this.pushEvent({
+          type: 'mass_heal_strike',
+          x: h.x,
+          y: h.y,
+          radius: h.radius,
+          heal: h.heal,
+        });
+      }
+    }
+    this.massHeals = this.massHeals.filter((h) => h.life > 0);
+  }
+
+  serializeMassHealEffects() {
+    return this.massHeals.map((h) => ({
+      type: h.phase === 'warn' ? 'mass_heal_warn' : 'mass_heal_strike',
+      entityId: h.entityId,
+      x: h.x,
+      y: h.y,
+      radius: h.radius,
+      life: Math.max(0, h.life),
+      maxLife: h.maxLife,
+      color: h.color,
+      seed: h.seed,
     }));
   }
 
@@ -1167,6 +1256,8 @@ export class Match {
 
     this.meteors = [];
     this.meteorTimer = 0;
+    this.massHeals = [];
+    this.massHealTimer = 0;
     this.kikoLaughTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
@@ -2421,8 +2512,9 @@ export class Match {
       this.monsterSpawnTimer = CONFIG.MONSTER_SPAWN_INTERVAL;
     }
 
-    // Evento aleatório: meteoro com aviso em área
+    // Eventos aleatórios: meteoro (dano) e mass heal (cura)
     this.tickMeteors(dt);
+    this.tickMassHeals(dt);
     // Risada do Kiko (áudio aleatório no client)
     this.tickKikoLaugh(dt);
 
@@ -2930,7 +3022,11 @@ export class Match {
         maxLife: a.maxLife || a.life,
         spellId: a.spellId || null,
       })),
-      effects: [...this.effects, ...this.serializeMeteorEffects()],
+      effects: [
+        ...this.effects,
+        ...this.serializeMeteorEffects(),
+        ...this.serializeMassHealEffects(),
+      ],
       events: this.events,
       winnerId: this.winnerId,
       intermissionTimer: this.intermissionTimer,

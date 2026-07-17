@@ -965,6 +965,12 @@ export class GameScene extends Phaser.Scene {
         return 'Atenção: meteoro se aproxima!';
       case 'meteor_strike':
         return 'Um meteoro atingiu a arena!';
+      case 'mass_heal_warn':
+        return 'Atenção: bênção de cura se aproxima!';
+      case 'mass_heal_strike':
+        return 'Uma onda de cura varreu a arena!';
+      case 'heal':
+        return null;
       case 'match_end': {
         const winner = this.state?.players?.find((p) => p.id === ev.winnerId);
         return winner ? `${winner.name} venceu a partida!` : 'Partida encerrada';
@@ -1004,6 +1010,33 @@ export class GameScene extends Phaser.Scene {
     });
 
     if (isCrit) this.spawnCriticalPopup(x, y);
+  }
+
+  spawnHealNumber(x, y, amount, isSelf = false) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !(amount > 0)) return;
+    const jitterX = (Math.random() - 0.5) * 18;
+    const startY = y - 34;
+    const label = this.add
+      .text(x + jitterX, startY, `+${Math.round(amount)}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: isSelf ? '20px' : '17px',
+        color: isSelf ? '#7dffb0' : '#a8ffc8',
+        stroke: '#052014',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(55)
+      .setAlpha(1);
+
+    this.tweens.add({
+      targets: label,
+      y: startY - 42,
+      alpha: 0,
+      scale: 1.15,
+      duration: 1400,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
   }
 
   spawnCriticalPopup(x, y) {
@@ -1104,6 +1137,13 @@ export class GameScene extends Phaser.Scene {
         this.spawnDamageNumber(ev.x, ev.y, ev.amount, isSelf, !!ev.crit);
         if (isSelf && ev.amount > 0) {
           this.playHurtSound();
+        }
+      }
+      if (ev.type === 'heal') {
+        const isSelf = ev.playerId === this.playerId;
+        this.spawnHealNumber(ev.x, ev.y, ev.amount, isSelf);
+        if (isSelf && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {
+          this.healFx?.emitParticleAt(ev.x, ev.y, 10);
         }
       }
       if (ev.type === 'level_up' || ev.type === 'monster_level_up') {
@@ -1664,8 +1704,11 @@ export class GameScene extends Phaser.Scene {
     } else if (spell === 'skull_bolt') {
       this.necroFx?.emitParticleAt(x, y, 16);
       this.sparkFx?.emitParticleAt(x, y, 6);
-    } else if (e.type === 'heal' || spell === 'mend') {
-      this.healFx?.emitParticleAt(x, y, 12);
+    } else if (e.type === 'heal' || e.type === 'mass_heal_strike' || spell === 'mend') {
+      this.healFx?.emitParticleAt(x, y, e.type === 'mass_heal_strike' ? 22 : 12);
+      if (e.type === 'mass_heal_strike') {
+        this.magicFx?.emitParticleAt(x, y, 10);
+      }
     } else if (e.type === 'blink') {
       this.magicFx?.emitParticleAt(x, y, 14);
     } else if (e.type === 'barrier') {
@@ -3194,6 +3237,164 @@ export class GameScene extends Phaser.Scene {
     this.emitMeteorTrail(e.entityId ?? `${e.x},${e.y}`, pose.x, pose.y, 1 + Math.floor(pose.t * 2));
   }
 
+  /** Círculo de atenção + orbe de luz descendo (mass heal). */
+  drawMassHealWarn(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x55ff88;
+    const r = e.radius || 78;
+    const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 90);
+    const flash = 0.55 + 0.45 * Math.sin(this.time.now / 55);
+    const imminent = Math.max(0, (p - 0.75) / 0.25);
+
+    g.fillStyle(color, (0.1 + 0.12 * imminent) * fade * pulse);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0xa8ffc8, (0.05 + 0.1 * imminent) * fade * flash);
+    g.fillCircle(e.x, e.y, r * 0.55);
+
+    const shadowR = 10 + p * 22;
+    g.fillStyle(0x0a2014, (0.18 + 0.35 * p) * fade);
+    g.fillEllipse(e.x, e.y + 4, shadowR * 1.6, shadowR * 0.7);
+
+    g.lineStyle(3.5, color, (0.75 + 0.2 * imminent) * fade * flash);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(2, 0xddffe8, 0.55 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.78);
+
+    const remain = Math.max(0.05, 1 - p);
+    g.lineStyle(4, 0xffffff, 0.8 * fade);
+    g.beginPath();
+    g.arc(e.x, e.y, r * 0.92, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2, false);
+    g.strokePath();
+
+    const a0 = this.time.now / 280;
+    g.lineStyle(2.5, 0xa8ffc8, 0.65 * fade);
+    g.beginPath();
+    g.arc(e.x, e.y, r * 1.06, a0, a0 + 0.9, false);
+    g.strokePath();
+
+    // Cruz no chão
+    g.lineStyle(3, 0xffffff, 0.75 * fade * flash);
+    g.lineBetween(e.x - r * 0.28, e.y, e.x + r * 0.28, e.y);
+    g.lineBetween(e.x, e.y - r * 0.28, e.x, e.y + r * 0.28);
+    g.strokeCircle(e.x, e.y, 8);
+
+    // Orbe de luz descendo
+    const pose = this.meteorFallPose(e, p);
+    const scale = 0.85 + pose.t * 0.85;
+    const dx = 95;
+    const dy = 312;
+    const tlen = Math.hypot(dx, dy) || 1;
+    const tailLen = 36 + pose.t * 80;
+    const backX = pose.x - (dx / tlen) * tailLen;
+    const backY = pose.y - (dy / tlen) * tailLen;
+
+    g.lineStyle(10 * scale, 0x55ff88, 0.22 * fade);
+    g.lineBetween(backX, backY, pose.x, pose.y);
+    g.lineStyle(4 * scale, 0xffffff, 0.65 * fade);
+    g.lineBetween(
+      backX + (pose.x - backX) * 0.35,
+      backY + (pose.y - backY) * 0.35,
+      pose.x,
+      pose.y
+    );
+
+    g.fillStyle(0x55ff88, 0.28 * fade);
+    g.fillCircle(pose.x, pose.y, 18 * scale);
+    g.fillStyle(0xa8ffc8, 0.45 * fade);
+    g.fillCircle(pose.x, pose.y, 11 * scale);
+    g.fillStyle(0xffffff, 0.85 * fade);
+    g.fillCircle(pose.x, pose.y, 5 * scale);
+
+    const cross = 7 * scale;
+    g.lineStyle(2.5, 0xffffff, 0.95 * fade);
+    g.lineBetween(pose.x - cross, pose.y, pose.x + cross, pose.y);
+    g.lineBetween(pose.x, pose.y - cross, pose.x, pose.y + cross);
+
+    if (this.healFx && pose.t > 0.15) {
+      const id = e.entityId ?? `${e.x},${e.y}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(`heal:${id}`) || 0;
+      if (now - last > 70) {
+        this.meteorTrailAt.set(`heal:${id}`, now);
+        this.healFx.emitParticleAt(pose.x, pose.y, 2);
+      }
+    }
+  }
+
+  /** Impacto: onda de cura e cruzes ascendentes. */
+  drawMassHealStrike(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x55ff88;
+    const r = e.radius || 78;
+
+    const flash = Math.max(0, 1 - p * 3.2);
+    if (flash > 0) {
+      g.fillStyle(0xffffff, 0.45 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.35 + flash * 0.45));
+      g.fillStyle(0xa8ffc8, 0.3 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.75 + flash * 0.35));
+    }
+
+    const groundR = r * (0.75 + 0.35 * Math.min(1, p * 1.6));
+    g.fillStyle(color, 0.22 * fade * (1 - p * 0.4));
+    g.fillCircle(e.x, e.y, groundR);
+    g.fillStyle(0xa8ffc8, 0.12 * fade * (1 - p * 0.5));
+    g.fillCircle(e.x, e.y, groundR * 0.55);
+    g.lineStyle(3, 0xddffe8, 0.75 * fade);
+    g.strokeCircle(e.x, e.y, groundR);
+
+    for (let i = 0; i < 3; i++) {
+      const wave = Math.min(1.4, p * 1.8 + i * 0.18);
+      const wr = r * (0.35 + wave * 0.9);
+      const wa = (0.7 - i * 0.18) * fade * Math.max(0, 1 - wave * 0.65);
+      g.lineStyle(3.5 - i, i === 0 ? 0xffffff : color, wa);
+      g.strokeCircle(e.x, e.y, wr);
+    }
+
+    // Coluna de luz
+    const columnH = 30 + (1 - p) * 70;
+    g.fillStyle(color, 0.28 * fade * (1 - p * 0.4));
+    g.fillEllipse(e.x, e.y - columnH * 0.35, 26 * (1 - p * 0.3), columnH);
+    g.fillStyle(0xffffff, 0.35 * fade * Math.max(0, 1 - p * 2));
+    g.fillEllipse(e.x, e.y - columnH * 0.45, 8, columnH * 0.45);
+
+    // Cruzes de cura subindo
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + p * 1.2;
+      const dist = r * (0.25 + (i % 3) * 0.18) * Math.min(1.1, 0.4 + p);
+      const cx = e.x + Math.cos(a) * dist;
+      const cy = e.y + Math.sin(a) * dist * 0.85 - p * 36;
+      const s = 5 + (i % 2) * 2;
+      g.lineStyle(2.5, 0xffffff, 0.85 * fade * (1 - p * 0.35));
+      g.lineBetween(cx - s, cy, cx + s, cy);
+      g.lineBetween(cx, cy - s, cx, cy + s);
+      g.lineStyle(1.5, color, 0.9 * fade * (1 - p * 0.35));
+      g.lineBetween(cx - s, cy, cx + s, cy);
+      g.lineBetween(cx, cy - s, cx, cy + s);
+    }
+
+    g.fillStyle(0xffffff, 0.5 * fade * Math.max(0, 1 - p * 1.8));
+    g.fillCircle(e.x, e.y, 20 * Math.max(0.2, 1 - p));
+
+    if (this.healFx && p < 0.7) {
+      const id = `heal-strike:${e.entityId ?? `${e.x},${e.y}`}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(id) || 0;
+      if (now - last > 70) {
+        this.meteorTrailAt.set(id, now);
+        this.healFx.emitParticleAt(
+          e.x + Phaser.Math.Between(-r * 0.3, r * 0.3),
+          e.y + Phaser.Math.Between(-10, 4),
+          2
+        );
+      }
+    }
+  }
+
   /** Impacto: explosão, onda de choque e crater. */
   drawMeteorStrike(e) {
     const g = this.effectGraphics;
@@ -3362,7 +3563,8 @@ export class GameScene extends Phaser.Scene {
         e.type === 'poison_burst' ||
         e.type === 'lightning' ||
         e.type === 'sky_lightning' ||
-        e.type === 'meteor_strike'
+        e.type === 'meteor_strike' ||
+        e.type === 'mass_heal_strike'
       ) {
         activeBursts.add(burstKey);
         this.burstOnce(burstKey, () => this.burstSpellParticles(e));
@@ -3408,6 +3610,10 @@ export class GameScene extends Phaser.Scene {
         this.drawMeteorWarn(e);
       } else if (e.type === 'meteor_strike') {
         this.drawMeteorStrike(e);
+      } else if (e.type === 'mass_heal_warn') {
+        this.drawMassHealWarn(e);
+      } else if (e.type === 'mass_heal_strike') {
+        this.drawMassHealStrike(e);
       } else if (e.type === 'storm') {
         this.drawStorm(e);
       } else if (e.type === 'electric_storm') {
@@ -3419,7 +3625,7 @@ export class GameScene extends Phaser.Scene {
 
     this.pruneBurstSeen(activeBursts);
 
-    // Limpa trails de meteoros inativos (uma passagem O(n))
+    // Limpa trails de meteoros / mass heal inativos (uma passagem O(n))
     if (this.meteorTrailAt.size) {
       const alive = new Set();
       for (const e of this.state.effects || []) {
@@ -3427,6 +3633,10 @@ export class GameScene extends Phaser.Scene {
           const id = String(e.entityId ?? `${e.x},${e.y}`);
           alive.add(id);
           if (e.type === 'meteor_strike') alive.add(`strike:${id}`);
+        } else if (e.type === 'mass_heal_warn' || e.type === 'mass_heal_strike') {
+          const id = String(e.entityId ?? `${e.x},${e.y}`);
+          alive.add(`heal:${id}`);
+          if (e.type === 'mass_heal_strike') alive.add(`heal-strike:${id}`);
         }
       }
       for (const key of this.meteorTrailAt.keys()) {
