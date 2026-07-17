@@ -171,17 +171,30 @@ export class LobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.playersText = this.add
-      .text(panelX, panelY - 10, '', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '16px',
-        color: '#eee6ff',
-        align: 'center',
-        lineSpacing: 8,
-      })
-      .setOrigin(0.5);
+    // Lista fixa (~4 linhas); scroll automático se passar de 4 jogadores
+    const listEl = document.createElement('div');
+    listEl.style.cssText = [
+      'width: 420px',
+      'height: 112px',
+      'overflow-y: auto',
+      'overflow-x: hidden',
+      'box-sizing: border-box',
+      'padding: 4px 8px',
+      'font-size: 16px',
+      'font-family: Trebuchet MS, sans-serif',
+      'line-height: 26px',
+      'color: #eee6ff',
+      'text-align: center',
+      'white-space: pre-line',
+      'background: transparent',
+      'scrollbar-width: thin',
+      'scrollbar-color: #6b5cff #1a1430',
+    ].join(';');
+    this.playersListEl = listEl;
+    this.playersListDom = this.add.dom(panelX, panelY + 8, listEl).setOrigin(0.5);
+    listEl.textContent = 'Nenhum jogador ainda';
 
-    const btnStartY = panelY + 70;
+    const btnStartY = panelY + 90;
     const step = btnH + btnGap;
     this.joinBtn = this.makeButton(panelX, btnStartY, 'Entrar', 0x6b5cff, () => this.joinLobby(), btnW);
     this.readyBtn = this.makeButton(panelX, btnStartY + step, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
@@ -528,12 +541,13 @@ export class LobbyScene extends Phaser.Scene {
       const ready = p.ready ? '✓ ready' : '… waiting';
       return `${p.name}${tag}  —  ${ready}`;
     });
-    this.playersText.setText(
-      lines.length
-        ? lines.join('\n')
-        : 'Nenhum jogador ainda'
-    );
     const n = this.lobby.players.length;
+    if (this.playersListEl) {
+      this.playersListEl.textContent = lines.length
+        ? lines.join('\n')
+        : 'Nenhum jogador ainda';
+      this.playersListEl.style.overflowY = n > 4 ? 'auto' : 'hidden';
+    }
     const readyCount = this.lobby.players.filter((p) => p.ready).length;
     this.statusText.setText(
       `${n}/${this.lobby.maxPlayers} jogadores · ${readyCount} ready · precisa ${this.lobby.minPlayers}+`

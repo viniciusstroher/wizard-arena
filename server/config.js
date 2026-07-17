@@ -30,7 +30,7 @@ const ROUND_DURATION = envInt('ROUND_DURATION', 60);
 
 export const CONFIG = {
   TICK_RATE: 20,
-  MAX_PLAYERS: 4,
+  MAX_PLAYERS: 8,
   MIN_PLAYERS: 2,
   /** Quantidade de rounds na partida. */
   MAX_ROUNDS,
