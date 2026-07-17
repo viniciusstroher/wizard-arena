@@ -16,6 +16,10 @@ export const CONFIG = {
   PLAYER_MAX_HP: 100,
   PLAYER_SPEED: 180,
   PLAYER_RADIUS: 16,
+  /** HP regenerado a cada janela (0 = desligado). */
+  HP_REGEN_AMOUNT: envNumber('HP_REGEN_AMOUNT', 2),
+  /** Janela em segundos entre regenerações. */
+  HP_REGEN_INTERVAL: envNumber('HP_REGEN_INTERVAL', 2),
 
   ARENA_CENTER_X: 640,
   ARENA_CENTER_Y: 360,

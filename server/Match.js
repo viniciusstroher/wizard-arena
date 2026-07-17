@@ -68,6 +68,7 @@ export class Match {
     this.bots = [];
     this.rocks = [];
     this.xpPassiveTimer = 0;
+    this.hpRegenTimer = 0;
     this.generateRocks();
   }
 
@@ -818,6 +819,18 @@ export class Match {
         for (const p of this.players.values()) {
           if (!p.alive) continue;
           this.grantXp(p, CONFIG.XP_PER_SECOND, 'passive');
+        }
+      }
+    }
+
+    // Regeneração de vida (HP_REGEN_AMOUNT / HP_REGEN_INTERVAL no .env)
+    if (CONFIG.HP_REGEN_AMOUNT > 0 && CONFIG.HP_REGEN_INTERVAL > 0) {
+      this.hpRegenTimer += dt;
+      while (this.hpRegenTimer >= CONFIG.HP_REGEN_INTERVAL) {
+        this.hpRegenTimer -= CONFIG.HP_REGEN_INTERVAL;
+        for (const p of this.players.values()) {
+          if (!p.alive || p.hp >= p.maxHp) continue;
+          p.hp = Math.min(p.maxHp, p.hp + CONFIG.HP_REGEN_AMOUNT);
         }
       }
     }
