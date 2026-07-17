@@ -1220,6 +1220,25 @@ export class Match {
         attackCooldown: 1.25,
         weight: boss,
       },
+      // Elemental de fogo — chama viva: Firebolt + Flame Nova
+      fire_elemental: {
+        hpMul: 1.8,
+        speedMul: 1.1,
+        dmgMul: 1.3,
+        radius: 16,
+        color: 0xff6622,
+        attack: 'caster',
+        spells: ['firebolt', 'flame_nova'],
+        range: 250,
+        preferRange: 145,
+        projectileSpeed: 440,
+        projectileRadius: 9,
+        projectileColor: 0xff5533,
+        attackCooldown: 1.15,
+        novaRadius: 105,
+        novaCooldown: 4.0,
+        weight: common,
+      },
     };
   }
 

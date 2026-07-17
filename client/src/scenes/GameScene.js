@@ -2034,6 +2034,7 @@ export class GameScene extends Phaser.Scene {
       beholder: 'beholder',
       dragon: 'dragão',
       lich: 'lich',
+      fire_elemental: 'elemental de fogo',
     };
     return labels[type] || type;
   }

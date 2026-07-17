@@ -1562,5 +1562,37 @@ export class BootScene extends Phaser.Scene {
         C: 0x66ccff,
       }
     );
+
+    // Fire Elemental — chama viva com núcleo branco
+    makePixelTexture(
+      this,
+      'monster_fire_elemental',
+      [
+        '................',
+        '......YY........',
+        '.....YOOY.......',
+        '....YORROY.Y....',
+        '...YORRRROYOO...',
+        '..YORRWWWRROY...',
+        '.YORRWBWBWRROY..',
+        '.YORRRWWWRRROY..',
+        '..YORRRRRRROY...',
+        '...YORRDDROY....',
+        '....YORRROY.....',
+        '.....YOOY.......',
+        '....Y.YY.Y......',
+        '...Y......Y.....',
+        '................',
+        '................',
+      ],
+      {
+        Y: 0xffe066,
+        O: 0xff8844,
+        R: 0xff4422,
+        D: 0xaa2200,
+        W: 0xfff5d6,
+        B: 0x1a1a1a,
+      }
+    );
   }
 }
