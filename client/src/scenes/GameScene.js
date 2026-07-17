@@ -1186,6 +1186,7 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'round_start') {
         this.playRoundStartSound();
+        // Continua o ping um pouco após o round começar
         this.startSpawnPing();
       }
       if (ev.type === 'kiko_laugh') {
@@ -1203,13 +1204,12 @@ export class GameScene extends Phaser.Scene {
     if (roundEnded) {
       this.playRoundEndSound();
     }
-    if (
-      state.phase === 'countdown' &&
-      prevPhase &&
-      prevPhase !== 'countdown' &&
-      prevPhase !== 'lobby'
-    ) {
-      this.clearLocalCorpses();
+    if (state.phase === 'countdown' && prevPhase !== 'countdown') {
+      // Ping já no countdown, antes do round começar
+      this.startSpawnPing(10000);
+      if (prevPhase && prevPhase !== 'lobby') {
+        this.clearLocalCorpses();
+      }
     }
     if (state.phase === 'ended') {
       this.showMatchEndOverlay(state);
@@ -1279,17 +1279,21 @@ export class GameScene extends Phaser.Scene {
     this.spawnPingUntil = this.time.now + durationMs;
   }
 
-  /** Círculo vermelho piscando na posição do jogador local (início do round). */
+  /** Círculo vermelho piscando na posição do jogador local (countdown + início do round). */
   renderSpawnPing() {
     const g = this.spawnPingGraphics;
     if (!g) return;
     g.clear();
-    if (this.time.now > this.spawnPingUntil) return;
+    const inCountdown = this.state?.phase === 'countdown';
+    const timed = this.time.now <= this.spawnPingUntil;
+    if (!inCountdown && !timed) return;
     const me = this.me();
-    if (!me?.alive) return;
+    if (!me) return;
 
-    const remain = this.spawnPingUntil - this.time.now;
-    const fade = Math.min(1, remain / 400);
+    // No countdown não esmaece; após o round, fade nos últimos 400ms
+    const fade = inCountdown
+      ? 1
+      : Math.min(1, Math.max(0, (this.spawnPingUntil - this.time.now) / 400));
     // Pisca ~4x/s
     const blink = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time.now / 90));
     const alpha = blink * fade;
