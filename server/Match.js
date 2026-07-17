@@ -891,8 +891,25 @@ export class Match {
         novaCooldown: 4.2,
         weight: 2,
       },
+      // Lich — morto-vivo arcano que lança Ice Shard
+      lich: {
+        hpMul: 2.1,
+        speedMul: 0.6,
+        dmgMul: 1.15,
+        radius: 16,
+        color: 0x66ccff,
+        attack: 'caster',
+        spells: ['ice_shard'],
+        range: 280,
+        preferRange: 160,
+        projectileSpeed: 460,
+        projectileRadius: 9,
+        projectileColor: 0x66ccff,
+        attackCooldown: 1.25,
+        weight: 3,
+      },
     };
-    // Pesos: bosses (beholder/dragon) aparecem menos
+    // Pesos: bosses (beholder/dragon/lich) aparecem menos
     for (const id of Object.keys(types)) {
       if (types[id].weight == null) types[id].weight = 10;
     }
@@ -952,7 +969,7 @@ export class Match {
     });
   }
 
-  /** Magias usadas por monstros caster (beholder / dragão). */
+  /** Magias usadas por monstros caster (beholder / dragão / lich). */
   monsterCast(monster, spellId, target) {
     const stats = spellStats(spellId, 1);
     if (!stats) return;
@@ -978,19 +995,21 @@ export class Match {
         monster.attackCd = monster.attackCooldown || 1.4;
         break;
       }
-      case 'firebolt': {
+      case 'firebolt':
+      case 'ice_shard': {
         if (!target) return;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
         const len = Math.hypot(dx, dy) || 1;
         const speed = monster.projectileSpeed || stats.speed || 480;
         const range = monster.range || stats.range || 300;
+        const isIce = spellId === 'ice_shard';
         this.projectiles.push({
           entityId: eid(),
           ownerId: monster.entityId,
           team: 'monster',
-          kind: 'fireball',
-          spellId: 'firebolt',
+          kind: isIce ? 'ice_shard' : 'fireball',
+          spellId,
           x: monster.x,
           y: monster.y,
           vx: (dx / len) * speed,
@@ -999,8 +1018,10 @@ export class Match {
           radius: monster.projectileRadius || stats.radius || 10,
           life: range / speed,
           color: monster.projectileColor || stats.color,
+          slow: isIce ? stats.slow || 0.45 : 0,
+          slowDuration: isIce ? stats.slowDuration || 1.5 : 0,
         });
-        monster.attackCd = monster.attackCooldown || 1.1;
+        monster.attackCd = monster.attackCooldown || (isIce ? 1.25 : 1.1);
         break;
       }
       case 'flame_nova': {
@@ -1702,6 +1723,8 @@ export class Match {
               spell = 'flame_nova';
             } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
               spell = 'arc_lightning';
+            } else if (spells.includes('ice_shard') && nearestD <= shootRange) {
+              spell = 'ice_shard';
             } else if (spells.includes('firebolt') && nearestD <= shootRange) {
               spell = 'firebolt';
             }

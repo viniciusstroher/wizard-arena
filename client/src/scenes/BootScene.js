@@ -1478,5 +1478,39 @@ export class BootScene extends Phaser.Scene {
         H: 0x922b21,
       }
     );
+
+    // Lich — capuz + crânio + orbe de gelo
+    makePixelTexture(
+      this,
+      'monster_lich',
+      [
+        '................',
+        '.....HHHHH......',
+        '....HNNNNNH.....',
+        '...HNSSSSSNH....',
+        '...HNSBEESNH.C..',
+        '....HNSSSNH.C...',
+        '....HNNNNNH.C...',
+        '...HPPPPPPPH....',
+        '..HPPPPPPPPPH...',
+        '..HP.PPPPP.PH...',
+        '..LL......LL....',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        H: 0x2c3e50,
+        N: 0x1a252f,
+        S: 0xd5dbdb,
+        B: 0x1a1a1a,
+        E: 0x5dade2,
+        P: 0x5d6d7e,
+        L: 0x34495e,
+        C: 0x66ccff,
+      }
+    );
   }
 }
