@@ -861,15 +861,15 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  spawnDamageNumber(x, y, amount, isSelf = false) {
+  spawnDamageNumber(x, y, amount, isSelf = false, isCrit = false) {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !(amount > 0)) return;
     const jitterX = (Math.random() - 0.5) * 18;
     const startY = y - 34;
     const label = this.add
       .text(x + jitterX, startY, `-${Math.round(amount)}`, {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: isSelf ? '20px' : '17px',
-        color: isSelf ? '#ff8a80' : '#ffe066',
+        fontSize: isCrit ? (isSelf ? '24px' : '22px') : isSelf ? '20px' : '17px',
+        color: isCrit ? '#ffb347' : isSelf ? '#ff8a80' : '#ffe066',
         stroke: '#1a0500',
         strokeThickness: 4,
       })
@@ -879,10 +879,39 @@ export class GameScene extends Phaser.Scene {
 
     this.tweens.add({
       targets: label,
-      y: startY - 42,
+      y: startY - (isCrit ? 52 : 42),
       alpha: 0,
-      scale: 1.15,
+      scale: isCrit ? 1.35 : 1.15,
       duration: 1400,
+      ease: 'Cubic.Out',
+      onComplete: () => label.destroy(),
+    });
+
+    if (isCrit) this.spawnCriticalPopup(x, y);
+  }
+
+  spawnCriticalPopup(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const startY = y - 52;
+    const label = this.add
+      .text(x, startY, 'critical!', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '18px',
+        color: '#ff6b2c',
+        stroke: '#1a0500',
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5)
+      .setDepth(57)
+      .setAlpha(1)
+      .setScale(0.75);
+
+    this.tweens.add({
+      targets: label,
+      y: startY - 56,
+      alpha: 0,
+      scale: 1.35,
+      duration: 1100,
       ease: 'Cubic.Out',
       onComplete: () => label.destroy(),
     });
@@ -951,7 +980,7 @@ export class GameScene extends Phaser.Scene {
       if (msg) this.pushBoardEvent(msg);
       if (ev.type === 'damage') {
         const isSelf = ev.isPlayer && ev.targetId === this.playerId;
-        this.spawnDamageNumber(ev.x, ev.y, ev.amount, isSelf);
+        this.spawnDamageNumber(ev.x, ev.y, ev.amount, isSelf, !!ev.crit);
         if (isSelf && ev.amount > 0) {
           this.playHurtSound();
         }

@@ -57,6 +57,10 @@ export const CONFIG = {
   HP_REGEN_AMOUNT: envNumber('HP_REGEN_AMOUNT', 2),
   /** Janela em segundos entre regenerações. */
   HP_REGEN_INTERVAL: envNumber('HP_REGEN_INTERVAL', 2),
+  /** Chance de crítico de jogadores/bots (0–1). */
+  PLAYER_CRIT_CHANCE: envNumber('PLAYER_CRIT_CHANCE', 0.15),
+  /** Multiplicador de dano em crítico (jogadores/bots). */
+  PLAYER_CRIT_MULT: envNumber('PLAYER_CRIT_MULT', 2),
 
   ARENA_CENTER_X: 640,
   ARENA_CENTER_Y: 360,
@@ -74,6 +78,10 @@ export const CONFIG = {
   MONSTER_HP: 40,
   MONSTER_DAMAGE: 8,
   MONSTER_SPEED: 95,
+  /** Chance de crítico de monstros (0–1). */
+  MONSTER_CRIT_CHANCE: envNumber('MONSTER_CRIT_CHANCE', 0.1),
+  /** Multiplicador de dano em crítico (monstros). */
+  MONSTER_CRIT_MULT: envNumber('MONSTER_CRIT_MULT', 1.75),
   /** Se true, monstros vivos permanecem no próximo round. */
   MONSTER_PERSIST_ROUNDS: envBool('MONSTER_PERSIST_ROUNDS', false),
   /**

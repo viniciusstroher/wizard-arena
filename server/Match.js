@@ -243,6 +243,8 @@ export class Match {
       deaths: 0,
       monsterKills: 0,
       damageDealt: 0,
+      critChance: CONFIG.PLAYER_CRIT_CHANCE,
+      critMult: CONFIG.PLAYER_CRIT_MULT,
       wizardType: wizard.type,
       color: wizard.color,
       zoneDmgAcc: 0,
@@ -813,7 +815,22 @@ export class Match {
   /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
   damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false) {
     if (!target.alive) return false;
+
+    let crit = false;
     let dmg = amount;
+    if (sourcePlayerId != null && amount > 0) {
+      const attacker =
+        this.players.get(sourcePlayerId) || this.findMonster(sourcePlayerId);
+      if (attacker) {
+        const chance = Math.max(0, Math.min(1, attacker.critChance ?? 0));
+        const mult = Math.max(1, attacker.critMult ?? 1);
+        if (chance > 0 && Math.random() < chance) {
+          crit = true;
+          dmg = Math.max(1, Math.round(amount * mult));
+        }
+      }
+    }
+
     let absorbed = 0;
     if (isPlayer && target.shield > 0) {
       absorbed = Math.min(target.shield, dmg);
@@ -836,6 +853,7 @@ export class Match {
     this.pushEvent({
       type: 'damage',
       amount: dmg,
+      crit,
       x: +target.x.toFixed(1),
       y: +target.y.toFixed(1),
       targetId: isPlayer ? target.id : target.entityId,
@@ -1266,6 +1284,8 @@ export class Match {
       xpToNext: xpForLevel(2) - xpForLevel(1),
       speed: CONFIG.MONSTER_SPEED * def.speedMul,
       damage: Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul),
+      critChance: CONFIG.MONSTER_CRIT_CHANCE,
+      critMult: CONFIG.MONSTER_CRIT_MULT,
       attackCd: 0,
       attack: def.attack || 'melee',
       spells: def.spells || null,
