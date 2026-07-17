@@ -634,7 +634,7 @@ export class LobbyScene extends Phaser.Scene {
     this.adminModal = this.add.container(0, 0).setDepth(400).setVisible(false);
 
     this.hint = this.add
-      .text(panelX, height - 36, 'Mín. 2 jogadores ready para iniciar', {
+      .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos/bots', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#7a6e96',

@@ -31,7 +31,7 @@ const ROUND_DURATION = envInt('ROUND_DURATION', 60);
 export const CONFIG = {
   TICK_RATE: 20,
   MAX_PLAYERS: 8,
-  MIN_PLAYERS: 2,
+  MIN_PLAYERS: 1,
   /** Quantidade de rounds na partida. */
   MAX_ROUNDS,
   /** Duração de cada round em segundos. */
@@ -41,7 +41,7 @@ export const CONFIG = {
   MATCH_DURATION: MAX_ROUNDS * ROUND_DURATION,
   PLAYER_MAX_HP: 100,
   /** Velocidade de movimento de jogadores/bots (px/s). */
-  PLAYER_SPEED: envNumber('PLAYER_SPEED', 180),
+  PLAYER_SPEED: envNumber('PLAYER_SPEED', 189),
   PLAYER_RADIUS: 16,
   /**
    * Inércia do jogador (segundos para aproximar da velocidade alvo).

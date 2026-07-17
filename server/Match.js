@@ -1416,6 +1416,11 @@ export class Match {
     if (this.afterLevelUp) return; // round já encerrado, aguardando distribuição de habilidades
     if (this.phase !== 'playing' && this.phase !== 'levelup') return;
     const alive = [...this.players.values()].filter((p) => p.alive);
+    // Solo: round só acaba na morte (ou no timer em tick). Com 2+, last standing.
+    if (this.players.size <= 1) {
+      if (alive.length === 0) this.finishRound(null);
+      return;
+    }
     if (alive.length <= 1) {
       this.finishRound(alive[0] || null);
     }
