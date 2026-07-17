@@ -95,6 +95,19 @@ export const SPELLS = {
     duration: 3.5,
     color: 0x88aaff,
   },
+  skull_bolt: {
+    id: 'skull_bolt',
+    name: 'Skull Bolt',
+    description: 'Caveira amaldiçoada com raios negros.',
+    type: 'basic',
+    cooldown: 0.55,
+    manaCost: 0,
+    damage: 22,
+    range: 320,
+    speed: 500,
+    radius: 12,
+    color: 0x4a0080,
+  },
 };
 
 export const ULTIMATES = {

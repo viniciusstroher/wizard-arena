@@ -45,6 +45,7 @@ export class GameScene extends Phaser.Scene {
     this.iceFx = null;
     this.healFx = null;
     this.poisonFx = null;
+    this.necroFx = null;
     this.sparkFx = null;
     this.magicFx = null;
     this.meteorFx = null;
@@ -1003,6 +1004,20 @@ export class GameScene extends Phaser.Scene {
       })
       .setDepth(7);
 
+    this.necroFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x1a001a, 0x4a0080, 0x7b2cff, 0x120018, 0x2a0a3a],
+        speed: { min: 20, max: 90 },
+        scale: { start: 1.6, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        lifespan: { min: 180, max: 420 },
+        gravityY: -20,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(26);
+
     this.sparkFx = this.add
       .particles(0, 0, 'particle', {
         tint: [0xffffff, 0xaadfff, 0xffee88, 0x88ccff],
@@ -1089,6 +1104,11 @@ export class GameScene extends Phaser.Scene {
     this.ensureProjectileGlow(sprite, x, y, 0x66ccff, 14);
   }
 
+  emitSkullTrail(sprite, x, y, vx = 0, vy = 0) {
+    this.emitDirectionalTrail(this.necroFx, sprite, x, y, vx, vy, 'lastSkullTrailAt', 3);
+    this.ensureProjectileGlow(sprite, x, y, 0x4a0080, 15);
+  }
+
   burstOnce(key, emitFn) {
     if (this.burstSeen.has(key)) return;
     this.burstSeen.add(key);
@@ -1114,6 +1134,9 @@ export class GameScene extends Phaser.Scene {
     } else if (spell === 'arc_lightning' || spell === 'storm_call' || e.type === 'lightning') {
       this.sparkFx?.emitParticleAt(e.x1 ?? x, e.y1 ?? y, 10);
       this.sparkFx?.emitParticleAt(e.x2 ?? x, e.y2 ?? y, 14);
+    } else if (spell === 'skull_bolt') {
+      this.necroFx?.emitParticleAt(x, y, 16);
+      this.sparkFx?.emitParticleAt(x, y, 6);
     } else if (e.type === 'heal' || spell === 'mend') {
       this.healFx?.emitParticleAt(x, y, 12);
     } else if (e.type === 'blink') {
@@ -1730,6 +1753,7 @@ export class GameScene extends Phaser.Scene {
       return 'proj_fireball';
     }
     if (kind === 'ice_shard' && this.textures.exists('proj_ice_shard')) return 'proj_ice_shard';
+    if (kind === 'skull_bolt' && this.textures.exists('proj_skull_bolt')) return 'proj_skull_bolt';
     return 'orb';
   }
 
@@ -1771,6 +1795,13 @@ export class GameScene extends Phaser.Scene {
         s.setScale(1.05 + 0.1 * pulse);
         s.setRotation(Math.atan2(p.vy || 0, p.vx || 1) + Math.PI / 2);
         this.emitIceTrail(s, p.x, p.y, p.vx, p.vy);
+      } else if (kind === 'skull_bolt') {
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 55);
+        s.clearTint();
+        s.setBlendMode(Phaser.BlendModes.NORMAL);
+        s.setScale(1.15 + 0.12 * pulse);
+        s.setRotation(Math.sin(this.time.now / 90) * 0.15);
+        this.emitSkullTrail(s, p.x, p.y, p.vx, p.vy);
       } else {
         // fireball / firebolt — brilho + rastro de chama
         const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 60);
@@ -1912,11 +1943,15 @@ export class GameScene extends Phaser.Scene {
 
     const segs = Math.max(6, Math.round(len / 22));
     const main = buildBolt(x1, y1, x2, y2, segs, 14);
+    const dark = e.dark || color === 0x2a0044 || color === 0x1a001a || color === 0x4a0080;
+    const glowA = dark ? 0x120018 : 0x2244aa;
+    const glowB = dark ? 0x4a0080 : 0x4488ff;
+    const core = dark ? 0x9b4dff : 0xffffff;
 
-    strokeBolt(main, 9, 0x2244aa, 0.18);
-    strokeBolt(main, 7, 0x4488ff, 0.28);
-    strokeBolt(main, 4, color, 0.65);
-    strokeBolt(main, 2, 0xffffff, 0.95);
+    strokeBolt(main, 9, glowA, 0.22);
+    strokeBolt(main, 7, glowB, 0.35);
+    strokeBolt(main, 4, color, 0.75);
+    strokeBolt(main, 2, core, 0.95);
 
     for (let b = 0; b < branches; b++) {
       const idx = 2 + Math.floor(rand() * Math.max(1, main.length - 4));
@@ -1927,17 +1962,17 @@ export class GameScene extends Phaser.Scene {
       const bx = origin.x + Math.cos(ang) * blen;
       const by = origin.y + Math.sin(ang) * blen;
       const branch = buildBolt(origin.x, origin.y, bx, by, 3, 6);
-      strokeBolt(branch, 3, color, 0.45);
-      strokeBolt(branch, 1.5, 0xffffff, 0.8);
+      strokeBolt(branch, 3, color, 0.5);
+      strokeBolt(branch, 1.5, core, 0.85);
     }
 
-    g.fillStyle(0xffffff, 0.65 * fade);
+    g.fillStyle(core, 0.65 * fade);
     g.fillCircle(x2, y2, 6 + rand() * 4);
-    g.fillStyle(color, 0.4 * fade);
+    g.fillStyle(color, 0.45 * fade);
     g.fillCircle(x2, y2, 14);
-    g.fillStyle(0xffffff, 0.35 * fade);
+    g.fillStyle(glowB, 0.3 * fade);
     g.fillCircle(x2, y2, 22);
-    g.fillStyle(0xffffff, 0.5 * fade);
+    g.fillStyle(core, 0.5 * fade);
     g.fillCircle(x1, y1, 4);
   }
 

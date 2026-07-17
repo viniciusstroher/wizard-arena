@@ -166,6 +166,38 @@ export class BootScene extends Phaser.Scene {
       },
       2
     );
+
+    // Skull bolt — caveira com raios negros
+    makePixelTexture(
+      this,
+      'proj_skull_bolt',
+      [
+        '................',
+        '..L..........L..',
+        '...L...WW...L...',
+        '....L.WBBW.L....',
+        '.....WBEBEW.....',
+        '.....WBBBBW.....',
+        '......WBBW......',
+        '.....WWTTWW.....',
+        '......WTTW......',
+        '....L..WW..L....',
+        '...L........L...',
+        '..L..........L..',
+        '.L............L.',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        W: 0xe8e0d0,
+        B: 0x2a2430,
+        E: 0x7b2cff,
+        T: 0xc8b8a0,
+        L: 0x120018,
+      },
+      2
+    );
   }
 
   createSpellIcons() {
@@ -338,6 +370,27 @@ export class BootScene extends Phaser.Scene {
           '................',
         ],
         palette: { B: 0x3a5a9a, L: 0x88aaff, W: 0xddeeff },
+      },
+      skull_bolt: {
+        rows: [
+          '................',
+          '..N..........N..',
+          '...N..WWWW..N...',
+          '....N.WBBW.N....',
+          '.....WBEBEW.....',
+          '.....WBBBBW.....',
+          '......WBBW......',
+          '.....WWTTWW.....',
+          '......WTTW......',
+          '....N..WW..N....',
+          '...N........N...',
+          '..N..........N..',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { W: 0xe8e0d0, B: 0x2a2430, E: 0x9b4dff, T: 0xc8b8a0, N: 0x1a001a },
       },
       apocalypse: {
         rows: [
@@ -1070,6 +1123,17 @@ export class BootScene extends Phaser.Scene {
         L: 0x6e2c00,
         W: 0xf4d03f,
         T: 0x4e342e,
+      },
+      necromancer: {
+        H: 0x1a0a22,
+        B: 0x7b2cff,
+        S: 0xc8b8a8,
+        E: 0x4a0080,
+        K: 0x3a2048,
+        R: 0x1e1028,
+        L: 0x120818,
+        W: 0x9b4dff,
+        T: 0x2a1838,
       },
     };
 

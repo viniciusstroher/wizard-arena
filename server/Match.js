@@ -50,10 +50,18 @@ const WIZARD_TYPES = [
   { type: 'azure', color: 0x55aaff },
   { type: 'emerald', color: 0x55ff99 },
   { type: 'amber', color: 0xffaa33 },
+  { type: 'necromancer', color: 0x8844cc },
 ];
 
 function randomWizard() {
   return WIZARD_TYPES[Math.floor(Math.random() * WIZARD_TYPES.length)];
+}
+
+function startingSpellsFor(wizardType) {
+  if (wizardType === 'necromancer') {
+    return [createSpellInstance('skull_bolt', 1), createSpellInstance('poison_cloud', 1)];
+  }
+  return [createSpellInstance('firebolt', 1)];
 }
 
 export class Match {
@@ -194,7 +202,7 @@ export class Match {
       level: 1,
       xp: 0,
       xpToNext: xpForLevel(2) - xpForLevel(1),
-      spells: [createSpellInstance('firebolt', 1)],
+      spells: startingSpellsFor(wizard.type),
       ultimate: null,
       pendingLevelUps: 0,
       spellChoices: null,
@@ -1241,11 +1249,18 @@ export class Match {
     switch (spellInst.id) {
       case 'firebolt':
       case 'ice_shard':
+      case 'skull_bolt': {
+        const kind =
+          spellInst.id === 'firebolt'
+            ? 'fireball'
+            : spellInst.id === 'ice_shard'
+              ? 'ice_shard'
+              : 'skull_bolt';
         this.projectiles.push({
           entityId: eid(),
           ownerId: player.id,
           team: 'player',
-          kind: spellInst.id === 'firebolt' ? 'fireball' : 'ice_shard',
+          kind,
           spellId: spellInst.id,
           x: player.x,
           y: player.y,
@@ -1259,6 +1274,7 @@ export class Match {
           color: stats.color,
         });
         break;
+      }
       case 'arc_lightning': {
         const target = this.findNearestHostile(player, stats.range);
         if (target) {
@@ -1901,8 +1917,27 @@ export class Match {
             ? 30
             : spellId === 'ice_shard'
               ? 26
-              : 18;
+              : spellId === 'skull_bolt'
+                ? 28
+                : 18;
         this.spawnSpellImpact(proj.x, proj.y, spellId, proj.color, impactR);
+        if (spellId === 'skull_bolt' && hit) {
+          const ang = Math.random() * Math.PI * 2;
+          const len = 28 + Math.random() * 18;
+          this.effects.push({
+            type: 'lightning',
+            x1: proj.x,
+            y1: proj.y,
+            x2: proj.x + Math.cos(ang) * len,
+            y2: proj.y + Math.sin(ang) * len,
+            life: 0.28,
+            maxLife: 0.28,
+            color: 0x2a0044,
+            seed: (Math.random() * 1e9) | 0,
+            branches: 4,
+            dark: true,
+          });
+        }
         proj.life = 0;
       }
     }
