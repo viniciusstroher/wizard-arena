@@ -58,9 +58,13 @@ function randomWizard() {
 }
 
 function startingSpellsFor(wizardType) {
-  if (wizardType === 'necromancer') {
-    return [createSpellInstance('skull_bolt', 1), createSpellInstance('poison_cloud', 1)];
-  }
+  // if (wizardType === 'necromancer') {
+  //   return [
+  //     createSpellInstance('firebolt', 1),
+  //     createSpellInstance('skull_bolt', 1),
+  //     createSpellInstance('poison_cloud', 1),
+  //   ];
+  // }
   return [createSpellInstance('firebolt', 1)];
 }
 
