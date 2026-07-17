@@ -198,6 +198,9 @@ export class Match {
       dashBuffer: 0,
       dashDx: 0,
       dashDy: 0,
+      knockbackTimer: 0,
+      knockbackDx: 0,
+      knockbackDy: 0,
       phoenixReady: false,
       kills: 0,
       deaths: 0,
@@ -310,6 +313,9 @@ export class Match {
       p.slow = 0;
       p.slowTimer = 0;
       p.stunTimer = 0;
+      p.knockbackTimer = 0;
+      p.knockbackDx = 0;
+      p.knockbackDy = 0;
       p.zoneDmgAcc = 0;
       p.vx = 0;
       p.vy = 0;
@@ -393,7 +399,12 @@ export class Match {
       player.dashBuffer = 0;
       return;
     }
-    if (player.stunTimer > 0 || player.dashCooldown > 0 || player.dashTimer > 0) {
+    if (
+      player.stunTimer > 0 ||
+      (player.knockbackTimer || 0) > 0 ||
+      player.dashCooldown > 0 ||
+      player.dashTimer > 0
+    ) {
       // Só mantém buffer curto (~200ms); evita dash “fantasma” no fim do CD.
       if ((player.dashBuffer || 0) <= 0) player.input.dash = null;
       return;
@@ -711,6 +722,32 @@ export class Match {
         projectileColor: 0xb8956a,
         attackCooldown: 1.7,
       },
+      // Melee undead
+      skeleton: {
+        hpMul: 1.1,
+        speedMul: 1.05,
+        dmgMul: 1.15,
+        radius: 14,
+        color: 0xe8e0d0,
+        attack: 'melee',
+        attackCooldown: 0.9,
+      },
+      // Ranged-only undead archer
+      skeleton_archer: {
+        hpMul: 0.85,
+        speedMul: 0.95,
+        dmgMul: 1.05,
+        radius: 13,
+        color: 0xd8d0c0,
+        attack: 'ranged',
+        projectile: 'arrow',
+        range: 230,
+        preferRange: 160,
+        projectileSpeed: 360,
+        projectileRadius: 4,
+        projectileColor: 0xc8b8a0,
+        attackCooldown: 1.35,
+      },
     };
     const ids = Object.keys(types);
     const type = ids[Math.floor(Math.random() * ids.length)];
@@ -749,7 +786,28 @@ export class Match {
       attackCooldown: def.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN,
       radius: def.radius,
       color: def.color,
+      knockbackTimer: 0,
+      knockbackDx: 0,
+      knockbackDy: 0,
     });
+  }
+
+  /** Empurra o alvo na direção da trajetória do projétil (magias em área não usam isto). */
+  applyProjectileKnockback(target, proj) {
+    const speed = CONFIG.PROJECTILE_KNOCKBACK_SPEED;
+    const duration = CONFIG.PROJECTILE_KNOCKBACK_DURATION;
+    if (speed <= 0 || duration <= 0) return;
+    const len = Math.hypot(proj.vx, proj.vy);
+    if (len <= 0) return;
+    const dx = proj.vx / len;
+    const dy = proj.vy / len;
+    target.knockbackDx = dx;
+    target.knockbackDy = dy;
+    target.knockbackTimer = duration;
+    target.vx = dx * speed;
+    target.vy = dy * speed;
+    // Interrompe dash em andamento para o empurrão prevalecer
+    if (target.dashTimer != null) target.dashTimer = 0;
   }
 
   monsterShoot(monster, target) {
@@ -1149,6 +1207,19 @@ export class Match {
         p.vx = 0;
         p.vy = 0;
         p.dashTimer = 0;
+        p.knockbackTimer = 0;
+      } else if (p.knockbackTimer > 0) {
+        p.knockbackTimer = Math.max(0, p.knockbackTimer - dt);
+        p.vx = p.knockbackDx * CONFIG.PROJECTILE_KNOCKBACK_SPEED;
+        p.vy = p.knockbackDy * CONFIG.PROJECTILE_KNOCKBACK_SPEED;
+        p.x += p.vx * dt;
+        this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
+        p.y += p.vy * dt;
+        this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
+        if (p.knockbackTimer <= 0) {
+          p.vx *= 0.35;
+          p.vy *= 0.35;
+        }
       } else if (p.dashTimer > 0) {
         p.dashTimer = Math.max(0, p.dashTimer - dt);
         p.vx = p.dashDx * CONFIG.PLAYER_DASH_SPEED;
@@ -1207,6 +1278,22 @@ export class Match {
       if (m.stunTimer > 0) {
         m.vx = 0;
         m.vy = 0;
+        m.knockbackTimer = 0;
+        continue;
+      }
+
+      if ((m.knockbackTimer || 0) > 0) {
+        m.knockbackTimer = Math.max(0, m.knockbackTimer - dt);
+        m.vx = m.knockbackDx * CONFIG.PROJECTILE_KNOCKBACK_SPEED;
+        m.vy = m.knockbackDy * CONFIG.PROJECTILE_KNOCKBACK_SPEED;
+        m.x += m.vx * dt;
+        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
+        m.y += m.vy * dt;
+        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
+        if (m.knockbackTimer <= 0) {
+          m.vx *= 0.35;
+          m.vy *= 0.35;
+        }
         continue;
       }
 
@@ -1276,6 +1363,7 @@ export class Match {
           // Dano de monstro não conta como kill de jogador
           const sourceId = fromMonster ? null : proj.ownerId;
           this.damageEntity(p, proj.damage, sourceId, true, true);
+          this.applyProjectileKnockback(p, proj);
           if (proj.slow) {
             p.slow = Math.max(p.slow, proj.slow);
             p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
@@ -1289,6 +1377,7 @@ export class Match {
           if (!m.alive) continue;
           if (dist(proj, m) <= proj.radius + m.radius) {
             this.damageEntity(m, proj.damage, proj.ownerId, false, true);
+            this.applyProjectileKnockback(m, proj);
             hit = true;
             break;
           }

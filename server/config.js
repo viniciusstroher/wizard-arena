@@ -87,4 +87,12 @@ export const CONFIG = {
 
   /** Duração do fade-out do pentagrama ao lançar magia (segundos). */
   PENTAGRAM_FADEOUT: envNumber('PENTAGRAM_FADEOUT', 2.2),
+
+  /**
+   * Empurrão ao ser atingido por magia projétil (px/s).
+   * 0 = desligado. Magias em área (nova, AoE) não empurram.
+   */
+  PROJECTILE_KNOCKBACK_SPEED: envNumber('PROJECTILE_KNOCKBACK_SPEED', 280),
+  /** Duração do empurrão em segundos. */
+  PROJECTILE_KNOCKBACK_DURATION: envNumber('PROJECTILE_KNOCKBACK_DURATION', 0.12),
 };

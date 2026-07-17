@@ -1197,5 +1197,66 @@ export class BootScene extends Phaser.Scene {
         T: 0xf5f5dc,
       }
     );
+
+    // Skeleton — melee undead with rusty blade
+    makePixelTexture(
+      this,
+      'monster_skeleton',
+      [
+        '................',
+        '.....WWWWWW.....',
+        '....WWBWWBWW....',
+        '....WWWWWWWW....',
+        '.....WWDDWW.....',
+        '......WDDW......',
+        '....RR.WW.RR....',
+        '...RWWWWWWWW....',
+        '..R.WW.WW.WW....',
+        '....WW....WW....',
+        '....WW....WW....',
+        '....W......W....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        W: 0xf0ebe0,
+        B: 0x1a1410,
+        D: 0xc8b8a8,
+        R: 0x8a6a4a,
+      }
+    );
+
+    // Skeleton archer — ranged-only with bow
+    makePixelTexture(
+      this,
+      'monster_skeleton_archer',
+      [
+        '................',
+        '.....WWWWWW.....',
+        '....WWBWWBWW....',
+        '....WWWWWWWW....',
+        '.....WWDDWW.....',
+        '..M...WDDW......',
+        '.M.M.WWWWWW.A...',
+        'M...WW.WW.WWA...',
+        '.....WW..WW.A...',
+        '.....WW..WW.....',
+        '.....W....W.....',
+        '.....W....W.....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        W: 0xe8e0d0,
+        B: 0x1a1410,
+        D: 0xb8a898,
+        M: 0x6b4e2e,
+        A: 0xc8b8a0,
+      }
+    );
   }
 }

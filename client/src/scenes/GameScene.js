@@ -1225,6 +1225,14 @@ export class GameScene extends Phaser.Scene {
     return this.textures.exists(key) ? key : 'monster';
   }
 
+  monsterLabel(type) {
+    const labels = {
+      skeleton: 'esqueleto',
+      skeleton_archer: 'esqueleto arqueiro',
+    };
+    return labels[type] || type;
+  }
+
   renderMonsters() {
     const seen = new Set();
     for (const m of this.state.monsters) {
@@ -1238,7 +1246,7 @@ export class GameScene extends Phaser.Scene {
       s.setPosition(m.x, m.y);
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
       const tagY = m.y - 26 * scale;
-      s.nameTag.setText(m.type);
+      s.nameTag.setText(this.monsterLabel(m.type));
       s.nameTag.setPosition(m.x, tagY);
       s.hpBg.setPosition(m.x, tagY + 8);
       const ratio = m.maxHp ? m.hp / m.maxHp : 0;
