@@ -1339,8 +1339,11 @@ export class GameScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.selectedSpellSlot = 3;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) this.cycleSpellSlot();
 
-    // Hold SPACE to cast (server latches + respects cooldown).
-    const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
+    // Projéteis: autocast com o slot selecionado. Demais magias: só com Espaço.
+    // Heal / Blink / Escudo usam hotkeys dedicadas (H / B / E), não castSlot.
+    const autocast = this.isSelectedSpellAutocast();
+    const castSlot =
+      autocast || this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
     // Escudo (E) / Heal (H) / Blink (B): só tecla dedicada ou clique no slot
@@ -1369,6 +1372,22 @@ export class GameScene extends Phaser.Scene {
 
   me() {
     return this.state?.players?.find((p) => p.id === this.playerId);
+  }
+
+  /** Magia do slot selecionado (0–2 básicas, 3 ultimate). */
+  selectedSpell() {
+    const me = this.me();
+    if (!me) return null;
+    const slot = this.selectedSpellSlot;
+    if (slot >= 0 && slot < 3) return me.spells?.[slot] || null;
+    if (slot === 3) return me.ultimate || null;
+    return null;
+  }
+
+  /** Projéteis (firebolt, ice_shard, skull_bolt) disparam sem Espaço. */
+  isSelectedSpellAutocast() {
+    const spell = this.selectedSpell();
+    return !!(spell?.stats?.autocast || spell?.autocast);
   }
 
   createMoveDust() {

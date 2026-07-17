@@ -7,6 +7,8 @@ export const SPELLS = {
     description: 'Projétil de fogo que causa dano a distância.',
     type: 'basic',
     playerUsable: true,
+    /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
+    autocast: true,
     cooldown: 0.35,
     manaCost: 0,
     damage: 18,
@@ -21,6 +23,8 @@ export const SPELLS = {
     description: 'Fragmento de gelo que causa dano e reduz velocidade por 5s.',
     type: 'basic',
     playerUsable: true,
+    /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
+    autocast: true,
     cooldown: 0.45,
     manaCost: 0,
     damage: 14,
@@ -135,6 +139,8 @@ export const SPELLS = {
     description: 'Caveira amaldiçoada com raios negros.',
     type: 'basic',
     playerUsable: true,
+    /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
+    autocast: true,
     cooldown: 0.55,
     manaCost: 0,
     damage: 22,

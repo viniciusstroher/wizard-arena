@@ -569,7 +569,7 @@ export class LobbyScene extends Phaser.Scene {
     dim.on('pointerup', () => this.closeControlsModal());
 
     const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 440, 0x161228, 0.98)
+      .rectangle(width / 2, height / 2, 420, 460, 0x161228, 0.98)
       .setStrokeStyle(2, 0x6b5cff);
 
     const title = this.add
@@ -584,15 +584,16 @@ export class LobbyScene extends Phaser.Scene {
       ['WASD', 'Mover'],
       ['Shift + WASD', 'Dash'],
       ['Mouse', 'Mirar'],
-      ['1 – 4', 'Selecionar magia (4 = ultimate)'],
+      ['1 – 4', 'Selecionar (projéteis: autocast)'],
       ['Tab', 'Ciclar magia 1→2→3→4'],
-      ['Espaço', 'Usar magia'],
+      ['Espaço', 'Magia de área / ultimate'],
+      ['E / H / B', 'Escudo / Heal / Blink'],
     ];
 
     const rows = [];
-    const startY = height / 2 - 120;
+    const startY = height / 2 - 130;
     lines.forEach(([key, action], i) => {
-      const y = startY + i * 36;
+      const y = startY + i * 34;
       const keyText = this.add
         .text(width / 2 - 150, y, key, {
           fontFamily: 'Trebuchet MS, sans-serif',
