@@ -67,6 +67,7 @@ export class Match {
     this._interval = null;
     this.bots = [];
     this.rocks = [];
+    this.xpPassiveTimer = 0;
     this.generateRocks();
   }
 
@@ -261,6 +262,7 @@ export class Match {
     this.round += 1;
     this.phase = 'playing';
     this.roundTime = 0;
+    this.xpPassiveTimer = 0;
     this.arenaRadius = CONFIG.ARENA_START_RADIUS;
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
     this.monsterSpawnTimer = 1;
@@ -787,6 +789,18 @@ export class Match {
     if (this.matchTime >= CONFIG.MATCH_DURATION) {
       this.wipeAll();
       return;
+    }
+
+    // XP passivo a cada segundo (configurável via XP_PER_SECOND no .env)
+    if (CONFIG.XP_PER_SECOND > 0) {
+      this.xpPassiveTimer += dt;
+      while (this.xpPassiveTimer >= 1) {
+        this.xpPassiveTimer -= 1;
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          this.grantXp(p, CONFIG.XP_PER_SECOND, 'passive');
+        }
+      }
     }
 
     // Arena shrink

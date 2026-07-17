@@ -23,6 +23,10 @@ export class BootScene extends Phaser.Scene {
     super('Boot');
   }
 
+  preload() {
+    this.load.image('lava_tile', '/assets/lava.png');
+  }
+
   create() {
     const g = this.make.graphics({ x: 0, y: 0, add: false });
 
@@ -135,43 +139,12 @@ export class BootScene extends Phaser.Scene {
   }
 
   createLavaTextures() {
-    const g = this.make.graphics({ x: 0, y: 0, add: false });
-
-    // Tile de lava linear (faixas horizontais contínuas)
-    const tw = 64;
-    const th = 64;
-    g.clear();
-    const bands = [
-      [0x2a0500, 10],
-      [0x5c1000, 6],
-      [0x8b1a00, 5],
-      [0xc44a00, 4],
-      [0xe85d04, 3],
-      [0xff7a18, 2],
-      [0xe85d04, 3],
-      [0xc44a00, 4],
-      [0x8b1a00, 5],
-      [0x5c1000, 6],
-      [0x3a0800, 8],
-      [0x7a1500, 4],
-      [0xd35400, 3],
-      [0xffc857, 1],
-    ];
-    let y = 0;
-    for (const [color, h] of bands) {
-      g.fillStyle(color, 1);
-      g.fillRect(0, y, tw, h);
-      y += h;
+    // Fundo: sprite importado (preload lava_tile)
+    if (this.textures.exists('lava_tile')) {
+      this.textures.get('lava_tile').setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
-    // Linhas finas de brilho (fluxo)
-    g.fillStyle(0xffe066, 0.55);
-    g.fillRect(0, 18, tw, 1);
-    g.fillRect(0, 33, tw, 1);
-    g.fillRect(0, 52, tw, 1);
-    g.fillStyle(0x1a0300, 0.45);
-    g.fillRect(0, 24, tw, 1);
-    g.fillRect(0, 41, tw, 1);
-    g.generateTexture('lava_tile', tw, th);
+
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
 
     // Bolhas de lava (3 frames)
     const bubbleFrames = [

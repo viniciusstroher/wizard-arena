@@ -1,3 +1,12 @@
+import 'dotenv/config';
+
+function envNumber(key, fallback) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export const CONFIG = {
   TICK_RATE: 20,
   MAX_PLAYERS: 4,
@@ -29,6 +38,7 @@ export const CONFIG = {
   XP_MONSTER: 18,
   XP_PLAYER_KILL: 100,
   XP_ROUND_SURVIVE: 40,
+  XP_PER_SECOND: envNumber('XP_PER_SECOND', 5),
   XP_LEVELS: [0, 50, 120, 220, 350, 520, 720, 960],
 
   ROCK_SPAWN_CLEAR_RADIUS: 170,
