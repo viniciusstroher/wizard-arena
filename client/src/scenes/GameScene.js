@@ -89,12 +89,14 @@ export class GameScene extends Phaser.Scene {
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
-      ult: Phaser.Input.Keyboard.KeyCodes.R,
+      four: Phaser.Input.Keyboard.KeyCodes.FOUR,
+      tab: Phaser.Input.Keyboard.KeyCodes.TAB,
       cast: Phaser.Input.Keyboard.KeyCodes.SPACE,
     });
 
     this.selectedSpellSlot = 0;
     this.input.keyboard.addCapture('SPACE');
+    this.input.keyboard.addCapture('TAB');
     this.input.keyboard.on('keydown', this.onDashKeyDown, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
@@ -213,8 +215,8 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    // 1–3 magias, R = ultimate, Shift = dash (depois do ultimate, com gap)
-    const slotLabels = ['1', '2', '3', 'R', 'Shift'];
+    // 1–3 magias, 4 = ultimate, Shift = dash (depois do ultimate, com gap)
+    const slotLabels = ['1', '2', '3', '4', 'Shift'];
     for (let i = 0; i < 5; i++) {
       const gapAfterUlt = i === 4 ? 24 : 0;
       const x = 24 + i * 70 + gapAfterUlt;
@@ -823,12 +825,17 @@ export class GameScene extends Phaser.Scene {
     const pointer = this.input.activePointer;
     const pickingSpell = this.levelUpOpen || this.levelUpSubmitting;
 
-    // Durante escolha de magia: 1/2/3 selecionam o card, sem cast/dash.
+    // Durante escolha de magia: só hotkeys 1–4 escolhem o card; Tab cicla o slot 1→2→3→4.
     if (pickingSpell) {
       if (!this.levelUpSubmitting) {
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
+          this.cycleSpellSlot();
+          this.updateLevelUpSlotHint();
+        }
         if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.submitLevelUpChoice(0);
         if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.submitLevelUpChoice(1);
         if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.submitLevelUpChoice(2);
+        if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.submitLevelUpChoice(3);
       }
       this.socket.emit('player_input', {
         up: false,
@@ -846,7 +853,8 @@ export class GameScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.selectedSpellSlot = 0;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.selectedSpellSlot = 1;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.selectedSpellSlot = 2;
-    if (Phaser.Input.Keyboard.JustDown(this.cursors.ult)) this.selectedSpellSlot = 3;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.selectedSpellSlot = 3;
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) this.cycleSpellSlot();
 
     // Hold SPACE to cast (server latches + respects cooldown).
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
@@ -2669,7 +2677,7 @@ export class GameScene extends Phaser.Scene {
       ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     }
 
-    // Slot depois do ultimate (R): cooldown do dash
+    // Slot depois do ultimate (4): cooldown do dash
     const dashSlot = this.spellSlots[4];
     const dashCd = me.dashCooldown || 0;
     const dashing = !!me.dashing;
@@ -2783,6 +2791,18 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  cycleSpellSlot() {
+    this.selectedSpellSlot = (this.selectedSpellSlot + 1) % 4;
+  }
+
+  updateLevelUpSlotHint() {
+    if (!this.levelUpHint || this.levelUpSubmitting) return;
+    const slot = this.selectedSpellSlot + 1;
+    this.levelUpHint.setText(
+      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${slot} → ${(slot % 4) + 1}`
+    );
+  }
+
   submitLevelUpChoice(index) {
     if (this.levelUpSubmitting || !this.levelUpOpen) return;
     const me = this.me();
@@ -2845,17 +2865,18 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
     this.levelUpHint = this.add
-      .text(width / 2, 158, 'Clique no card ou pressione 1 · 2 · 3', {
+      .text(width / 2, 158, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#a99bc8',
       })
       .setOrigin(0.5);
+    this.updateLevelUpSlotHint();
 
     this.levelUpLayer.add([dim, title, this.levelUpHint]);
 
     choices.forEach((choice, i) => {
-      const x = width / 2 + (i - 1) * 270;
+      const x = width / 2 + (i - (choices.length - 1) / 2) * 270;
       const y = height / 2 + 30;
       const card = this.add.container(x, y);
       const stroke = choice.kind === 'upgrade' ? 0xf1c40f : choice.def?.color || 0x6b5cff;
@@ -2920,18 +2941,7 @@ export class GameScene extends Phaser.Scene {
 
       card.add([bg, keyHint, badge, iconBg, icon, name, desc, meta]);
       card.setSize(240, 300);
-      card.setInteractive(
-        new Phaser.Geom.Rectangle(-120, -150, 240, 300),
-        Phaser.Geom.Rectangle.Contains
-      );
-      card.on('pointerover', () => {
-        if (!this.levelUpSubmitting) bg.setScale(1.04);
-      });
-      card.on('pointerout', () => bg.setScale(1));
-      card.on('pointerdown', (pointer) => {
-        if (pointer.rightButtonDown?.()) return;
-        this.submitLevelUpChoice(i);
-      });
+      // Escolha só por hotkeys 1–4 (sem clique)
       this.levelUpLayer.add(card);
       this.choiceCards.push(card);
     });

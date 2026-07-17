@@ -353,11 +353,11 @@ export class LobbyScene extends Phaser.Scene {
     dim.on('pointerup', () => this.closeControlsModal());
 
     const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 400, 0x161228, 0.98)
+      .rectangle(width / 2, height / 2, 420, 440, 0x161228, 0.98)
       .setStrokeStyle(2, 0x6b5cff);
 
     const title = this.add
-      .text(width / 2, height / 2 - 160, 'Comandos', {
+      .text(width / 2, height / 2 - 175, 'Comandos', {
         fontFamily: 'Georgia, serif',
         fontSize: '26px',
         color: '#f4e8ff',
@@ -368,12 +368,13 @@ export class LobbyScene extends Phaser.Scene {
       ['WASD', 'Mover'],
       ['Shift + WASD', 'Dash'],
       ['Mouse', 'Mirar'],
-      ['1 – 4 / R', 'Selecionar magia'],
+      ['1 – 4', 'Selecionar magia (4 = ultimate)'],
+      ['Tab', 'Ciclar magia 1→2→3→4'],
       ['Espaço', 'Usar magia'],
     ];
 
     const rows = [];
-    const startY = height / 2 - 105;
+    const startY = height / 2 - 120;
     lines.forEach(([key, action], i) => {
       const y = startY + i * 36;
       const keyText = this.add
@@ -394,10 +395,10 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     const closeBg = this.add
-      .rectangle(width / 2, height / 2 + 150, 140, 40, 0x6b5cff, 1)
+      .rectangle(width / 2, height / 2 + 170, 140, 40, 0x6b5cff, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
     const closeLabel = this.add
-      .text(width / 2, height / 2 + 150, 'Fechar', {
+      .text(width / 2, height / 2 + 170, 'Fechar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#ffffff',
