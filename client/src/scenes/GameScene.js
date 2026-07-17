@@ -31,9 +31,13 @@ export class GameScene extends Phaser.Scene {
     this.moveDust = null;
     this.lavaBurn = null;
     this.dashGhosts = [];
-    /** Janela (ms) para detectar double-tap WASD. */
-    this.dashDoubleTapMs = 280;
+    /** Janela (ms) para double-tap / re-tap WASD. */
+    this.dashDoubleTapMs = 420;
     this.dashLastTap = { up: 0, down: 0, left: 0, right: 0 };
+    this.dashLastRelease = { up: 0, down: 0, left: 0, right: 0 };
+    this.dashWasDown = { up: false, down: false, left: false, right: false };
+    /** Última direção cardinal de movimento (fallback do Shift). */
+    this.lastMoveDir = 'up';
   }
 
   create() {
@@ -65,6 +69,7 @@ export class GameScene extends Phaser.Scene {
       down: Phaser.Input.Keyboard.KeyCodes.S,
       left: Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D,
+      dash: Phaser.Input.Keyboard.KeyCodes.SHIFT,
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
@@ -624,7 +629,29 @@ export class GameScene extends Phaser.Scene {
     this.handleBanners();
   }
 
-  detectDash() {
+  currentMoveDir() {
+    const { up, down, left, right } = this.cursors;
+    const u = up.isDown;
+    const d = down.isDown;
+    const l = left.isDown;
+    const r = right.isDown;
+    if (u && !d) return 'up';
+    if (d && !u) return 'down';
+    if (l && !r) return 'left';
+    if (r && !l) return 'right';
+    return null;
+  }
+
+  aimDashDir(pointer) {
+    const me = this.me();
+    if (!me) return this.lastMoveDir;
+    const dx = pointer.worldX - me.x;
+    const dy = pointer.worldY - me.y;
+    if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
+    return dy >= 0 ? 'down' : 'up';
+  }
+
+  detectDash(pointer) {
     const now = this.time.now;
     const windowMs = this.dashDoubleTapMs;
     const keys = [
@@ -633,12 +660,32 @@ export class GameScene extends Phaser.Scene {
       ['left', this.cursors.left],
       ['right', this.cursors.right],
     ];
+
+    for (const [dir, key] of keys) {
+      const down = key.isDown;
+      if (this.dashWasDown[dir] && !down) this.dashLastRelease[dir] = now;
+      this.dashWasDown[dir] = down;
+    }
+
+    const held = this.currentMoveDir();
+    if (held) this.lastMoveDir = held;
+
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.dash)) {
+      return held || this.lastMoveDir || this.aimDashDir(pointer);
+    }
+
     for (const [dir, key] of keys) {
       if (!Phaser.Input.Keyboard.JustDown(key)) continue;
-      const last = this.dashLastTap[dir] || 0;
+      const lastTap = this.dashLastTap[dir] || 0;
+      const lastRelease = this.dashLastRelease[dir] || 0;
       this.dashLastTap[dir] = now;
-      if (last > 0 && now - last <= windowMs) {
+      // Double-tap clássico OU re-tap rápido após soltar (dash enquanto anda).
+      if (
+        (lastTap > 0 && now - lastTap <= windowMs) ||
+        (lastRelease > 0 && now - lastRelease <= windowMs)
+      ) {
         this.dashLastTap[dir] = 0;
+        this.dashLastRelease[dir] = 0;
         return dir;
       }
     }
@@ -665,7 +712,7 @@ export class GameScene extends Phaser.Scene {
       aimX: pointer.worldX,
       aimY: pointer.worldY,
       castSlot,
-      dash: this.detectDash(),
+      dash: this.detectDash(pointer),
     });
   }
 
