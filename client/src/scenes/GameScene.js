@@ -51,6 +51,7 @@ export class GameScene extends Phaser.Scene {
     this.dashGhosts = [];
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
+    this.lastHurtSoundAt = 0;
   }
 
   create() {
@@ -646,6 +647,15 @@ export class GameScene extends Phaser.Scene {
     this.sound.play('round_start', { volume: 0.9 });
   }
 
+  playHurtSound() {
+    if (!this.cache.audio.exists('player_hurt')) return;
+    const now = this.time.now;
+    // Evita spam em DoT/lava contínuo
+    if (now - this.lastHurtSoundAt < 140) return;
+    this.lastHurtSoundAt = now;
+    this.sound.play('player_hurt', { volume: 0.75 });
+  }
+
   onState(state) {
     const prevPhase = this.state?.phase;
     this.state = state;
@@ -654,7 +664,11 @@ export class GameScene extends Phaser.Scene {
       const msg = this.formatGameEvent(ev);
       if (msg) this.pushBoardEvent(msg);
       if (ev.type === 'damage') {
-        this.spawnDamageNumber(ev.x, ev.y, ev.amount, ev.isPlayer && ev.targetId === this.playerId);
+        const isSelf = ev.isPlayer && ev.targetId === this.playerId;
+        this.spawnDamageNumber(ev.x, ev.y, ev.amount, isSelf);
+        if (isSelf && ev.amount > 0) {
+          this.playHurtSound();
+        }
       }
       // Fallback: ossos de monstro pelo evento (caso o effect do servidor atrase)
       if (ev.type === 'monster_kill' && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {

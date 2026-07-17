@@ -28,6 +28,7 @@ export class BootScene extends Phaser.Scene {
     this.load.audio('player_death', '/assets/death-bong.mp3');
     this.load.audio('round_end', '/assets/fogos-caruaru-foguete-12x1-8.mp3');
     this.load.audio('round_start', '/assets/buzina-3.mp3');
+    this.load.audio('player_hurt', '/assets/soco_8rPimgT.mp3');
   }
 
   create() {
