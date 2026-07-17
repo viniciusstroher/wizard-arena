@@ -13,6 +13,7 @@ export class GameScene extends Phaser.Scene {
     this.monsterSprites = new Map();
     this.projectileSprites = new Map();
     this.rockSprites = new Map();
+    this.treeSprites = new Map();
     this.bloodSprites = new Map();
     this.boneSprites = new Map();
     this.localCorpses = [];
@@ -1278,6 +1279,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.renderArena();
     this.renderRocks();
+    this.renderTrees();
     this.renderPlayers();
     this.renderMonsters();
     this.renderProjectiles();
@@ -2060,6 +2062,52 @@ export class GameScene extends Phaser.Scene {
       if (!seen.has(id)) {
         s.destroy();
         this.rockSprites.delete(id);
+      }
+    }
+  }
+
+  renderTrees() {
+    const trees = this.state.trees || [];
+    const seen = new Set();
+    const variants = {
+      pine: ['tree_pine_0', 'tree_pine_1'],
+      oak: ['tree_oak_0', 'tree_oak_1'],
+      bush: ['tree_bush_0', 'tree_bush_1'],
+    };
+
+    const hashId = (id) => {
+      let h = 0;
+      const s = String(id);
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return h;
+    };
+
+    for (const tree of trees) {
+      seen.add(tree.id);
+      let s = this.treeSprites.get(tree.id);
+      if (!s) {
+        const list = variants[tree.type] || variants.oak;
+        const h = hashId(tree.id);
+        const key = list[h % list.length];
+        if (!this.textures.exists(key)) continue;
+        const baseScale = tree.type === 'oak' ? 1.15 : tree.type === 'pine' ? 1.05 : 0.95;
+        const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
+        s = this.add
+          .image(tree.x, tree.y, key)
+          .setDepth(6)
+          .setOrigin(0.5, 0.9)
+          .setScale(baseScale * scaleJitter)
+          .setFlipX((h & 1) === 1);
+        this.treeSprites.set(tree.id, s);
+      } else {
+        s.setPosition(tree.x, tree.y);
+      }
+    }
+
+    for (const [id, s] of this.treeSprites) {
+      if (!seen.has(id)) {
+        s.destroy();
+        this.treeSprites.delete(id);
       }
     }
   }

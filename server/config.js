@@ -138,6 +138,10 @@ export const CONFIG = {
   ROCK_MIN: 16,
   ROCK_MAX: 28,
 
+  /** Árvores (só em chão de grama, só dentro do círculo da arena). */
+  TREE_MIN: 8,
+  TREE_MAX: 14,
+
   /** Duração do fade-out do pentagrama ao lançar magia (segundos). */
   PENTAGRAM_FADEOUT: envNumber('PENTAGRAM_FADEOUT', 1.76),
 

@@ -109,6 +109,7 @@ export class Match {
     this._interval = null;
     this.bots = [];
     this.rocks = [];
+    this.trees = [];
     /** 'dirt' | 'grass' — escolhido ao regenerar a arena. */
     this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
@@ -164,8 +165,8 @@ export class Match {
   }
 
   generateRocks() {
-    // Às vezes grama em vez de terra batida (~40%).
-    this.floorType = Math.random() < 0.4 ? 'grass' : 'dirt';
+    // 50% grama / 50% terra batida.
+    this.floorType = Math.random() < 0.5 ? 'grass' : 'dirt';
 
     const types = [
       { type: 'stone', radius: 12 },
@@ -206,11 +207,87 @@ export class Match {
     }
 
     this.rocks = rocks;
+    this.generateTrees();
+  }
+
+  /** Árvores só em grama e apenas dentro do círculo da arena. */
+  generateTrees() {
+    if (this.floorType !== 'grass') {
+      this.trees = [];
+      return;
+    }
+
+    const types = [
+      { type: 'pine', radius: 14 },
+      { type: 'oak', radius: 16 },
+      { type: 'bush', radius: 10 },
+    ];
+    const count =
+      CONFIG.TREE_MIN + Math.floor(Math.random() * (CONFIG.TREE_MAX - CONFIG.TREE_MIN + 1));
+    const trees = [];
+    const cx = CONFIG.ARENA_CENTER_X;
+    const cy = CONFIG.ARENA_CENTER_Y;
+    const arenaR = CONFIG.ARENA_START_RADIUS;
+    let attempts = 0;
+
+    while (trees.length < count && attempts < count * 50) {
+      attempts += 1;
+      const def = types[Math.floor(Math.random() * types.length)];
+      const ang = Math.random() * Math.PI * 2;
+      const maxR = Math.max(0, arenaR - def.radius - 4);
+      const r = CONFIG.ROCK_SPAWN_CLEAR_RADIUS + def.radius + Math.random() * Math.max(0, maxR - CONFIG.ROCK_SPAWN_CLEAR_RADIUS - def.radius);
+      if (r > maxR) continue;
+      const x = cx + Math.cos(ang) * r;
+      const y = cy + Math.sin(ang) * r;
+      const fromCenter = Math.hypot(x - cx, y - cy);
+      if (fromCenter + def.radius > arenaR) continue;
+      if (fromCenter < CONFIG.ROCK_SPAWN_CLEAR_RADIUS + def.radius) continue;
+
+      let overlaps = false;
+      for (const t of trees) {
+        if (Math.hypot(x - t.x, y - t.y) < t.radius + def.radius + 12) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) continue;
+      for (const rock of this.rocks) {
+        if (Math.hypot(x - rock.x, y - rock.y) < rock.radius + def.radius + 10) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) continue;
+
+      trees.push({
+        id: eid(),
+        type: def.type,
+        x: +x.toFixed(1),
+        y: +y.toFixed(1),
+        radius: def.radius,
+      });
+    }
+
+    this.trees = trees;
+  }
+
+  /** Remove árvores que ficaram fora do círculo após o shrink. */
+  cullTreesOutsideArena() {
+    if (!this.trees.length) return;
+    const cx = CONFIG.ARENA_CENTER_X;
+    const cy = CONFIG.ARENA_CENTER_Y;
+    const r = this.arenaRadius;
+    this.trees = this.trees.filter((t) => Math.hypot(t.x - cx, t.y - cy) + t.radius <= r);
+  }
+
+  solidObstacles() {
+    return this.trees.length ? this.rocks.concat(this.trees) : this.rocks;
   }
 
   resolveRockCollision(entity, entityRadius) {
-    if (!this.rocks.length) return;
-    for (const rock of this.rocks) {
+    const solids = this.solidObstacles();
+    if (!solids.length) return;
+    for (const rock of solids) {
       const dx = entity.x - rock.x;
       const dy = entity.y - rock.y;
       const d = Math.hypot(dx, dy);
@@ -228,15 +305,15 @@ export class Match {
   }
 
   isBlockedByRock(x, y, radius) {
-    for (const rock of this.rocks) {
+    for (const rock of this.solidObstacles()) {
       if (Math.hypot(x - rock.x, y - rock.y) < rock.radius + radius) return true;
     }
     return false;
   }
 
-  /** Segment–circle test so fast projectiles cannot tunnel through rocks. */
+  /** Segment–circle test so fast projectiles cannot tunnel through rocks/trees. */
   projectileHitsRock(x0, y0, x1, y1, radius) {
-    for (const rock of this.rocks) {
+    for (const rock of this.solidObstacles()) {
       const r = rock.radius + radius;
       const dx = x1 - x0;
       const dy = y1 - y0;
@@ -2559,6 +2636,7 @@ export class Match {
       if (this.shrinksDone < CONFIG.ARENA_SHRINK_TIMES) {
         this.nextShrinkAt += CONFIG.ARENA_SHRINK_INTERVAL;
       }
+      this.cullTreesOutsideArena();
       this.pushEvent({ type: 'arena_shrink', radius: this.arenaRadius });
     }
 
@@ -3049,6 +3127,7 @@ export class Match {
         floorType: this.floorType || 'dirt',
       },
       rocks: this.rocks,
+      trees: this.trees,
       players: [...this.players.values()].map((p) => this.serializePlayer(p)),
       monsters: this.monsters.map((m) => ({
         entityId: m.entityId,

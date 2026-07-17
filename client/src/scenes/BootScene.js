@@ -138,6 +138,7 @@ export class BootScene extends Phaser.Scene {
     this.createArenaGrassTexture();
     this.createLavaTextures();
     this.createRockSprites();
+    this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
     this.createSpellIcons();
@@ -819,6 +820,134 @@ export class BootScene extends Phaser.Scene {
       ],
       granite,
       3
+    );
+  }
+
+  createTreeSprites() {
+    // T=tronco, D=sombra folha, L=folha escura, M=folha, H=highlight, F=fruta
+    const pine = { T: 0x5a3a22, D: 0x1e3a18, L: 0x2e5a28, M: 0x3e7a34, H: 0x5aaa48 };
+    const oak = { T: 0x6a4428, D: 0x2a4a20, L: 0x3a6a2c, M: 0x4a8a38, H: 0x6aba50, F: 0xc44a3a };
+    const bush = { T: 0x4a3420, D: 0x244820, L: 0x366830, M: 0x488840, H: 0x68a850 };
+
+    makePixelTexture(
+      this,
+      'tree_pine_0',
+      [
+        '........HH........',
+        '.......HMMH.......',
+        '......HMMMMH......',
+        '.....LMMMMMML.....',
+        '....LMMMHMMMML....',
+        '...LMMMMMMMMMML...',
+        '....LMMMMMMML.....',
+        '.....LMMMMML......',
+        '......DDTTDD......',
+        '........TT........',
+        '........TT........',
+        '.......TTTT.......',
+      ],
+      pine,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_pine_1',
+      [
+        '.........H........',
+        '.......HMMH.......',
+        '......HMMMMH......',
+        '.....LMMMMMML.....',
+        '....LMMMMMMMML....',
+        '...LMMMHMMMMMML...',
+        '....LMMMMMMML.....',
+        '.....DDMMMMDD.....',
+        '.......LTTL.......',
+        '........TT........',
+        '........TT........',
+        '.......TTTT.......',
+      ],
+      pine,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_oak_0',
+      [
+        '......HHHHHH......',
+        '....HHMMMMMMHH....',
+        '...HMMMHFHMMMH....',
+        '..LMMMMMMMMMMMML..',
+        '..LMMMHMMMMHMMML..',
+        '..LMMMMMMMMMMMML..',
+        '...LMMMMMMMMML....',
+        '....DDLMMLDD......',
+        '.......TT.........',
+        '.......TT.........',
+        '......TTTT........',
+        '..................',
+      ],
+      oak,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_oak_1',
+      [
+        '.....HHHHHHHH.....',
+        '...HHMMMMMMMMHH...',
+        '..HMMMHMMMHMMMMH..',
+        '.LMMMMFMMMMFMMMML.',
+        '.LMMMMMMMMMMMMMML.',
+        '..LMMMHMMMMHMMML..',
+        '...LMMMMMMMMML....',
+        '....DDLTTLDD......',
+        '.......TT.........',
+        '.......TT.........',
+        '......TTTT........',
+        '..................',
+      ],
+      oak,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_bush_0',
+      [
+        '..................',
+        '......HHHH........',
+        '....HHMMMMHH......',
+        '...HMMMHMMMML.....',
+        '...LMMMMMMMML.....',
+        '....LMMMMMML......',
+        '.....DDTTDD.......',
+        '.......TT.........',
+        '..................',
+        '..................',
+        '..................',
+        '..................',
+      ],
+      bush,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_bush_1',
+      [
+        '..................',
+        '.....HHHHH........',
+        '...HHMMMMMHH......',
+        '..HMMMHMMMMML.....',
+        '..LMMMMMMMMML.....',
+        '...LMMMMMMML......',
+        '....DDLTLDD.......',
+        '.......TT.........',
+        '..................',
+        '..................',
+        '..................',
+        '..................',
+      ],
+      bush,
+      2
     );
   }
 
