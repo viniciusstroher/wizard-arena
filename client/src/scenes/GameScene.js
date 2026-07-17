@@ -1918,13 +1918,31 @@ export class GameScene extends Phaser.Scene {
       seen.add(p.id);
       const tex = this.wizardTexture(p.wizardType);
       const s = this.ensureActor(this.playerSprites, p.id, tex, 20);
-      if (s.texture.key !== tex) s.setTexture(tex);
       s.clearTint();
-      s.setPosition(p.x, p.y);
       s.setAlpha(p.alive ? 1 : 0.25);
+
+      const speed = Math.hypot(p.vx || 0, p.vy || 0);
+      const walking = p.alive && !p.dashing && !p.stun && speed > 18;
+      const walkKey = `${tex}_walk`;
+      if (walking && this.anims.exists(walkKey)) {
+        if (s.anims.currentAnim?.key !== walkKey || !s.anims.isPlaying) {
+          s.play(walkKey);
+        }
+        s.anims.timeScale = Phaser.Math.Clamp(speed / 110, 0.75, 1.7);
+        const bob = Math.sin(this.time.now / 65) * 1.4;
+        s.setPosition(p.x, p.y + bob);
+      } else {
+        if (s.anims?.isPlaying) s.anims.stop();
+        if (s.texture.key !== tex) s.setTexture(tex);
+        s.setPosition(p.x, p.y);
+      }
+
+      if (Math.abs(p.vx || 0) > 12) s.setFlipX(p.vx < 0);
 
       const baseScale = p.id === this.playerId ? 1.15 : 1;
       if (p.dashing && p.alive) {
+        if (s.anims?.isPlaying) s.anims.stop();
+        if (s.texture.key !== tex) s.setTexture(tex);
         const horiz = Math.abs(p.dashDx || p.vx) >= Math.abs(p.dashDy || p.vy);
         if (horiz) s.setScale(baseScale * 1.55, baseScale * 0.7);
         else s.setScale(baseScale * 0.7, baseScale * 1.55);

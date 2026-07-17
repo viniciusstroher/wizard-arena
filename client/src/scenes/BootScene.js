@@ -1063,7 +1063,7 @@ export class BootScene extends Phaser.Scene {
 
   createWizardSprites() {
     // Shared pose: pointed hat, face, robe, boots + staff on the side
-    const pose = [
+    const idle = [
       '................',
       '......H.........',
       '.....HHH........',
@@ -1079,6 +1079,46 @@ export class BootScene extends Phaser.Scene {
       '..RR......RR.T..',
       '..LL......LL....',
       '................',
+      '................',
+    ];
+
+    // Left foot planted forward/down, right tucked
+    const walkL = [
+      '................',
+      '......H.........',
+      '.....HHH........',
+      '....HHHHH.......',
+      '...HHHBHHH......',
+      '....HSSSSH...W..',
+      '...SSSEESSS..T..',
+      '...SSSSSSS...T..',
+      '....SKKKKS...T..',
+      '...RKKKKKKR..T..',
+      '..RRKKKKKKRR.T..',
+      '..RR.KKKK.RR.T..',
+      '..RR......RR.T..',
+      '..LL.......L....',
+      '.LL.............',
+      '................',
+    ];
+
+    // Right foot planted forward/down, left tucked
+    const walkR = [
+      '................',
+      '......H.........',
+      '.....HHH........',
+      '....HHHHH.......',
+      '...HHHBHHH......',
+      '....HSSSSH...W..',
+      '...SSSEESSS..T..',
+      '...SSSSSSS...T..',
+      '....SKKKKS...T..',
+      '...RKKKKKKR..T..',
+      '..RRKKKKKKRR.T..',
+      '..RR.KKKK.RR.T..',
+      '..RR......RR.T..',
+      '...L......LL....',
+      '...........LL...',
       '................',
     ];
 
@@ -1141,7 +1181,25 @@ export class BootScene extends Phaser.Scene {
     };
 
     for (const [type, palette] of Object.entries(schools)) {
-      makePixelTexture(this, `wizard_${type}`, pose, palette);
+      const base = `wizard_${type}`;
+      makePixelTexture(this, base, idle, palette);
+      makePixelTexture(this, `${base}_wL`, walkL, palette);
+      makePixelTexture(this, `${base}_wR`, walkR, palette);
+
+      const walkKey = `${base}_walk`;
+      if (!this.anims.exists(walkKey)) {
+        this.anims.create({
+          key: walkKey,
+          frames: [
+            { key: base },
+            { key: `${base}_wL` },
+            { key: base },
+            { key: `${base}_wR` },
+          ],
+          frameRate: 9,
+          repeat: -1,
+        });
+      }
     }
   }
 
