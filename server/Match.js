@@ -109,6 +109,8 @@ export class Match {
     this._interval = null;
     this.bots = [];
     this.rocks = [];
+    /** 'dirt' | 'grass' — escolhido ao regenerar a arena. */
+    this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
     /** Overrides de admin (lobby); defaults vêm do .env. */
@@ -162,6 +164,9 @@ export class Match {
   }
 
   generateRocks() {
+    // Às vezes grama em vez de terra batida (~40%).
+    this.floorType = Math.random() < 0.4 ? 'grass' : 'dirt';
+
     const types = [
       { type: 'stone', radius: 12 },
       { type: 'rock', radius: 18 },
@@ -3041,6 +3046,7 @@ export class Match {
         nextShrinkAt: this.nextShrinkAt,
         shrinksDone: this.shrinksDone,
         shrinkTimes: CONFIG.ARENA_SHRINK_TIMES,
+        floorType: this.floorType || 'dirt',
       },
       rocks: this.rocks,
       players: [...this.players.values()].map((p) => this.serializePlayer(p)),

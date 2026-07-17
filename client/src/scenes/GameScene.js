@@ -2070,6 +2070,11 @@ export class GameScene extends Phaser.Scene {
 
     this.updateLavaEffects(a);
 
+    const floorKey = a.floorType === 'grass' ? 'arena_grass' : 'arena_brick';
+    if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
+      this.arenaFloor.setTexture(floorKey);
+    }
+
     this.arenaFloor.setPosition(a.x, a.y);
     this.arenaFloor.setSize(diameter, diameter);
 
