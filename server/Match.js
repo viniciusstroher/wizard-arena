@@ -235,7 +235,6 @@ export class Match {
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
-      phoenixReady: false,
       kills: 0,
       deaths: 0,
       monsterKills: 0,
@@ -389,7 +388,6 @@ export class Match {
       if (p.ultimate) {
         p.ultimate.cooldownLeft = 0;
         p.ultimate.usedThisRound = false;
-        if (p.ultimate.id === 'phoenix') p.phoenixReady = true;
       }
     });
   }
@@ -794,16 +792,6 @@ export class Match {
     target.hp = 0;
 
     if (isPlayer) {
-      // Phoenix passive
-      if (target.phoenixReady && target.ultimate?.id === 'phoenix' && !target.ultimate.usedThisRound) {
-        target.ultimate.usedThisRound = true;
-        target.phoenixReady = false;
-        target.alive = true;
-        target.hp = Math.round(CONFIG.PLAYER_MAX_HP * 0.5);
-        this.pushEvent({ type: 'phoenix', playerId: target.id });
-        return false;
-      }
-
       this.spawnBones(target.x, target.y);
       target.deaths += 1;
       const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
@@ -1300,11 +1288,6 @@ export class Match {
     if (spellInst.cooldownLeft > 0) return;
     if (spellInst.type === 'ultimate' || spellStats(spellInst.id)?.oncePerRound) {
       if (spellInst.usedThisRound) {
-        player.input.castSlot = -1;
-        return;
-      }
-      // Phoenix is passive — don't cast
-      if (spellInst.id === 'phoenix') {
         player.input.castSlot = -1;
         return;
       }

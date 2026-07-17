@@ -144,17 +144,6 @@ export const ULTIMATES = {
     range: 320,
     color: 0xffdd33,
   },
-  phoenix: {
-    id: 'phoenix',
-    name: 'Phoenix Form',
-    description: 'Ao morrer, revive com 50% de vida (1x por round).',
-    type: 'ultimate',
-    cooldown: 9999,
-    oncePerRound: true,
-    passive: true,
-    reviveHp: 50,
-    color: 0xff6600,
-  },
 };
 
 const BASIC_IDS = Object.keys(SPELLS);

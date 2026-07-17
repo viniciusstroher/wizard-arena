@@ -595,8 +595,6 @@ export class GameScene extends Phaser.Scene {
         const label = mon ? this.monsterLabel(mon.type) : 'Monstro';
         return `${label} subiu para Lv ${ev.level}`;
       }
-      case 'phoenix':
-        return `${this.playerName(ev.playerId)} renasceu (Fênix)`;
       case 'arena_shrink':
         return 'A arena está encolhendo!';
       case 'meteor_warn':
@@ -2760,7 +2758,7 @@ export class GameScene extends Phaser.Scene {
       ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     } else {
       this.setSpellSlotIcon(ultSlot, ult.id || ult.stats?.id);
-      ultSlot.name.setText(ult.stats.passive ? 'passivo' : 'ult');
+      ultSlot.name.setText('ult');
       ultSlot.cd.setText(ult.usedThisRound ? 'X' : 'OK');
       ultSlot.icon.setAlpha(ult.usedThisRound ? 0.4 : 1);
       ultSlot.bg.setStrokeStyle(ultSelected ? 3 : 2, ultSelected ? 0xffffff : ult.stats.color || 0xffaa33);

@@ -455,27 +455,6 @@ export class BootScene extends Phaser.Scene {
         ],
         palette: { Y: 0xffdd33, L: 0xffffff },
       },
-      phoenix: {
-        rows: [
-          '................',
-          '..YY......YY....',
-          '.YOOY....YOOY...',
-          'YORROY..YORROY..',
-          '.YORRYYYYORROY..',
-          '..YORRDDDRROY...',
-          '...YORWWWROY....',
-          '....YOWWWOY.....',
-          '.....YWWWY......',
-          '....YYOOYY......',
-          '...YOOOOOOY.....',
-          '..YOOY..YOOY....',
-          '.YOOY....YOOY...',
-          '................',
-          '................',
-          '................',
-        ],
-        palette: { Y: 0xffee55, O: 0xff8833, R: 0xff4400, D: 0xaa2200, W: 0xffcc88 },
-      },
       dash: {
         rows: [
           '................',

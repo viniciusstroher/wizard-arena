@@ -114,13 +114,7 @@ export class BotController {
           break;
         }
       }
-      if (
-        castSlot < 0 &&
-        player.ultimate &&
-        !player.ultimate.usedThisRound &&
-        player.ultimate.id !== 'phoenix' &&
-        player.hp < 50
-      ) {
+      if (castSlot < 0 && player.ultimate && !player.ultimate.usedThisRound && player.hp < 50) {
         castSlot = 3;
       }
       this.castTimer = 0.6 + Math.random() * 0.8;
