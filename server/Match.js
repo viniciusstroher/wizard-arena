@@ -487,15 +487,17 @@ export class Match {
       return true;
     }
 
-    // Monster
-    this.spawnBones(target.x, target.y);
+    // Monster — ossos no chão + remove da lista
+    const mx = target.x;
+    const my = target.y;
+    this.spawnBones(mx, my);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
       this.grantXp(killer, CONFIG.XP_MONSTER, 'monster');
     }
     this.monsters = this.monsters.filter((m) => m.entityId !== target.entityId);
-    this.pushEvent({ type: 'monster_kill', monsterId: target.entityId, killerId: sourcePlayerId });
+    this.pushEvent({ type: 'monster_kill', monsterId: target.entityId, killerId: sourcePlayerId, x: mx, y: my });
     return true;
   }
 

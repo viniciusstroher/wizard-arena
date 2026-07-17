@@ -15,6 +15,7 @@ export class GameScene extends Phaser.Scene {
     this.rockSprites = new Map();
     this.bloodSprites = new Map();
     this.boneSprites = new Map();
+    this.localCorpses = [];
     this.aoeGraphics = null;
     this.arenaGraphics = null;
     this.effectGraphics = null;
@@ -536,14 +537,59 @@ export class GameScene extends Phaser.Scene {
   }
 
   onState(state) {
+    const prevPhase = this.state?.phase;
     this.state = state;
     for (const ev of state.events || []) {
       const msg = this.formatGameEvent(ev);
       if (msg) this.pushBoardEvent(msg);
+      // Fallback: ossos de monstro pelo evento (caso o effect do servidor atrase)
+      if (ev.type === 'monster_kill' && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {
+        this.ensureCorpseAt(ev.x, ev.y);
+      }
+    }
+    if (
+      state.phase === 'countdown' &&
+      prevPhase &&
+      prevPhase !== 'countdown' &&
+      prevPhase !== 'lobby'
+    ) {
+      this.clearLocalCorpses();
     }
     if (state.phase === 'ended') {
       this.showMatchEndOverlay(state);
     }
+  }
+
+  ensureCorpseAt(x, y) {
+    const near = (this.state?.effects || []).some(
+      (e) => e.type === 'bones' && Math.hypot(e.x - x, e.y - y) < 28
+    );
+    if (near) return;
+    if (this.localCorpses.some((c) => Math.hypot(c.x - x, c.y - y) < 28)) return;
+    if (!this.textures.exists('bones_pile') || !this.textures.exists('skull')) return;
+
+    const scale = 0.85 + Math.random() * 0.35;
+    const rot = (Math.random() - 0.5) * 0.6;
+    const pile = this.add
+      .image(x, y + 2, 'bones_pile')
+      .setDepth(2)
+      .setScale(scale)
+      .setAlpha(0.95);
+    const skull = this.add
+      .image(x + (Math.random() - 0.5) * 6, y - 6 + (Math.random() - 0.5) * 3, 'skull')
+      .setDepth(2.1)
+      .setScale(scale * 0.95)
+      .setRotation(rot)
+      .setAlpha(0.98);
+    this.localCorpses.push({ x, y, pile, skull });
+  }
+
+  clearLocalCorpses() {
+    for (const c of this.localCorpses) {
+      c.pile.destroy();
+      c.skull.destroy();
+    }
+    this.localCorpses = [];
   }
 
   update(_time, delta) {
@@ -946,6 +992,12 @@ export class GameScene extends Phaser.Scene {
       s.hpBg.setVisible(p.alive);
       s.hpFg.setVisible(p.alive);
 
+      if (!p.alive && !s.corpseDropped) {
+        s.corpseDropped = true;
+        this.ensureCorpseAt(p.x, p.y);
+      }
+      if (p.alive) s.corpseDropped = false;
+
       if (p.shield > 0 && p.alive) {
         if (!s.shieldRing) {
           s.shieldRing = this.add.circle(p.x, p.y, 20, 0x88aaff, 0.15).setStrokeStyle(2, 0x88aaff, 0.8).setDepth(19);
@@ -993,6 +1045,7 @@ export class GameScene extends Phaser.Scene {
     }
     for (const [id, s] of this.monsterSprites) {
       if (!seen.has(id)) {
+        this.ensureCorpseAt(s.x, s.y);
         s.destroy();
         s.nameTag.destroy();
         s.hpBg.destroy();
