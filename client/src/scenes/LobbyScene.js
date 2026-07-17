@@ -31,8 +31,8 @@ export class LobbyScene extends Phaser.Scene {
     ring.lineStyle(1, 0xff6b4a, 0.15);
     ring.strokeCircle(width / 2, height / 2 + 40, 160);
 
-    this.add
-      .text(width / 2, 72, 'WIZARD ARENA', {
+    const title = this.add
+      .text(width / 2 - 36, 72, 'WIZARD ARENA', {
         fontFamily: 'Georgia, serif',
         fontSize: '56px',
         color: '#f4e8ff',
@@ -41,24 +41,32 @@ export class LobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.add
-      .text(width / 2, 128, 'PvP · Arena circular · Magias rogue-like', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '18px',
-        color: '#a99bc8',
-      })
-      .setOrigin(0.5);
+    const bruxao = this.add
+      .image(title.x + title.width / 2 + 8, title.y + 6, 'bruxao')
+      .setOrigin(0, 0.5)
+      .setScale(1.15);
+
+    this.tweens.add({
+      targets: bruxao,
+      y: bruxao.y - 6,
+      duration: 900,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   buildUI() {
     const { width, height } = this.scale;
     const panelX = width / 2;
     const panelY = height / 2 + 20;
+    const btnW = 200;
+    const btnGap = 16;
 
-    this.add.rectangle(panelX, panelY, 520, 420, 0x161228, 0.92).setStrokeStyle(2, 0x6b5cff);
+    this.add.rectangle(panelX, panelY, 680, 520, 0x161228, 0.92).setStrokeStyle(2, 0x6b5cff);
 
     this.add
-      .text(panelX, panelY - 170, 'Lobby / Matchmaking', {
+      .text(panelX, panelY - 170, 'Lobby', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '22px',
         color: '#e8dfff',
@@ -66,36 +74,43 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.add
-      .text(panelX - 200, panelY - 120, 'Seu nome', {
+      .text(panelX, panelY - 128, 'Seu nome', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
       })
-      .setOrigin(0, 0.5);
-
-    // DOM name input
-    this.nameInput = this.add
-      .dom(panelX, panelY - 80, 'input', {
-        type: 'text',
-        maxlength: 16,
-        value: this.playerName,
-        style: `
-          width: 360px;
-          padding: 12px 14px;
-          font-size: 16px;
-          font-family: Trebuchet MS, sans-serif;
-          border-radius: 8px;
-          border: 1px solid #6b5cff;
-          background: #0e0a1a;
-          color: #f0e8ff;
-          outline: none;
-          text-align: center;
-        `,
-      })
       .setOrigin(0.5);
 
+    const inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.maxLength = 16;
+    inputEl.value = this.playerName;
+    inputEl.autocomplete = 'off';
+    inputEl.spellcheck = false;
+    inputEl.placeholder = 'Digite seu nome';
+    inputEl.style.cssText = [
+      'width: 380px',
+      'height: 44px',
+      'padding: 0 14px',
+      'box-sizing: border-box',
+      'font-size: 16px',
+      'font-family: Trebuchet MS, sans-serif',
+      'border-radius: 8px',
+      'border: 1px solid #6b5cff',
+      'background: #0e0a1a',
+      'color: #f0e8ff',
+      'outline: none',
+      'text-align: center',
+    ].join(';');
+
+    this.nameInput = this.add.dom(panelX, panelY - 90, inputEl).setOrigin(0.5);
+    this.nameInput.addListener('keydown');
+    this.nameInput.on('keydown', (event) => {
+      if (event.key === 'Enter') this.joinLobby();
+    });
+
     this.statusText = this.add
-      .text(panelX, panelY - 30, 'Digite seu nome e entre no lobby.', {
+      .text(panelX, panelY - 36, 'Digite seu nome e entre no lobby.', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#c4b5e0',
@@ -105,7 +120,7 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.playersText = this.add
-      .text(panelX, panelY + 50, '', {
+      .text(panelX, panelY + 40, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '16px',
         color: '#eee6ff',
@@ -114,11 +129,13 @@ export class LobbyScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.joinBtn = this.makeButton(panelX - 110, panelY + 150, 'Entrar', 0x6b5cff, () => this.joinLobby());
-    this.readyBtn = this.makeButton(panelX + 110, panelY + 150, 'Ready', 0x2ecc71, () => this.toggleReady());
-    this.readyBtn.setAlpha(0.35);
-    this.botsBtn = this.makeButton(panelX, panelY + 205, '+ Bot (testar solo)', 0xff8c42, () => this.addBot(), 240);
-    this.botsBtn.setAlpha(0.35);
+    const rowY = panelY + 145;
+    this.joinBtn = this.makeButton(panelX - (btnW + btnGap) / 2, rowY, 'Entrar', 0x6b5cff, () => this.joinLobby(), btnW);
+    this.readyBtn = this.makeButton(panelX + (btnW + btnGap) / 2, rowY, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
+    this.setButtonEnabled(this.readyBtn, false);
+
+    this.botsBtn = this.makeButton(panelX, panelY + 205, '+ Bot (testar solo)', 0xff8c42, () => this.addBot(), 260);
+    this.setButtonEnabled(this.botsBtn, false);
 
     this.hint = this.add
       .text(
@@ -147,15 +164,26 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
     container.add([bg, text]);
 
-    // Hit area no retângulo (origin 0.5) — containers com setSize deslocam o clique
+    // Clique no retângulo (origin 0.5) — setSize no container desloca a hitbox
     bg.setInteractive({ useHandCursor: true });
-    bg.on('pointerover', () => bg.setScale(1.04));
+    bg.on('pointerover', () => {
+      if (container.enabled !== false) bg.setScale(1.04);
+    });
     bg.on('pointerout', () => bg.setScale(1));
-    bg.on('pointerup', onClick);
+    bg.on('pointerup', () => {
+      if (container.enabled !== false) onClick();
+    });
 
     container.bg = bg;
     container.label = text;
+    container.enabled = true;
     return container;
+  }
+
+  setButtonEnabled(btn, enabled) {
+    btn.enabled = enabled;
+    btn.setAlpha(enabled ? 1 : 0.35);
+    btn.bg.setScale(1);
   }
 
   bindSocket() {
@@ -173,8 +201,8 @@ export class LobbyScene extends Phaser.Scene {
 
     this.socket.on('joined', () => {
       this.joined = true;
-      this.readyBtn.setAlpha(1);
-      this.botsBtn.setAlpha(1);
+      this.setButtonEnabled(this.readyBtn, true);
+      this.setButtonEnabled(this.botsBtn, true);
       this.statusText.setText('No lobby. Marque Ready quando estiver preparado.');
     });
 

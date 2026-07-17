@@ -59,7 +59,61 @@ export class BootScene extends Phaser.Scene {
 
     this.createWizardSprites();
     this.createMonsterSprites();
+    this.createBruxaoSprite();
     this.scene.start('Lobby');
+  }
+
+  /** Title mascot: Ronaldinho smile + Gandalf robe/beard. */
+  createBruxaoSprite() {
+    makePixelTexture(
+      this,
+      'bruxao',
+      [
+        '........................',
+        '..........HH............',
+        '.........HHHH...........',
+        '........HHHHHH..........',
+        '.......HHHHHHHH.........',
+        '......HHHHHHHHHH........',
+        '.....HHHHBBBBHHHH.......',
+        '......HHFFFFFFHH........',
+        '.....SFFFFFFFFFFS.......',
+        '....SSNENFFFFNENSS......', // sobrancelhas + olhos
+        '....SSFFFFFFFFFFSS......',
+        '....SSDDDDDDDDDDSS......', // sorriso largo
+        '....SS.DDDGGDDD.SS......', // gap estilo Ronaldinho
+        '.....SFFFFFFFFFFS.......',
+        '......FFFFFFFFFFF.......',
+        '......FFFFFFFFFFF.......',
+        '.....RFFFFFFFFFFFR......',
+        '....RRFFFFFFFFFFFRR.....',
+        '...RRRR.FFFFFF.RRRR.....',
+        '..RRRRR........RRRRR.C..',
+        '..RRRR..........RRRR.C..',
+        '..RRRR..........RRRR.C..',
+        '..RRRR..........RRRR.C..',
+        '..RRR............RRR.C..',
+        '..LLL............LLL.Y..',
+        '........................',
+        '........................',
+        '........................',
+      ],
+      {
+        H: 0xb8c4d4, // chapéu cinza Gandalf
+        B: 0x6e4a2e, // faixa do chapéu
+        S: 0xc68642, // pele Ronaldinho
+        N: 0x5c3a1e, // sobrancelha
+        E: 0x1a1a1a, // olhos
+        D: 0xfff8e7, // dentes
+        G: 0x2a1a10, // gap do sorriso
+        F: 0xe8eef5, // barba / cabelo branco
+        R: 0x6b7280, // robe cinza
+        C: 0x8b5a2b, // cajado
+        Y: 0xf1c40f, // ponta do cajado
+        L: 0x3d3d3d, // botas
+      },
+      3
+    );
   }
 
   createWizardSprites() {
