@@ -84,6 +84,8 @@ export class LobbyScene extends Phaser.Scene {
     ring.lineStyle(1, 0xff6b4a, 0.15);
     ring.strokeCircle(width / 2, height / 2 + 40, 160);
 
+    this.createMagicFlakes(width, height);
+
     const title = this.add
       .text(width / 2 - 36, 72, 'WIZARD ARENA', {
         fontFamily: 'Georgia, serif',
@@ -92,12 +94,14 @@ export class LobbyScene extends Phaser.Scene {
         stroke: '#3a2060',
         strokeThickness: 6,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(2);
 
     const manaPotion = this.add
       .image(title.x + title.width / 2 + 8, title.y + 6, 'mana_potion')
       .setOrigin(0, 0.5)
-      .setScale(1.15);
+      .setScale(1.15)
+      .setDepth(2);
 
     this.tweens.add({
       targets: manaPotion,
@@ -107,6 +111,44 @@ export class LobbyScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+  }
+
+  /** Flocos de luz/magia caindo do topo até ~10% da altura. */
+  createMagicFlakes(width, height) {
+    const fallBand = height * 0.1;
+
+    this.add
+      .particles(0, 0, 'particle', {
+        x: { min: 0, max: width },
+        y: { min: -10, max: 2 },
+        lifespan: { min: 1600, max: 3200 },
+        speedY: { min: fallBand / 2.6, max: fallBand / 1.35 },
+        speedX: { min: -28, max: 28 },
+        gravityY: 6,
+        scale: { start: { min: 0.45, max: 1.35 }, end: 0 },
+        alpha: { start: { min: 0.3, max: 0.8 }, end: 0 },
+        tint: [0xaa88ff, 0xccbbff, 0x6b5cff, 0xffffff, 0xff9ad5, 0x88ddff],
+        frequency: 48,
+        blendMode: 'ADD',
+        advance: 800,
+      })
+      .setDepth(1);
+
+    this.add
+      .particles(0, 0, 'particle', {
+        x: { min: 0, max: width },
+        y: { min: -6, max: 0 },
+        lifespan: { min: 1000, max: 2000 },
+        speedY: { min: fallBand / 2.1, max: fallBand / 1.15 },
+        speedX: { min: -14, max: 14 },
+        scale: { start: { min: 0.2, max: 0.65 }, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        tint: [0xffffff, 0xffeeaa, 0xd4b8ff, 0xa8e8ff],
+        frequency: 110,
+        blendMode: 'ADD',
+        advance: 600,
+      })
+      .setDepth(1);
   }
 
   buildUI() {

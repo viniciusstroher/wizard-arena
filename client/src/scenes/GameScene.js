@@ -1948,12 +1948,14 @@ export class GameScene extends Phaser.Scene {
       if (p.stun) s.setAngle(Math.sin(this.time.now / 40) * 8);
       else s.setAngle(0);
       const onLava = p.alive && this.isOnLava(p.x, p.y);
+      const burning = p.alive && (Number(p.burnTimer) || 0) > 0;
       if (p.alive && !onLava) {
         const dustVx = p.dashing ? (p.vx || 0) * 1.4 : p.vx;
         const dustVy = p.dashing ? (p.vy || 0) * 1.4 : p.vy;
         this.emitMoveDust(s, p.x, p.y, dustVx, dustVy);
       }
-      this.updateLavaBurn(s, p.x, p.y, onLava);
+      // Lava ou queimadura (Flame Nova): mesmo feedback visual de fogo
+      this.updateLavaBurn(s, p.x, p.y, onLava || burning);
 
       const hasShield = p.alive && p.shield > 0;
       const isSelf = p.id === this.playerId;
@@ -3168,18 +3170,18 @@ export class GameScene extends Phaser.Scene {
         timer: me.slowTimer,
       });
     }
-    if (me.alive && (me.poisonTimer || 0) > 0) {
+    if (me.alive && Number(me.poisonTimer) > 0) {
       effects.push({
         icon: 'spell_poison_cloud',
         color: 0x88ff44,
-        timer: me.poisonTimer,
+        timer: Number(me.poisonTimer),
       });
     }
-    if (me.alive && (me.burnTimer || 0) > 0) {
+    if (me.alive && Number(me.burnTimer) > 0) {
       effects.push({
         icon: 'spell_flame_nova',
         color: 0xff8844,
-        timer: me.burnTimer,
+        timer: Number(me.burnTimer),
       });
     }
     for (let i = 0; i < this.statusSlots.length; i++) {
@@ -3190,13 +3192,14 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       slot.container.setVisible(true);
+      slot.container.setDepth(110);
       slot.container.setPosition(PAD_X + 14 + i * 36, y + 14);
       if (this.textures.exists(eff.icon)) {
         slot.icon.setTexture(eff.icon).setVisible(true);
       } else {
         slot.icon.setVisible(false);
       }
-      slot.bg.setStrokeStyle(1, eff.color);
+      slot.bg.setStrokeStyle(2, eff.color);
       slot.cd.setText(eff.timer.toFixed(1));
     }
     if (effects.length > 0) y += 34;

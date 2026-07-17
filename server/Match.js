@@ -1521,8 +1521,8 @@ export class Match {
     const burnDurationSafe = Math.max(0.5, Number(burnDuration) || 10);
 
     for (const p of this.players.values()) {
-      if (!p.alive || p.id === ownerId) continue;
-      if (dist(origin, p) <= radius) {
+      if (!p.alive || p.id === ownerId || p.entityId === ownerId) continue;
+      if (dist(origin, p) <= radius + CONFIG.PLAYER_RADIUS) {
         this.damageEntity(p, burst, ownerId, true, true);
         this.applyBurn(p, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
       }
@@ -1530,7 +1530,7 @@ export class Match {
     if (hitMonsters) {
       for (const m of this.monsters) {
         if (!m.alive) continue;
-        if (dist(origin, m) <= radius) {
+        if (dist(origin, m) <= radius + (m.radius || CONFIG.MONSTER_RADIUS)) {
           this.damageEntity(m, burst, ownerId, false, true);
           this.applyBurn(m, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
         }
@@ -2469,11 +2469,14 @@ export class Match {
       aoe.life -= dt;
       const tick = Math.max(0.05, Number(aoe.tick) || 1);
       const dmg = Math.max(0, Math.round(Number(aoe.damage) || 0));
-      if (aoe.spellId === 'flame_nova') {
+      const aoeR = Number(aoe.radius) || 0;
+      const isFlameNova = aoe.spellId === 'flame_nova' || aoe.burnDuration != null;
+      const isPoisonCloud = aoe.spellId === 'poison_cloud' || aoe.poisonDuration != null;
+      if (isFlameNova) {
         const burnDuration = Number(aoe.burnDuration) || 10;
         for (const p of this.players.values()) {
-          if (!p.alive || p.id === aoe.ownerId) continue;
-          if (dist(aoe, p) <= aoe.radius) {
+          if (!p.alive || p.id === aoe.ownerId || p.entityId === aoe.ownerId) continue;
+          if (dist(aoe, p) <= aoeR + CONFIG.PLAYER_RADIUS) {
             this.applyBurn(p, aoe.ownerId, dmg, tick, burnDuration);
           }
         }
@@ -2481,24 +2484,24 @@ export class Match {
         if (this.players.has(aoe.ownerId)) {
           for (const m of this.monsters) {
             if (!m.alive) continue;
-            if (dist(aoe, m) <= aoe.radius) {
+            if (dist(aoe, m) <= aoeR + (m.radius || CONFIG.MONSTER_RADIUS)) {
               this.applyBurn(m, aoe.ownerId, dmg, tick, burnDuration);
             }
           }
         }
         continue;
       }
-      if (aoe.spellId === 'poison_cloud') {
+      if (isPoisonCloud) {
         const poisonDuration = Number(aoe.poisonDuration) || 5;
         for (const p of this.players.values()) {
-          if (!p.alive || p.id === aoe.ownerId) continue;
-          if (dist(aoe, p) <= aoe.radius) {
+          if (!p.alive || p.id === aoe.ownerId || p.entityId === aoe.ownerId) continue;
+          if (dist(aoe, p) <= aoeR + CONFIG.PLAYER_RADIUS) {
             this.applyPoison(p, aoe.ownerId, dmg, tick, poisonDuration);
           }
         }
         for (const m of this.monsters) {
           if (!m.alive) continue;
-          if (dist(aoe, m) <= aoe.radius) {
+          if (dist(aoe, m) <= aoeR + (m.radius || CONFIG.MONSTER_RADIUS)) {
             this.applyPoison(m, aoe.ownerId, dmg, tick, poisonDuration);
           }
         }

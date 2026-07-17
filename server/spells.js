@@ -46,7 +46,7 @@ export const SPELLS = {
   flame_nova: {
     id: 'flame_nova',
     name: 'Flame Nova',
-    description: 'Explosão de fogo no chão. Quem for atingido queima (1 dmg/s por 10s).',
+    description: 'Explosão de fogo no chão. Quem for atingido queima (3 dmg/s por 10s).',
     type: 'basic',
     playerUsable: true,
     cooldown: 2.5,
@@ -57,7 +57,7 @@ export const SPELLS = {
     /** Tempo que o fogo fica queimando no chão (segundos). */
     duration: 4,
     /** Dano por tick do status de queimadura. */
-    burnDamage: 1,
+    burnDamage: 3,
     /** Intervalo entre ticks da queimadura (segundos). */
     burnTick: 1,
     /** Duração da queimadura ao ser atingido / pisar no fogo (segundos). */
