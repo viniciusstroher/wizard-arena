@@ -166,6 +166,14 @@ export class GameScene extends Phaser.Scene {
   createHud() {
     const { width } = this.scale;
 
+    // Box do canto superior esquerdo (estilo painéis do lobby/matchmaking)
+    this.hudPanel = this.add
+      .rectangle(12, 12, 256, 96, 0x161228, 0.98)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0x6b5cff)
+      .setScrollFactor(0)
+      .setDepth(99);
+
     this.hpBarBg = this.add.rectangle(20, 20, 220, 18, 0x221833).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     this.hpBar = this.add.rectangle(20, 20, 220, 18, 0xe74c3c).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.hpText = this.add
@@ -219,6 +227,23 @@ export class GameScene extends Phaser.Scene {
       })
       .setScrollFactor(0)
       .setDepth(102);
+
+    // Status recebidos (slow, etc.) — abaixo de Lv/XP
+    this.statusSlots = [];
+    for (let i = 0; i < 4; i++) {
+      const slot = this.add.container(28 + i * 36, 96).setScrollFactor(0).setDepth(102).setVisible(false);
+      const bg = this.add.rectangle(0, 0, 30, 30, 0x1a1430, 0.95).setStrokeStyle(1, 0x6b5cff);
+      const icon = this.add.image(0, -3, 'spell_ice_shard').setScale(0.95);
+      const cd = this.add
+        .text(0, 12, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '9px',
+          color: '#dcecff',
+        })
+        .setOrigin(0.5, 0);
+      slot.add([bg, icon, cd]);
+      this.statusSlots.push({ container: slot, bg, icon, cd });
+    }
 
     this.timerText = this.add
       .text(width / 2, 16, '5:00', {
@@ -2735,31 +2760,84 @@ export class GameScene extends Phaser.Scene {
     const me = this.me();
     if (!me) return;
 
+    const PAD_X = 20;
+    const PANEL_X = 12;
+    const PANEL_Y = 12;
+    const BAR_W = 220;
+    let y = 20;
+
     const hpRatio = me.alive ? me.hp / me.maxHp : 0;
-    this.hpBar.width = 220 * hpRatio;
+    this.hpBarBg.setPosition(PAD_X, y);
+    this.hpBar.setPosition(PAD_X, y);
+    this.hpBar.width = BAR_W * hpRatio;
+    this.hpText.setPosition(PAD_X + 4, y + 1);
     this.hpText.setText(me.alive ? `HP ${Math.ceil(me.hp)} / ${me.maxHp}` : 'MORTO — próximo round');
+    y += 24;
+
+    const xpRatio = me.xpToNext ? Math.min(1, me.xp / me.xpToNext) : 0;
+    this.xpBarBg.setPosition(PAD_X, y);
+    this.xpBar.setPosition(PAD_X, y);
+    this.xpBar.width = BAR_W * xpRatio;
+    y += 14;
 
     const showShield = me.alive && me.shield > 0;
     if (showShield) {
       const maxShield = me.maxShield > 0 ? me.maxShield : me.shield;
       const shieldRatio = Math.min(1, me.shield / maxShield);
-      this.shieldBarBg.setVisible(true);
-      this.shieldBar.setVisible(true);
-      this.shieldBar.width = 220 * shieldRatio;
+      this.shieldBarBg.setPosition(PAD_X, y).setVisible(true);
+      this.shieldBar.setPosition(PAD_X, y).setVisible(true);
+      this.shieldBar.width = BAR_W * shieldRatio;
       this.shieldText
+        .setPosition(PAD_X + 4, y)
         .setVisible(true)
         .setText(`ESCUTO ${Math.ceil(me.shield)} / ${Math.ceil(maxShield)}`);
+      y += 16;
     } else {
       this.shieldBarBg.setVisible(false);
       this.shieldBar.setVisible(false);
       this.shieldText.setVisible(false);
     }
 
-    const xpRatio = me.xpToNext ? Math.min(1, me.xp / me.xpToNext) : 0;
-    this.xpBar.width = 220 * xpRatio;
+    this.levelText.setPosition(PAD_X + 4, y);
     this.levelText.setText(`Lv ${me.level}  ·  XP ${me.xp}/${me.xpToNext}`);
     this.scoreText.setText(`·  ${me.kills || 0}/${me.deaths || 0}  (${me.score || 0} pts)`);
-    this.scoreText.setX(this.levelText.x + this.levelText.width + 8);
+    this.scoreText.setPosition(this.levelText.x + this.levelText.width + 8, y);
+    y += 22;
+
+    // Status recebidos (abaixo de Lv/XP)
+    const effects = [];
+    if (me.alive && (me.slow || 0) > 0 && (me.slowTimer || 0) > 0) {
+      effects.push({
+        icon: 'spell_ice_shard',
+        color: 0x66ccff,
+        timer: me.slowTimer,
+      });
+    }
+    for (let i = 0; i < this.statusSlots.length; i++) {
+      const slot = this.statusSlots[i];
+      const eff = effects[i];
+      if (!eff) {
+        slot.container.setVisible(false);
+        continue;
+      }
+      slot.container.setVisible(true);
+      slot.container.setPosition(PAD_X + 14 + i * 36, y + 14);
+      if (this.textures.exists(eff.icon)) {
+        slot.icon.setTexture(eff.icon).setVisible(true);
+      } else {
+        slot.icon.setVisible(false);
+      }
+      slot.bg.setStrokeStyle(1, eff.color);
+      slot.cd.setText(eff.timer.toFixed(1));
+    }
+    if (effects.length > 0) y += 34;
+
+    const contentRight = Math.max(PAD_X + BAR_W, this.scoreText.x + this.scoreText.width);
+    const panelW = Math.max(240, contentRight - PANEL_X + 12);
+    const panelH = Math.max(72, y - PANEL_Y + 8);
+    this.hudPanel.setPosition(PANEL_X, PANEL_Y);
+    this.hudPanel.setSize(panelW, panelH);
+    this.hudPanel.setStrokeStyle(2, 0x6b5cff);
 
     const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 60;
     const remain = Math.max(0, roundDuration - (this.state.roundTime || 0));

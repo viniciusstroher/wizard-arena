@@ -1330,7 +1330,7 @@ export class Match {
           life: range / speed,
           color: monster.projectileColor || stats.color,
           slow: isIce ? stats.slow || 0.45 : 0,
-          slowDuration: isIce ? stats.slowDuration || 1.5 : 0,
+          slowDuration: isIce ? stats.slowDuration || 5 : 0,
         });
         monster.attackCd = monster.attackCooldown || (isIce ? 1.25 : 1.1);
         break;
@@ -2221,6 +2221,7 @@ export class Match {
       maxShield: p.maxShield || 0,
       shieldTimer: +Math.max(0, p.shieldTimer || 0).toFixed(2),
       slow: p.slow,
+      slowTimer: +Math.max(0, p.slowTimer || 0).toFixed(2),
       stun: p.stunTimer > 0,
       dashing: p.dashTimer > 0,
       dashDx: p.dashDx,

@@ -17,7 +17,7 @@ export const SPELLS = {
   ice_shard: {
     id: 'ice_shard',
     name: 'Ice Shard',
-    description: 'Fragmento de gelo que causa dano e reduz velocidade.',
+    description: 'Fragmento de gelo que causa dano e reduz velocidade por 5s.',
     type: 'basic',
     cooldown: 0.45,
     manaCost: 0,
@@ -26,7 +26,7 @@ export const SPELLS = {
     speed: 500,
     radius: 10,
     slow: 0.45,
-    slowDuration: 1.5,
+    slowDuration: 5,
     color: 0x66ccff,
   },
   arc_lightning: {
