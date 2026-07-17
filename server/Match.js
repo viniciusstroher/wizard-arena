@@ -111,7 +111,21 @@ export class Match {
     this.rocks = [];
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
+    /** Overrides de admin (lobby); defaults vêm do .env. */
+    this.botAiEnabled = CONFIG.BOT_AI_ENABLED;
+    this.monsterSpawnEnabled = CONFIG.MONSTER_SPAWN_ENABLED;
     this.generateRocks();
+  }
+
+  setAdminSettings(payload = {}) {
+    if (payload.botAiEnabled !== undefined) {
+      this.botAiEnabled = !!payload.botAiEnabled;
+    }
+    if (payload.monsterSpawnEnabled !== undefined) {
+      this.monsterSpawnEnabled = !!payload.monsterSpawnEnabled;
+    }
+    this.broadcastLobby();
+    return { ok: true, botAiEnabled: this.botAiEnabled, monsterSpawnEnabled: this.monsterSpawnEnabled };
   }
 
   generateRocks() {
@@ -2505,7 +2519,7 @@ export class Match {
     }
 
     // Spawns
-    if (CONFIG.MONSTER_SPAWN_ENABLED) {
+    if (this.monsterSpawnEnabled) {
       this.monsterSpawnTimer -= dt;
       if (this.monsterSpawnTimer <= 0) {
         const count = CONFIG.MONSTER_SPAWN_COUNT;
@@ -2889,6 +2903,8 @@ export class Match {
       phase: this.phase,
       minPlayers: CONFIG.MIN_PLAYERS,
       maxPlayers: CONFIG.MAX_PLAYERS,
+      botAiEnabled: this.botAiEnabled,
+      monsterSpawnEnabled: this.monsterSpawnEnabled,
       players: [...this.players.values()].map((p) => ({
         id: p.id,
         name: p.name,

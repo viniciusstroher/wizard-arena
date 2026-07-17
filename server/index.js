@@ -88,6 +88,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('admin_settings', (payload = {}) => {
+    const match = findMatchBySocket(socket.id);
+    if (!match) return;
+    const result = match.setAdminSettings(payload);
+    socket.emit('admin_settings_ack', result);
+  });
+
   socket.on('player_input', (input) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;
