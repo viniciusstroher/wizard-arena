@@ -74,6 +74,8 @@ export const CONFIG = {
   ARENA_SHRINK_AMOUNT,
   ZONE_DPS: 12,
 
+  /** Se false, não gera novos monstros durante a partida. */
+  MONSTER_SPAWN_ENABLED: envBool('MONSTER_SPAWN_ENABLED', true),
   /** Intervalo (segundos) entre spawns de monstros. */
   MONSTER_SPAWN_INTERVAL: envNumber('MONSTER_SPAWN_INTERVAL', 4),
   /** Quantidade de monstros spawnados a cada intervalo. */
