@@ -748,6 +748,36 @@ export class Match {
         projectileColor: 0xc8b8a0,
         attackCooldown: 1.35,
       },
+      // Fast melee pack hunter
+      wolf: {
+        hpMul: 0.95,
+        speedMul: 1.45,
+        dmgMul: 1.2,
+        radius: 14,
+        color: 0x8b7355,
+        attack: 'melee',
+        attackCooldown: 0.75,
+      },
+      // Bulky melee arachnid
+      giant_spider: {
+        hpMul: 1.7,
+        speedMul: 0.85,
+        dmgMul: 1.35,
+        radius: 18,
+        color: 0x2d1b2e,
+        attack: 'melee',
+        attackCooldown: 1.1,
+      },
+      // Fragile flying skirmisher
+      bat: {
+        hpMul: 0.5,
+        speedMul: 1.65,
+        dmgMul: 0.8,
+        radius: 11,
+        color: 0x4a3728,
+        attack: 'melee',
+        attackCooldown: 0.65,
+      },
     };
     const ids = Object.keys(types);
     const type = ids[Math.floor(Math.random() * ids.length)];
@@ -1253,10 +1283,11 @@ export class Match {
         this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
       }
 
-      // Zone damage
+      // Zone damage (+1 DPS a cada round)
       const fromCenter = dist(p, { x: CONFIG.ARENA_CENTER_X, y: CONFIG.ARENA_CENTER_Y });
       if (fromCenter > this.arenaRadius) {
-        p.zoneDmgAcc += CONFIG.ZONE_DPS * dt;
+        const zoneDps = CONFIG.ZONE_DPS + Math.max(0, this.round - 1);
+        p.zoneDmgAcc += zoneDps * dt;
         if (p.zoneDmgAcc >= 1) {
           const dmg = Math.floor(p.zoneDmgAcc);
           p.zoneDmgAcc -= dmg;

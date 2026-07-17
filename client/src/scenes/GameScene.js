@@ -1227,6 +1227,9 @@ export class GameScene extends Phaser.Scene {
     const labels = {
       skeleton: 'esqueleto',
       skeleton_archer: 'esqueleto arqueiro',
+      wolf: 'lobo',
+      giant_spider: 'aranha gigante',
+      bat: 'morcego',
     };
     return labels[type] || type;
   }

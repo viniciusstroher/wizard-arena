@@ -1258,5 +1258,96 @@ export class BootScene extends Phaser.Scene {
         A: 0xc8b8a0,
       }
     );
+
+    // Wolf — lean brown hunter
+    makePixelTexture(
+      this,
+      'monster_wolf',
+      [
+        '................',
+        '................',
+        '...EE......EE...',
+        '..EFF......FFE..',
+        '..EFFFFFFFFFFE..',
+        '..EFWBFFFFBWFE..',
+        '...EFFFFFFFFE...',
+        '....EFFFFFE.....',
+        '...EFFFFFFFE....',
+        '..EF.E..E.FE....',
+        '.EF........FE...',
+        'EF..........FE..',
+        'T............T..',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        E: 0x5c4030,
+        F: 0x8b7355,
+        W: 0xf5eef8,
+        B: 0x1a1410,
+        T: 0x3e2a1a,
+      }
+    );
+
+    // Giant spider — dark arachnid with many legs
+    makePixelTexture(
+      this,
+      'monster_giant_spider',
+      [
+        '................',
+        'L..L........L..L',
+        '.L..L......L..L.',
+        '..L..DDDDDD..L..',
+        '...LDDRRDDDL....',
+        '..LDDRWWRRDDL...',
+        '.LDDRRRRRRRDL...',
+        'LDDRRRRRRRRRDL..',
+        '.L.DRRRRRRRD.L..',
+        'L...DR....RD...L',
+        '.....D....D.....',
+        '....L......L....',
+        '...L........L...',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        D: 0x1a0f1c,
+        R: 0x4a2048,
+        W: 0xe74c3c,
+        L: 0x2d1b2e,
+      }
+    );
+
+    // Bat — small flying skirmisher
+    makePixelTexture(
+      this,
+      'monster_bat',
+      [
+        '................',
+        '................',
+        'WW..........WW..',
+        '.WW.BBBBBB.WW...',
+        '..WBBBBBBBBW....',
+        '...BBEYYEEBB....',
+        '...BBBBBBBB.....',
+        '....BB..BB......',
+        '....B....B......',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        B: 0x3a2a22,
+        W: 0x5a4030,
+        E: 0xf1c40f,
+        Y: 0x1a1410,
+      }
+    );
   }
 }
