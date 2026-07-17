@@ -3,10 +3,16 @@ import { BotController } from './Bot.js';
 import {
   applySpellChoice,
   createSpellInstance,
+  innateUnlockLevel,
+  isInnateSpell,
   isPlayerUsableSpell,
   rollSpellChoices,
   spellStats,
 } from './spells.js';
+
+function stripInnateSpells(spells) {
+  return (spells || []).filter((s) => !isInnateSpell(s.id));
+}
 
 let nextEntityId = 1;
 function eid() {
@@ -211,7 +217,7 @@ export class Match {
       level: 1,
       xp: 0,
       xpToNext: xpForLevel(2) - xpForLevel(1),
-      spells: startingSpellsFor(wizard.type).filter((s) => s.id !== 'barrier'),
+      spells: stripInnateSpells(startingSpellsFor(wizard.type)),
       ultimate: null,
       pendingLevelUps: 0,
       spellChoices: null,
@@ -227,10 +233,14 @@ export class Match {
         castSlot: -1,
         dash: null,
         barrier: false,
+        mend: false,
       },
-      /** Escudo inato (tecla E) — todos os jogadores/bots. */
+      /** Escudo inato (E) — liberado no nível 2. */
       barrierCooldown: 0,
       barrierBuffer: 0,
+      /** Heal inato (H) — liberado no nível 3. */
+      mendCooldown: 0,
+      mendBuffer: 0,
       shield: 0,
       maxShield: 0,
       shieldTimer: 0,
@@ -416,10 +426,12 @@ export class Match {
       p.zoneDmgAcc = 0;
       p.vx = 0;
       p.vy = 0;
-      p.spells = (p.spells || []).filter((s) => s.id !== 'barrier');
+      p.spells = stripInnateSpells(p.spells);
       for (const s of p.spells) s.cooldownLeft = 0;
       p.barrierCooldown = 0;
       p.barrierBuffer = 0;
+      p.mendCooldown = 0;
+      p.mendBuffer = 0;
       if (p.ultimate) {
         p.ultimate.cooldownLeft = 0;
         p.ultimate.usedThisRound = false;
@@ -590,10 +602,11 @@ export class Match {
         ? input.dash
         : null;
     const castSlot = Number.isInteger(input.castSlot) ? input.castSlot : -1;
-    // Latch cast/dash/barrier until the next tick consumes them — client frames are much
+    // Latch cast/dash/barrier/mend until the next tick consumes them — client frames are much
     // faster than TICK_RATE, so a one-frame press would otherwise be overwritten.
     if (dash) p.dashBuffer = 0.2;
     if (input.barrier) p.barrierBuffer = 0.2;
+    if (input.mend) p.mendBuffer = 0.2;
     p.input = {
       up: !!input.up,
       down: !!input.down,
@@ -604,6 +617,7 @@ export class Match {
       castSlot: castSlot >= 0 ? castSlot : p.input.castSlot,
       dash: dash || p.input.dash,
       barrier: !!(input.barrier || p.input.barrier),
+      mend: !!(input.mend || p.input.mend),
     };
   }
 
@@ -656,26 +670,38 @@ export class Match {
     player.input.dash = null;
   }
 
-  /** Escudo inato (E) — disponível para todos os jogadores e bots. */
+  clearInnateRequest(player, kind) {
+    if (kind === 'barrier') {
+      player.input.barrier = false;
+      player.barrierBuffer = 0;
+    } else if (kind === 'mend') {
+      player.input.mend = false;
+      player.mendBuffer = 0;
+    }
+  }
+
+  /** Escudo inato (E) — liberado no nível 2. */
   tryCastBarrier(player) {
     const wants = player.input?.barrier || (player.barrierBuffer || 0) > 0;
     if (!wants) return;
     if (!player.alive) {
-      player.input.barrier = false;
-      player.barrierBuffer = 0;
+      this.clearInnateRequest(player, 'barrier');
       return;
     }
-    // Já tem escudo ativo ou em cooldown: descarta o pedido (não fica re-tentando).
-    if (player.stunTimer > 0 || (player.barrierCooldown || 0) > 0 || (player.shield || 0) > 0) {
-      player.input.barrier = false;
-      player.barrierBuffer = 0;
+    const unlockAt = innateUnlockLevel('barrier');
+    if (
+      (player.level || 1) < unlockAt ||
+      player.stunTimer > 0 ||
+      (player.barrierCooldown || 0) > 0 ||
+      (player.shield || 0) > 0
+    ) {
+      this.clearInnateRequest(player, 'barrier');
       return;
     }
 
     const stats = spellStats('barrier', 1);
     if (!stats) {
-      player.input.barrier = false;
-      player.barrierBuffer = 0;
+      this.clearInnateRequest(player, 'barrier');
       return;
     }
 
@@ -683,8 +709,7 @@ export class Match {
     player.maxShield = stats.shield;
     player.shieldTimer = stats.duration;
     player.barrierCooldown = stats.cooldown;
-    player.barrierBuffer = 0;
-    player.input.barrier = false;
+    this.clearInnateRequest(player, 'barrier');
     this.effects.push({
       type: 'barrier',
       x: player.x,
@@ -693,6 +718,45 @@ export class Match {
       maxLife: 0.7,
       color: stats.color,
       radius: 40,
+    });
+  }
+
+  /** Heal inato (H) — liberado no nível 3. */
+  tryCastMend(player) {
+    const wants = player.input?.mend || (player.mendBuffer || 0) > 0;
+    if (!wants) return;
+    if (!player.alive) {
+      this.clearInnateRequest(player, 'mend');
+      return;
+    }
+    const unlockAt = innateUnlockLevel('mend');
+    if (
+      (player.level || 1) < unlockAt ||
+      player.stunTimer > 0 ||
+      (player.mendCooldown || 0) > 0 ||
+      player.hp >= player.maxHp
+    ) {
+      this.clearInnateRequest(player, 'mend');
+      return;
+    }
+
+    const stats = spellStats('mend', 1);
+    if (!stats) {
+      this.clearInnateRequest(player, 'mend');
+      return;
+    }
+
+    player.hp = Math.min(player.maxHp, player.hp + stats.heal);
+    player.mendCooldown = stats.cooldown;
+    this.clearInnateRequest(player, 'mend');
+    this.effects.push({
+      type: 'heal',
+      x: player.x,
+      y: player.y,
+      life: 0.75,
+      maxLife: 0.75,
+      color: stats.color,
+      radius: 42,
     });
   }
 
@@ -1860,17 +1924,9 @@ export class Match {
         this.applyFlameNova(player, player.id, stats, stats.damage, true);
         break;
       case 'mend':
-        player.hp = Math.min(player.maxHp, player.hp + stats.heal);
-        this.effects.push({
-          type: 'heal',
-          x: player.x,
-          y: player.y,
-          life: 0.75,
-          maxLife: 0.75,
-          color: stats.color,
-          radius: 42,
-        });
-        break;
+        // Heal é habilidade inata (tecla H), não slot de magia.
+        player.input.castSlot = -1;
+        return;
       case 'poison_cloud': {
         const groundLife = Math.max(0.5, Number(stats.duration) || 4);
         this.aoes.push({
@@ -2236,12 +2292,15 @@ export class Match {
       p.dashBuffer = Math.max(0, (p.dashBuffer || 0) - dt);
       p.barrierCooldown = Math.max(0, (p.barrierCooldown || 0) - dt);
       p.barrierBuffer = Math.max(0, (p.barrierBuffer || 0) - dt);
+      p.mendCooldown = Math.max(0, (p.mendCooldown || 0) - dt);
+      p.mendBuffer = Math.max(0, (p.mendBuffer || 0) - dt);
 
       for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
       if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);
 
       this.tryStartDash(p);
       this.tryCastBarrier(p);
+      this.tryCastMend(p);
 
       if (p.stunTimer > 0) {
         p.vx = 0;
@@ -2617,6 +2676,7 @@ export class Match {
       dashDy: p.dashDy,
       dashCooldown: +Math.max(0, p.dashCooldown).toFixed(2),
       barrierCooldown: +Math.max(0, p.barrierCooldown || 0).toFixed(2),
+      mendCooldown: +Math.max(0, p.mendCooldown || 0).toFixed(2),
       kills: p.kills,
       deaths: p.deaths,
       monsterKills: p.monsterKills || 0,

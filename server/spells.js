@@ -67,9 +67,13 @@ export const SPELLS = {
   mend: {
     id: 'mend',
     name: 'Mend',
-    description: 'Cura rápida.',
+    description: 'Cura rápida. Habilidade inata (H), liberada no nível 3.',
     type: 'basic',
     playerUsable: true,
+    /** Não aparece na tela de escolha; inata a partir do nível 3. */
+    selectable: false,
+    innate: true,
+    unlockLevel: 3,
     cooldown: 4.0,
     manaCost: 0,
     heal: 28,
@@ -108,12 +112,13 @@ export const SPELLS = {
   barrier: {
     id: 'barrier',
     name: 'Barrier',
-    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E).',
+    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E), liberada no nível 2.',
     type: 'basic',
     playerUsable: true,
-    /** Não aparece na tela de escolha de habilidade; todos já possuem. */
+    /** Não aparece na tela de escolha; inata a partir do nível 2. */
     selectable: false,
     innate: true,
+    unlockLevel: 2,
     cooldown: 6.0,
     manaCost: 0,
     shield: 35,
@@ -193,10 +198,21 @@ export const ULTIMATES = {
 const BASIC_IDS = Object.keys(SPELLS);
 const ULTIMATE_IDS = Object.keys(ULTIMATES);
 
-/** Magias básicas que jogadores podem aprender / sortear (exclui inatas como barrier). */
+/** Magias básicas que jogadores podem aprender / sortear (exclui inatas). */
 export const PLAYER_BASIC_IDS = BASIC_IDS.filter(
   (id) => SPELLS[id].playerUsable !== false && SPELLS[id].selectable !== false
 );
+
+/** IDs de magias inatas (escudo, heal, etc.) — não entram nos slots 1–3. */
+export const INNATE_SPELL_IDS = BASIC_IDS.filter((id) => SPELLS[id].innate);
+
+export function isInnateSpell(id) {
+  return !!SPELLS[id]?.innate;
+}
+
+export function innateUnlockLevel(id) {
+  return SPELLS[id]?.unlockLevel ?? 1;
+}
 /** Ultimates disponíveis para jogadores. */
 export const PLAYER_ULTIMATE_IDS = ULTIMATE_IDS.filter((id) => ULTIMATES[id].playerUsable !== false);
 

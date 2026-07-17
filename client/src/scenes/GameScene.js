@@ -55,6 +55,7 @@ export class GameScene extends Phaser.Scene {
     this.aoeFxAt = new Map();
     this.dashGhosts = [];
     this.pendingBarrier = false;
+    this.pendingMend = false;
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
     this.lastHurtSoundAt = 0;
@@ -99,6 +100,8 @@ export class GameScene extends Phaser.Scene {
       dash: Phaser.Input.Keyboard.KeyCodes.SHIFT,
       /** Escudo inato — tecla própria (não usa D, que é andar para a direita). */
       barrier: Phaser.Input.Keyboard.KeyCodes.E,
+      /** Heal inato. */
+      mend: Phaser.Input.Keyboard.KeyCodes.H,
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
@@ -285,9 +288,9 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (inatas depois do ultimate)
-    const slotLabels = ['1', '2', '3', '4', 'Shift', 'E'];
-    for (let i = 0; i < 6; i++) {
+    // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (lv2), H = heal (lv3)
+    const slotLabels = ['1', '2', '3', '4', 'Shift', 'E', 'H'];
+    for (let i = 0; i < 7; i++) {
       const gapAfterUlt = i >= 4 ? 24 : 0;
       const x = 24 + i * 70 + gapAfterUlt;
       const y = this.scale.height - 70;
@@ -323,19 +326,24 @@ export class GameScene extends Phaser.Scene {
       slot.cd = cd;
       slot.slotIndex = i;
       if (i < 4) {
-        // Magias / ultimate: seleciona slot
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
           this.selectedSpellSlot = i;
         });
       } else if (i === 5) {
-        // Escudo inato: clique no slot ativa
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
           if (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) return;
           this.pendingBarrier = true;
+        });
+      } else if (i === 6) {
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerdown', () => {
+          if (this.disconnectConfirmOpen || this.leaving) return;
+          if (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) return;
+          this.pendingMend = true;
         });
       }
       this.spellSlots.push(slot);
@@ -1139,8 +1147,9 @@ export class GameScene extends Phaser.Scene {
     const dir = dirByCode[event.code];
     const shiftHeld = event.shiftKey || this.cursors.dash?.isDown;
 
-    // Escudo inato (E) — tecla dedicada; latch para não perder toque curto.
+    // Inatas: teclas dedicadas; latch para não perder toque curto.
     if (event.code === 'KeyE') this.pendingBarrier = true;
+    if (event.code === 'KeyH') this.pendingMend = true;
 
     // Shift + WASD (W/A/S/D apertado com Shift).
     if (dir && shiftHeld) {
@@ -1180,6 +1189,7 @@ export class GameScene extends Phaser.Scene {
     // Durante level-up: combate pausado. Quem escolhe usa 1–4 / Tab; quem espera só aguarda.
     if (levelUpPaused) {
       this.pendingBarrier = false;
+      this.pendingMend = false;
       this.pendingDash = null;
       if (this.levelUpOpen && !this.levelUpSubmitting) {
         if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
@@ -1201,6 +1211,7 @@ export class GameScene extends Phaser.Scene {
         castSlot: -1,
         dash: null,
         barrier: false,
+        mend: false,
       });
       return;
     }
@@ -1215,10 +1226,12 @@ export class GameScene extends Phaser.Scene {
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
-    // Escudo inato: só tecla E ou clique no slot (nunca ao andar com D)
+    // Escudo (E) / Heal (H): só tecla dedicada ou clique no slot
     const barrier =
       !!this.pendingBarrier || Phaser.Input.Keyboard.JustDown(this.cursors.barrier);
     this.pendingBarrier = false;
+    const mend = !!this.pendingMend || Phaser.Input.Keyboard.JustDown(this.cursors.mend);
+    this.pendingMend = false;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,
@@ -1230,6 +1243,7 @@ export class GameScene extends Phaser.Scene {
       castSlot,
       dash,
       barrier,
+      mend,
     });
   }
 
@@ -3338,16 +3352,44 @@ export class GameScene extends Phaser.Scene {
     dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
     dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
 
-    // Slot depois do dash (5): escudo inato (E)
+    // Slot depois do dash (5): escudo inato (E, lv2+)
     const barrierSlot = this.spellSlots[5];
+    const barrierUnlocked = (me.level || 1) >= 2;
     const barrierCd = me.barrierCooldown || 0;
     const shielded = !!me.alive && (me.shield || 0) > 0;
     this.setSpellSlotIcon(barrierSlot, 'barrier');
-    barrierSlot.name.setText(shielded ? 'escudo!' : 'escudo');
-    barrierSlot.cd.setText(barrierCd > 0 ? barrierCd.toFixed(1) : '');
-    barrierSlot.icon.setAlpha(barrierCd > 0 && !shielded ? 0.45 : 1);
-    barrierSlot.bg.setStrokeStyle(2, shielded ? 0xffffff : barrierCd > 0 ? 0x445566 : 0x88aaff);
-    barrierSlot.bg.setFillStyle(shielded ? 0x1a2848 : 0x1a1430, 0.95);
+    if (!barrierUnlocked) {
+      barrierSlot.name.setText('lv2');
+      barrierSlot.cd.setText('');
+      barrierSlot.icon.setAlpha(0.35);
+      barrierSlot.bg.setStrokeStyle(2, 0x443866);
+      barrierSlot.bg.setFillStyle(0x12101c, 0.95);
+    } else {
+      barrierSlot.name.setText(shielded ? 'escudo!' : 'escudo');
+      barrierSlot.cd.setText(barrierCd > 0 ? barrierCd.toFixed(1) : '');
+      barrierSlot.icon.setAlpha(barrierCd > 0 && !shielded ? 0.45 : 1);
+      barrierSlot.bg.setStrokeStyle(2, shielded ? 0xffffff : barrierCd > 0 ? 0x445566 : 0x88aaff);
+      barrierSlot.bg.setFillStyle(shielded ? 0x1a2848 : 0x1a1430, 0.95);
+    }
+
+    // Slot depois do escudo (6): heal inato (H, lv3+)
+    const mendSlot = this.spellSlots[6];
+    const mendUnlocked = (me.level || 1) >= 3;
+    const mendCd = me.mendCooldown || 0;
+    this.setSpellSlotIcon(mendSlot, 'mend');
+    if (!mendUnlocked) {
+      mendSlot.name.setText('lv3');
+      mendSlot.cd.setText('');
+      mendSlot.icon.setAlpha(0.35);
+      mendSlot.bg.setStrokeStyle(2, 0x443866);
+      mendSlot.bg.setFillStyle(0x12101c, 0.95);
+    } else {
+      mendSlot.name.setText('heal');
+      mendSlot.cd.setText(mendCd > 0 ? mendCd.toFixed(1) : '');
+      mendSlot.icon.setAlpha(mendCd > 0 ? 0.45 : 1);
+      mendSlot.bg.setStrokeStyle(2, mendCd > 0 ? 0x445544 : 0x55ff88);
+      mendSlot.bg.setFillStyle(0x1a1430, 0.95);
+    }
 
     this.updateScoreboard();
   }

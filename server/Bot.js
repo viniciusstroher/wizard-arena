@@ -120,15 +120,25 @@ export class BotController {
       this.castTimer = 0.6 + Math.random() * 0.8;
     }
 
-    // Cura se ferido
-    const mendIdx = player.spells.findIndex((s) => s.id === 'mend');
-    if (mendIdx >= 0 && player.hp < 45 && player.spells[mendIdx].cooldownLeft <= 0) {
-      castSlot = mendIdx;
-    }
+    const level = player.level || 1;
 
-    // Escudo inato: usa sempre que o cooldown permitir e não houver escudo ativo
-    const barrier = (player.barrierCooldown || 0) <= 0 && (player.shield || 0) <= 0;
+    // Escudo inato (lv2+): sempre que possível
+    const barrier =
+      level >= 2 && (player.barrierCooldown || 0) <= 0 && (player.shield || 0) <= 0;
 
-    this.match.setInput(this.playerId, { up, down, left, right, aimX, aimY, castSlot, barrier });
+    // Heal inato (lv3+): sempre que possível (ferido e fora de CD)
+    const mend = level >= 3 && (player.mendCooldown || 0) <= 0 && player.hp < player.maxHp;
+
+    this.match.setInput(this.playerId, {
+      up,
+      down,
+      left,
+      right,
+      aimX,
+      aimY,
+      castSlot,
+      barrier,
+      mend,
+    });
   }
 }
