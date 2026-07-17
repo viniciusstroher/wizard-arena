@@ -43,8 +43,8 @@ Para PvP real: abra duas abas/navegadores, entre com nomes diferentes e dê Read
 ## Regras
 
 - Lobby: nome → entrar → Ready. Quando todos estão ready (mín. 2), a partida começa.
-- Partida: máximo **5 minutos**. Sem vencedor a tempo, todos morrem.
-- Arena circular encolhe a cada **30s**; fora dela: dano por segundo.
+- Partida: **MAX_ROUNDS** rounds de **ROUND_DURATION** segundos cada (via `.env`). Sem único sobrevivente a tempo, o round termina.
+- Arena circular encolhe a cada **ARENA_SHRINK_INTERVAL** s, **ARENA_SHRINK_TIMES** vezes por round; fora dela: dano por segundo.
 - Monstros spawnam e atacam o jogador mais próximo.
 - 100 HP. Começa no nível 1 com Firebolt.
 - Ao subir de nível: escolha 1 de 3 magias (rogue-like). Máx. 4 magias.

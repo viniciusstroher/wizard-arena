@@ -885,17 +885,24 @@ export class GameScene extends Phaser.Scene {
     this.xpBar.width = 220 * xpRatio;
     this.levelText.setText(`Lv ${me.level}  ·  XP ${me.xp}/${me.xpToNext}`);
 
-    const remain = Math.max(0, this.state.matchDuration - this.state.matchTime);
+    const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 60;
+    const remain = Math.max(0, roundDuration - (this.state.roundTime || 0));
     const m = Math.floor(remain / 60);
     const s = Math.floor(remain % 60);
     this.timerText.setText(`${m}:${String(s).padStart(2, '0')}`);
+    const maxRounds = this.state.maxRounds || '?';
     const displayRound =
       this.state.phase === 'countdown' ? Math.max(1, (this.state.round || 0) + 1) : this.state.round || 1;
-    const zoneLabel =
-      this.state.phase === 'countdown'
-        ? 'posicionando'
-        : `zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`;
-    this.roundText.setText(`Round ${displayRound} · ${zoneLabel}`);
+    const shrinksDone = this.state.arena?.shrinksDone ?? 0;
+    const shrinkTimes = this.state.arena?.shrinkTimes ?? 0;
+    let zoneLabel = 'posicionando';
+    if (this.state.phase !== 'countdown') {
+      zoneLabel =
+        shrinkTimes > 0 && shrinksDone >= shrinkTimes
+          ? 'zona final'
+          : `zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`;
+    }
+    this.roundText.setText(`Round ${displayRound}/${maxRounds} · ${zoneLabel}`);
 
     // Spells
     for (let i = 0; i < 4; i++) {

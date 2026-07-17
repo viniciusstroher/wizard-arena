@@ -7,12 +7,29 @@ function envNumber(key, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function envInt(key, fallback, min = 1) {
+  const n = Math.floor(envNumber(key, fallback));
+  return Number.isFinite(n) ? Math.max(min, n) : fallback;
+}
+
+const ARENA_START_RADIUS = 320;
+const ARENA_MIN_RADIUS = 80;
+const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
+const ARENA_SHRINK_AMOUNT = (ARENA_START_RADIUS - ARENA_MIN_RADIUS) / ARENA_SHRINK_TIMES;
+const MAX_ROUNDS = envInt('MAX_ROUNDS', 5);
+const ROUND_DURATION = envInt('ROUND_DURATION', 60);
+
 export const CONFIG = {
   TICK_RATE: 20,
   MAX_PLAYERS: 4,
   MIN_PLAYERS: 2,
-  MATCH_DURATION: 300, // 5 minutos
+  /** Quantidade de rounds na partida. */
+  MAX_ROUNDS,
+  /** Duração de cada round em segundos. */
+  ROUND_DURATION,
   ROUND_INTERMISSION: 4,
+  /** Duração total estimada dos rounds (sem intermissões). */
+  MATCH_DURATION: MAX_ROUNDS * ROUND_DURATION,
   PLAYER_MAX_HP: 100,
   PLAYER_SPEED: 180,
   PLAYER_RADIUS: 16,
@@ -28,10 +45,13 @@ export const CONFIG = {
 
   ARENA_CENTER_X: 640,
   ARENA_CENTER_Y: 360,
-  ARENA_START_RADIUS: 320,
-  ARENA_MIN_RADIUS: 80,
-  ARENA_SHRINK_INTERVAL: 30,
-  ARENA_SHRINK_AMOUNT: 40,
+  ARENA_START_RADIUS,
+  ARENA_MIN_RADIUS,
+  /** Intervalo em segundos entre cada encolhimento da arena. */
+  ARENA_SHRINK_INTERVAL: envInt('ARENA_SHRINK_INTERVAL', 10),
+  /** Quantas vezes a arena encolhe por round (até o raio mínimo). */
+  ARENA_SHRINK_TIMES,
+  ARENA_SHRINK_AMOUNT,
   ZONE_DPS: 12,
 
   MONSTER_SPAWN_INTERVAL: 4,

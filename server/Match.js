@@ -71,6 +71,7 @@ export class Match {
     this.roundTime = 0;
     this.arenaRadius = CONFIG.ARENA_START_RADIUS;
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
+    this.shrinksDone = 0;
     this.monsterSpawnTimer = 0;
     this.countdown = 0;
     this.intermissionTimer = 0;
@@ -268,6 +269,7 @@ export class Match {
   clearArena() {
     this.arenaRadius = CONFIG.ARENA_START_RADIUS;
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
+    this.shrinksDone = 0;
     this.monsterSpawnTimer = 1;
     this.xpPassiveTimer = 0;
     this.monsters = [];
@@ -502,14 +504,23 @@ export class Match {
       }
     }
 
-    if (this.matchTime >= CONFIG.MATCH_DURATION) {
-      this.endMatch(winner);
+    if (this.round >= CONFIG.MAX_ROUNDS) {
+      this.endMatch(this.leadingPlayer() || winner);
       return;
     }
 
     this.phase = 'intermission';
     this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
     this.broadcastState(true);
+  }
+
+  /** Jogador com maior score (desempate: kills, depois nível). */
+  leadingPlayer() {
+    return (
+      [...this.players.values()].sort(
+        (a, b) => b.score - a.score || b.kills - a.kills || b.level - a.level
+      )[0] || null
+    );
   }
 
   endMatch(winner) {
@@ -810,8 +821,8 @@ export class Match {
       this.intermissionTimer -= dt;
       this.matchTime += dt;
       if (this.intermissionTimer <= 0) {
-        if (this.matchTime >= CONFIG.MATCH_DURATION) {
-          this.endMatch(this.winnerId ? this.players.get(this.winnerId) : null);
+        if (this.round >= CONFIG.MAX_ROUNDS) {
+          this.endMatch(this.leadingPlayer());
         } else {
           this.startCountdown();
         }
@@ -839,8 +850,17 @@ export class Match {
     this.matchTime += dt;
     this.roundTime += dt;
 
-    if (this.matchTime >= CONFIG.MATCH_DURATION) {
-      this.wipeAll();
+    if (this.roundTime >= CONFIG.ROUND_DURATION) {
+      const alive = [...this.players.values()].filter((p) => p.alive);
+      if (alive.length === 1) {
+        this.finishRound(alive[0]);
+      } else if (alive.length > 1) {
+        alive.sort((a, b) => b.hp - a.hp || b.score - a.score);
+        const soleLead = alive[0].hp > alive[1].hp ? alive[0] : null;
+        this.finishRound(soleLead);
+      } else {
+        this.finishRound(null);
+      }
       return;
     }
 
@@ -868,10 +888,19 @@ export class Match {
       }
     }
 
-    // Arena shrink
-    if (this.roundTime >= this.nextShrinkAt && this.arenaRadius > CONFIG.ARENA_MIN_RADIUS) {
-      this.arenaRadius = Math.max(CONFIG.ARENA_MIN_RADIUS, this.arenaRadius - CONFIG.ARENA_SHRINK_AMOUNT);
-      this.nextShrinkAt += CONFIG.ARENA_SHRINK_INTERVAL;
+    // Arena shrink (quantidade e intervalo via .env)
+    if (
+      this.shrinksDone < CONFIG.ARENA_SHRINK_TIMES &&
+      this.roundTime >= this.nextShrinkAt
+    ) {
+      this.arenaRadius = Math.max(
+        CONFIG.ARENA_MIN_RADIUS,
+        this.arenaRadius - CONFIG.ARENA_SHRINK_AMOUNT
+      );
+      this.shrinksDone += 1;
+      if (this.shrinksDone < CONFIG.ARENA_SHRINK_TIMES) {
+        this.nextShrinkAt += CONFIG.ARENA_SHRINK_INTERVAL;
+      }
       this.pushEvent({ type: 'arena_shrink', radius: this.arenaRadius });
     }
 
@@ -1105,15 +1134,19 @@ export class Match {
       matchId: this.id,
       phase: this.phase,
       round: this.round,
+      maxRounds: CONFIG.MAX_ROUNDS,
       matchTime: +this.matchTime.toFixed(2),
       matchDuration: CONFIG.MATCH_DURATION,
       roundTime: +this.roundTime.toFixed(2),
+      roundDuration: CONFIG.ROUND_DURATION,
       countdown: this.countdown,
       arena: {
         x: CONFIG.ARENA_CENTER_X,
         y: CONFIG.ARENA_CENTER_Y,
         radius: this.arenaRadius,
         nextShrinkAt: this.nextShrinkAt,
+        shrinksDone: this.shrinksDone,
+        shrinkTimes: CONFIG.ARENA_SHRINK_TIMES,
       },
       rocks: this.rocks,
       players: [...this.players.values()].map((p) => this.serializePlayer(p)),
