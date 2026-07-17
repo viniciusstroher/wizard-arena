@@ -152,16 +152,43 @@ export class GameScene extends Phaser.Scene {
     this.socket.emit('request_state');
   }
 
+  ensureCrosshairTexture() {
+    // Sempre regenera: evita PNG preto antigo preso no cache do Phaser/HMR
+    if (this.textures.exists('aim_crosshair')) {
+      this.textures.remove('aim_crosshair');
+    }
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const cx = 32;
+    const cy = 32;
+    g.lineStyle(5, 0x000000, 0.9);
+    g.strokeCircle(cx, cy, 22);
+    g.lineBetween(cx - 26, cy, cx - 8, cy);
+    g.lineBetween(cx + 8, cy, cx + 26, cy);
+    g.lineBetween(cx, cy - 26, cx, cy - 8);
+    g.lineBetween(cx, cy + 8, cx, cy + 26);
+    g.lineStyle(2, 0xffffff, 1);
+    g.strokeCircle(cx, cy, 22);
+    g.lineBetween(cx - 25, cy, cx - 8, cy);
+    g.lineBetween(cx + 8, cy, cx + 25, cy);
+    g.lineBetween(cx, cy - 25, cx, cy - 8);
+    g.lineBetween(cx, cy + 8, cx, cy + 25);
+    g.fillStyle(0xffffff, 1);
+    g.fillCircle(cx, cy, 2);
+    g.generateTexture('aim_crosshair', 64, 64);
+    g.destroy();
+    return this.textures.exists('aim_crosshair');
+  }
+
   setupAimCursor() {
     this.input.setDefaultCursor('none');
-    if (!this.textures.exists('crosshair')) return;
+    if (!this.ensureCrosshairTexture()) return;
     this.aimCursor = this.add
-      .image(0, 0, 'crosshair')
+      .image(0, 0, 'aim_crosshair')
       .setDepth(100000)
       .setScrollFactor(0)
       .setOrigin(0.5, 0.5)
-      .setDisplaySize(48, 48)
-      .setVisible(false);
+      .setDisplaySize(40, 40)
+      .setVisible(true);
     this.input.on('pointermove', this.syncAimCursor, this);
     this.syncAimCursor(this.input.activePointer);
   }
@@ -169,8 +196,9 @@ export class GameScene extends Phaser.Scene {
   syncAimCursor(pointer) {
     if (!this.aimCursor) return;
     const p = pointer || this.input.activePointer;
+    if (!p) return;
     this.aimCursor.setPosition(p.x, p.y);
-    this.aimCursor.setVisible(p && p.within);
+    this.aimCursor.setVisible(true);
   }
 
   clearAimCursor() {
@@ -1175,6 +1203,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(_time, delta) {
+    if (this.aimCursor) this.syncAimCursor(this.input.activePointer);
+
     if (this.lavaFloor) {
       const t = delta * 0.012;
       this.lavaFloor.tilePositionX += t;
