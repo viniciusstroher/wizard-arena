@@ -73,7 +73,10 @@ export const CONFIG = {
   ARENA_SHRINK_AMOUNT,
   ZONE_DPS: 12,
 
-  MONSTER_SPAWN_INTERVAL: 4,
+  /** Intervalo (segundos) entre spawns de monstros. */
+  MONSTER_SPAWN_INTERVAL: envNumber('MONSTER_SPAWN_INTERVAL', 4),
+  /** Quantidade de monstros spawnados a cada intervalo. */
+  MONSTER_SPAWN_COUNT: envInt('MONSTER_SPAWN_COUNT', 1),
   MONSTER_MAX: 18,
   MONSTER_HP: 40,
   MONSTER_DAMAGE: 8,

@@ -2170,7 +2170,8 @@ export class Match {
     // Spawns
     this.monsterSpawnTimer -= dt;
     if (this.monsterSpawnTimer <= 0) {
-      this.spawnMonster();
+      const count = CONFIG.MONSTER_SPAWN_COUNT;
+      for (let i = 0; i < count; i++) this.spawnMonster();
       this.monsterSpawnTimer = CONFIG.MONSTER_SPAWN_INTERVAL;
     }
 
