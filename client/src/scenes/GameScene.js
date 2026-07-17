@@ -135,7 +135,8 @@ export class GameScene extends Phaser.Scene {
     this.stopBattleMusic();
     const volRaw = localStorage.getItem('wa_lobby_music_vol');
     const volN = Number(volRaw);
-    const volume = Number.isFinite(volN) ? Phaser.Math.Clamp(volN, 0, 1) : 0.2;
+    // Usa o volume ajustado no lobby nesta sessão; senão 25%
+    const volume = Number.isFinite(volN) ? Phaser.Math.Clamp(volN, 0, 1) : 0.25;
     this.battleMusic = this.sound.add('battle_music', {
       loop: true,
       volume,

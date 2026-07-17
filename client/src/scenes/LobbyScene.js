@@ -14,6 +14,7 @@ export class LobbyScene extends Phaser.Scene {
     this.lobby = null;
     this.lobbyMusic = null;
     this.lobbyMusicVolume = this.loadLobbyMusicVolume();
+    this.saveLobbyMusicVolume(this.lobbyMusicVolume);
     this.settingsModalOpen = false;
     this.settingsModal = null;
     this.volumeSlider = null;
@@ -30,10 +31,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   loadLobbyMusicVolume() {
-    const raw = localStorage.getItem('wa_lobby_music_vol');
-    const n = Number(raw);
-    if (!Number.isFinite(n)) return 0.2;
-    return Phaser.Math.Clamp(n, 0, 1);
+    return 0.25;
   }
 
   saveLobbyMusicVolume(vol) {
