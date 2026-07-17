@@ -68,6 +68,7 @@ export class BootScene extends Phaser.Scene {
     this.createLavaTextures();
     this.createRockSprites();
     this.createBloodSprites();
+    this.createBonesSprites();
     this.createSpellIcons();
     this.scene.start('Lobby');
   }
@@ -516,6 +517,47 @@ export class BootScene extends Phaser.Scene {
       ],
       granite,
       3
+    );
+  }
+
+  createBonesSprites() {
+    // Pilha de ossos (chão)
+    makePixelTexture(
+      this,
+      'bones_pile',
+      [
+        '................',
+        '................',
+        '......W.........',
+        '...W.WCW.W......',
+        '..WCW..WCW......',
+        '.W..WWWW..W.....',
+        '..WC.DD.CW......',
+        '.W.WWWWWW.W.....',
+        '..W.CWWC.W......',
+        '...WW..WW.......',
+        '................',
+        '................',
+      ],
+      { W: 0xe8e0d0, C: 0xc8c0b0, D: 0xa09080 },
+      2
+    );
+    // Caveira
+    makePixelTexture(
+      this,
+      'skull',
+      [
+        '........',
+        '.WWWWWW.',
+        'WWWWWWWW',
+        'W.BWW.BW',
+        'WWWWWWWW',
+        '.WWDDWW.',
+        '..WDDW..',
+        '...WW...',
+      ],
+      { W: 0xf0ebe0, B: 0x1a1410, D: 0xc8b8a8 },
+      2
     );
   }
 

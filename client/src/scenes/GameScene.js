@@ -14,6 +14,7 @@ export class GameScene extends Phaser.Scene {
     this.projectileSprites = new Map();
     this.rockSprites = new Map();
     this.bloodSprites = new Map();
+    this.boneSprites = new Map();
     this.aoeGraphics = null;
     this.arenaGraphics = null;
     this.effectGraphics = null;
@@ -1035,6 +1036,7 @@ export class GameScene extends Phaser.Scene {
   renderEffects() {
     this.effectGraphics.clear();
     const seenBlood = new Set();
+    const seenBones = new Set();
 
     for (const e of this.state.effects || []) {
       if (e.type === 'blood') {
@@ -1054,6 +1056,28 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
 
+      if (e.type === 'bones') {
+        seenBones.add(e.entityId);
+        let pack = this.boneSprites.get(e.entityId);
+        if (!pack) {
+          const scale = e.scale || 1;
+          const pile = this.add
+            .image(e.x, e.y + 2, 'bones_pile')
+            .setDepth(2)
+            .setScale(scale)
+            .setAlpha(0.95);
+          const skull = this.add
+            .image(e.x + (e.skullOffsetX || 0), e.y + (e.skullOffsetY || -6), 'skull')
+            .setDepth(2.1)
+            .setScale(scale * 0.95)
+            .setRotation(e.rotation || 0)
+            .setAlpha(0.98);
+          pack = { pile, skull };
+          this.boneSprites.set(e.entityId, pack);
+        }
+        continue;
+      }
+
       if (e.type === 'lightning') {
         this.effectGraphics.lineStyle(2, e.color || 0xffee55, 0.9);
         this.effectGraphics.lineBetween(e.x1, e.y1, e.x2, e.y2);
@@ -1069,6 +1093,13 @@ export class GameScene extends Phaser.Scene {
       if (!seenBlood.has(id)) {
         s.destroy();
         this.bloodSprites.delete(id);
+      }
+    }
+    for (const [id, pack] of this.boneSprites) {
+      if (!seenBones.has(id)) {
+        pack.pile.destroy();
+        pack.skull.destroy();
+        this.boneSprites.delete(id);
       }
     }
   }

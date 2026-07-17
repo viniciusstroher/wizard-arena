@@ -419,6 +419,20 @@ export class Match {
     });
   }
 
+  spawnBones(x, y) {
+    this.effects.push({
+      entityId: eid(),
+      type: 'bones',
+      x: +(x + (Math.random() - 0.5) * 6).toFixed(1),
+      y: +(y + (Math.random() - 0.5) * 6).toFixed(1),
+      life: 999,
+      scale: +(0.85 + Math.random() * 0.35).toFixed(2),
+      rotation: +((Math.random() - 0.5) * 0.6).toFixed(2),
+      skullOffsetX: +((Math.random() - 0.5) * 6).toFixed(1),
+      skullOffsetY: +((-6 + (Math.random() - 0.5) * 3).toFixed(1)),
+    });
+  }
+
   /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
   damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false) {
     if (!target.alive) return false;
@@ -458,6 +472,7 @@ export class Match {
         return false;
       }
 
+      this.spawnBones(target.x, target.y);
       target.deaths += 1;
       const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
       if (killer && killer.id !== target.id) {
@@ -473,6 +488,7 @@ export class Match {
     }
 
     // Monster
+    this.spawnBones(target.x, target.y);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
