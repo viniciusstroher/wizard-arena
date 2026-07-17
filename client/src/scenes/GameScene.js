@@ -30,6 +30,10 @@ export class GameScene extends Phaser.Scene {
     this.selectedSpellSlot = 0;
     this.moveDust = null;
     this.lavaBurn = null;
+    this.dashGhosts = [];
+    /** Janela (ms) para detectar double-tap WASD. */
+    this.dashDoubleTapMs = 280;
+    this.dashLastTap = { up: 0, down: 0, left: 0, right: 0 };
   }
 
   create() {
@@ -616,6 +620,27 @@ export class GameScene extends Phaser.Scene {
     this.handleBanners();
   }
 
+  detectDash() {
+    const now = this.time.now;
+    const windowMs = this.dashDoubleTapMs;
+    const keys = [
+      ['up', this.cursors.up],
+      ['down', this.cursors.down],
+      ['left', this.cursors.left],
+      ['right', this.cursors.right],
+    ];
+    for (const [dir, key] of keys) {
+      if (!Phaser.Input.Keyboard.JustDown(key)) continue;
+      const last = this.dashLastTap[dir] || 0;
+      this.dashLastTap[dir] = now;
+      if (last > 0 && now - last <= windowMs) {
+        this.dashLastTap[dir] = 0;
+        return dir;
+      }
+    }
+    return null;
+  }
+
   sendInput() {
     const pointer = this.input.activePointer;
     if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.selectedSpellSlot = 0;
@@ -636,6 +661,7 @@ export class GameScene extends Phaser.Scene {
       aimX: pointer.worldX,
       aimY: pointer.worldY,
       castSlot,
+      dash: this.detectDash(),
     });
   }
 
@@ -965,8 +991,36 @@ export class GameScene extends Phaser.Scene {
     return this.textures.exists(key) ? key : 'wizard';
   }
 
+  spawnDashGhost(texture, x, y, scaleX, scaleY, tint) {
+    const ghost = this.add
+      .sprite(x, y, texture)
+      .setDepth(19)
+      .setAlpha(0.55)
+      .setScale(scaleX, scaleY)
+      .setTint(tint || 0xffffff);
+    this.dashGhosts.push({ sprite: ghost, life: 0.22, maxLife: 0.22 });
+  }
+
+  updateDashGhosts(dt) {
+    for (let i = this.dashGhosts.length - 1; i >= 0; i--) {
+      const g = this.dashGhosts[i];
+      g.life -= dt;
+      if (g.life <= 0) {
+        g.sprite.destroy();
+        this.dashGhosts.splice(i, 1);
+        continue;
+      }
+      const t = g.life / g.maxLife;
+      g.sprite.setAlpha(0.55 * t);
+      g.sprite.setScale(g.sprite.scaleX * (1 + 0.01), g.sprite.scaleY * (1 + 0.01));
+    }
+  }
+
   renderPlayers() {
     const seen = new Set();
+    const dt = this.game.loop.delta / 1000;
+    this.updateDashGhosts(dt);
+
     for (const p of this.state.players) {
       seen.add(p.id);
       const tex = this.wizardTexture(p.wizardType);
@@ -975,11 +1029,37 @@ export class GameScene extends Phaser.Scene {
       s.clearTint();
       s.setPosition(p.x, p.y);
       s.setAlpha(p.alive ? 1 : 0.25);
-      s.setScale(p.id === this.playerId ? 1.15 : 1);
+
+      const baseScale = p.id === this.playerId ? 1.15 : 1;
+      if (p.dashing && p.alive) {
+        const horiz = Math.abs(p.dashDx || p.vx) >= Math.abs(p.dashDy || p.vy);
+        if (horiz) s.setScale(baseScale * 1.55, baseScale * 0.7);
+        else s.setScale(baseScale * 0.7, baseScale * 1.55);
+        s.setTint(0xffffff);
+        const now = this.time.now;
+        if (!s.lastDashGhostAt || now - s.lastDashGhostAt > 28) {
+          s.lastDashGhostAt = now;
+          const backX = p.x - (p.dashDx || 0) * 10;
+          const backY = p.y - (p.dashDy || 0) * 10;
+          this.spawnDashGhost(tex, backX, backY, s.scaleX, s.scaleY, p.color || 0xffffff);
+        }
+        if (!s.wasDashing) {
+          s.wasDashing = true;
+          if (p.id === this.playerId) this.cameras.main.shake(60, 0.0025);
+        }
+      } else {
+        s.setScale(baseScale);
+        s.wasDashing = false;
+      }
+
       if (p.stun) s.setAngle(Math.sin(this.time.now / 40) * 8);
       else s.setAngle(0);
       const onLava = p.alive && this.isOnLava(p.x, p.y);
-      if (p.alive && !onLava) this.emitMoveDust(s, p.x, p.y, p.vx, p.vy);
+      if (p.alive && !onLava) {
+        const dustVx = p.dashing ? (p.vx || 0) * 1.4 : p.vx;
+        const dustVy = p.dashing ? (p.vy || 0) * 1.4 : p.vy;
+        this.emitMoveDust(s, p.x, p.y, dustVx, dustVy);
+      }
       this.updateLavaBurn(s, p.x, p.y, onLava);
 
       s.nameTag.setText(p.name + (p.alive ? '' : ' ✝'));
@@ -1134,6 +1214,20 @@ export class GameScene extends Phaser.Scene {
       if (e.type === 'lightning') {
         this.effectGraphics.lineStyle(2, e.color || 0xffee55, 0.9);
         this.effectGraphics.lineBetween(e.x1, e.y1, e.x2, e.y2);
+      } else if (e.type === 'dash') {
+        const dx = e.dx || 0;
+        const dy = e.dy || 0;
+        const len = 28;
+        const fade = Math.min(1, e.life / 0.18);
+        this.effectGraphics.lineStyle(3, e.color || 0xffffff, 0.55 * fade);
+        this.effectGraphics.lineBetween(e.x - dx * len, e.y - dy * len, e.x + dx * 8, e.y + dy * 8);
+        this.effectGraphics.fillStyle(e.color || 0xffffff, 0.1 * fade);
+        this.effectGraphics.fillEllipse(
+          e.x - dx * 6,
+          e.y - dy * 6,
+          Math.abs(dx) > 0 ? 36 : 14,
+          Math.abs(dy) > 0 ? 36 : 14
+        );
       } else if (e.type === 'nova' || e.type === 'blink' || e.type === 'heal' || e.type === 'barrier') {
         this.effectGraphics.lineStyle(2, e.color || 0xffffff, 0.7);
         this.effectGraphics.strokeCircle(e.x, e.y, e.radius || 30);

@@ -178,12 +178,25 @@ export class Match {
       ultimate: null,
       pendingLevelUps: 0,
       spellChoices: null,
-      input: { up: false, down: false, left: false, right: false, aimX: 0, aimY: 0, castSlot: -1 },
+      input: {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+        aimX: 0,
+        aimY: 0,
+        castSlot: -1,
+        dash: null,
+      },
       shield: 0,
       shieldTimer: 0,
       slow: 0,
       slowTimer: 0,
       stunTimer: 0,
+      dashTimer: 0,
+      dashCooldown: 0,
+      dashDx: 0,
+      dashDy: 0,
       phoenixReady: false,
       kills: 0,
       deaths: 0,
@@ -348,6 +361,13 @@ export class Match {
   setInput(socketId, input) {
     const p = this.players.get(socketId);
     if (!p) return;
+    const dash =
+      input.dash === 'up' ||
+      input.dash === 'down' ||
+      input.dash === 'left' ||
+      input.dash === 'right'
+        ? input.dash
+        : null;
     p.input = {
       up: !!input.up,
       down: !!input.down,
@@ -356,7 +376,39 @@ export class Match {
       aimX: Number(input.aimX) || 0,
       aimY: Number(input.aimY) || 0,
       castSlot: Number.isInteger(input.castSlot) ? input.castSlot : -1,
+      dash,
     };
+  }
+
+  tryStartDash(player) {
+    const dir = player.input?.dash;
+    if (!dir || !player.alive || player.stunTimer > 0) return;
+    if (player.dashCooldown > 0 || player.dashTimer > 0) return;
+
+    let dx = 0;
+    let dy = 0;
+    if (dir === 'up') dy = -1;
+    else if (dir === 'down') dy = 1;
+    else if (dir === 'left') dx = -1;
+    else if (dir === 'right') dx = 1;
+    else return;
+
+    player.dashDx = dx;
+    player.dashDy = dy;
+    player.dashTimer = CONFIG.PLAYER_DASH_DURATION;
+    player.dashCooldown = CONFIG.PLAYER_DASH_COOLDOWN;
+    player.vx = dx * CONFIG.PLAYER_DASH_SPEED;
+    player.vy = dy * CONFIG.PLAYER_DASH_SPEED;
+    this.effects.push({
+      type: 'dash',
+      x: player.x,
+      y: player.y,
+      dx,
+      dy,
+      life: Math.max(0.18, CONFIG.PLAYER_DASH_DURATION + 0.08),
+      color: player.color || 0xffffff,
+    });
+    player.input.dash = null;
   }
 
   chooseSpell(socketId, choiceIndex) {
@@ -944,13 +996,29 @@ export class Match {
       if (p.slowTimer <= 0) p.slow = 0;
       p.shieldTimer = Math.max(0, p.shieldTimer - dt);
       if (p.shieldTimer <= 0) p.shield = 0;
+      p.dashCooldown = Math.max(0, p.dashCooldown - dt);
 
       for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
       if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);
 
+      this.tryStartDash(p);
+
       if (p.stunTimer > 0) {
         p.vx = 0;
         p.vy = 0;
+        p.dashTimer = 0;
+      } else if (p.dashTimer > 0) {
+        p.dashTimer = Math.max(0, p.dashTimer - dt);
+        p.vx = p.dashDx * CONFIG.PLAYER_DASH_SPEED;
+        p.vy = p.dashDy * CONFIG.PLAYER_DASH_SPEED;
+        p.x += p.vx * dt;
+        this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
+        p.y += p.vy * dt;
+        this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
+        if (p.dashTimer <= 0) {
+          p.vx *= 0.35;
+          p.vy *= 0.35;
+        }
       } else {
         let mx = 0;
         let my = 0;
@@ -1133,6 +1201,9 @@ export class Match {
       shield: p.shield,
       slow: p.slow,
       stun: p.stunTimer > 0,
+      dashing: p.dashTimer > 0,
+      dashDx: p.dashDx,
+      dashDy: p.dashDy,
       kills: p.kills,
       deaths: p.deaths,
       score: p.score,

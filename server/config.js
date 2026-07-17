@@ -38,6 +38,12 @@ export const CONFIG = {
    * 0 = movimento instantâneo; valores maiores = mais deslizamento.
    */
   PLAYER_INERTIA: envNumber('PLAYER_INERTIA', 0.12),
+  /** Velocidade do dash (px/s) no double-tap WASD. */
+  PLAYER_DASH_SPEED: envNumber('PLAYER_DASH_SPEED', 520),
+  /** Duração do dash em segundos. */
+  PLAYER_DASH_DURATION: envNumber('PLAYER_DASH_DURATION', 0.12),
+  /** Cooldown entre dashes em segundos. */
+  PLAYER_DASH_COOLDOWN: envNumber('PLAYER_DASH_COOLDOWN', 0.7),
   /** HP regenerado a cada janela (0 = desligado). */
   HP_REGEN_AMOUNT: envNumber('HP_REGEN_AMOUNT', 2),
   /** Janela em segundos entre regenerações. */
