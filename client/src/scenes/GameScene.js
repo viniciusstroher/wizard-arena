@@ -597,7 +597,7 @@ export class GameScene extends Phaser.Scene {
   createMoveDust() {
     this.moveDust = this.add
       .particles(0, 0, 'particle', {
-        tint: [0x8b6a3c, 0x9a7a48, 0x6b4e2e, 0xa08050],
+        tint: [0x9a9a9a, 0xb0b0b0, 0x7a7a7a, 0xc4c4c4],
         speed: { min: 18, max: 48 },
         angle: { min: 0, max: 360 },
         scale: { start: 1.1, end: 0 },
