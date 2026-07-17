@@ -36,6 +36,8 @@ export class GameScene extends Phaser.Scene {
     this.selectedSpellSlot = 0;
     this.moveDust = null;
     this.lavaBurn = null;
+    this.arenaFireWall = null;
+    this.arenaFireEmbers = null;
     this.fireballFx = null;
     this.iceFx = null;
     this.healFx = null;
@@ -70,6 +72,7 @@ export class GameScene extends Phaser.Scene {
     this.effectGraphics = this.add.graphics().setDepth(5);
     this.createMoveDust();
     this.createLavaBurn();
+    this.createArenaFireWall();
     this.createSpellParticleFx();
 
     this.createHud();
@@ -885,6 +888,38 @@ export class GameScene extends Phaser.Scene {
       .setDepth(21);
   }
 
+  createArenaFireWall() {
+    this.arenaFireWall = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xff1a00, 0xff4400, 0xff7700, 0xffaa22, 0xffdd55],
+        speed: { min: 35, max: 85 },
+        angle: { min: 250, max: 290 },
+        scale: { start: 2.1, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        lifespan: { min: 320, max: 620 },
+        gravityY: -110,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(2);
+
+    this.arenaFireEmbers = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xff6600, 0xff9900, 0xffcc44, 0xffeebb],
+        speed: { min: 15, max: 55 },
+        angle: { min: 220, max: 320 },
+        scale: { start: 1.1, end: 0 },
+        alpha: { start: 0.85, end: 0 },
+        lifespan: { min: 400, max: 900 },
+        gravityY: -40,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(2.5);
+  }
+
   createSpellParticleFx() {
     this.fireballFx = this.add
       .particles(0, 0, 'particle', {
@@ -1367,18 +1402,64 @@ export class GameScene extends Phaser.Scene {
     this.arenaMaskGfx.fillCircle(a.x, a.y, a.radius);
 
     this.arenaGraphics.clear();
+    this.drawArenaFireWall(a);
+  }
 
-    // Borda quente da lava sob o anel
-    this.arenaGraphics.lineStyle(10, 0xff6b1a, 0.35);
-    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 6);
+  drawArenaFireWall(a) {
+    const t = this.time.now;
+    const pulse = 0.55 + 0.45 * Math.sin(t / 110);
+    const flicker = 0.65 + 0.35 * Math.sin(t / 65 + 1.3);
 
-    // Safe ring
-    this.arenaGraphics.lineStyle(4, 0x6b5cff, 0.9);
+    // Base glow — parede de calor na borda
+    this.arenaGraphics.lineStyle(22, 0xff2200, 0.18 * flicker);
+    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 2);
+    this.arenaGraphics.lineStyle(14, 0xff5500, 0.32 * pulse);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius);
+    this.arenaGraphics.lineStyle(8, 0xff8800, 0.5 * flicker);
+    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius - 1);
+    this.arenaGraphics.lineStyle(3, 0xffdd66, 0.75 * pulse);
+    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius - 2);
 
-    // Danger outside hint
-    this.arenaGraphics.lineStyle(2, 0xff4a4a, 0.35);
-    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 18);
+    // Línguas de fogo radiais (parede)
+    const tongues = Math.max(40, Math.floor(a.radius * 0.7));
+    for (let i = 0; i < tongues; i++) {
+      const ang = (i / tongues) * Math.PI * 2;
+      const wobble = 0.55 + 0.45 * Math.sin(t * 0.014 + i * 2.1);
+      const height = (12 + (i % 6) * 2.8 + 8 * Math.sin(t * 0.01 + i * 1.4)) * wobble;
+      const baseR = a.radius - 1;
+      const tipR = a.radius + height;
+      const x0 = a.x + Math.cos(ang) * baseR;
+      const y0 = a.y + Math.sin(ang) * baseR;
+      const x1 = a.x + Math.cos(ang) * tipR;
+      const y1 = a.y + Math.sin(ang) * tipR;
+      const midR = (baseR + tipR) * 0.55;
+      const xM = a.x + Math.cos(ang) * midR;
+      const yM = a.y + Math.sin(ang) * midR;
+
+      this.arenaGraphics.lineStyle(5.5, 0xff3300, 0.35 * wobble);
+      this.arenaGraphics.lineBetween(x0, y0, x1, y1);
+      this.arenaGraphics.lineStyle(3.2, 0xff8800, 0.55 * wobble);
+      this.arenaGraphics.lineBetween(x0, y0, xM, yM);
+      this.arenaGraphics.lineStyle(1.6, 0xffee88, 0.8 * wobble);
+      this.arenaGraphics.lineBetween(x0, y0, a.x + Math.cos(ang) * (baseR + height * 0.35), a.y + Math.sin(ang) * (baseR + height * 0.35));
+    }
+
+    // Partículas subindo ao longo de toda a circunferência
+    if (!this.arenaFireWall) return;
+    const steps = Math.max(24, Math.floor((Math.PI * 2 * a.radius) / 22));
+    const frame = Math.floor(t / 33);
+    for (let i = 0; i < steps; i++) {
+      if ((i + frame) % 3 !== 0) continue;
+      const ang = (i / steps) * Math.PI * 2 + t * 0.0004;
+      const jitter = Math.sin(t * 0.02 + i * 0.7) * 3;
+      const r = a.radius + jitter;
+      const x = a.x + Math.cos(ang) * r;
+      const y = a.y + Math.sin(ang) * r;
+      this.arenaFireWall.emitParticleAt(x, y, 1);
+      if (this.arenaFireEmbers && (i + frame) % 6 === 0) {
+        this.arenaFireEmbers.emitParticleAt(x, y, 1);
+      }
+    }
   }
 
   ensureActor(map, id, texture, depth = 10) {
