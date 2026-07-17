@@ -164,6 +164,7 @@ export class Match {
     }
   }
 
+  /** Pedras apenas dentro do círculo da arena. */
   generateRocks() {
     // 50% grama / 50% terra batida.
     this.floorType = Math.random() < 0.5 ? 'grass' : 'dirt';
@@ -178,19 +179,28 @@ export class Match {
     const rocks = [];
     const cx = CONFIG.ARENA_CENTER_X;
     const cy = CONFIG.ARENA_CENTER_Y;
+    const arenaR = CONFIG.ARENA_START_RADIUS;
     let attempts = 0;
 
-    while (rocks.length < count && attempts < count * 40) {
+    while (rocks.length < count && attempts < count * 50) {
       attempts += 1;
       const def = types[Math.floor(Math.random() * types.length)];
-      const x = 48 + Math.random() * (1280 - 96);
-      const y = 40 + Math.random() * (720 - 80);
+      const ang = Math.random() * Math.PI * 2;
+      const maxR = Math.max(0, arenaR - def.radius - 4);
+      const r =
+        CONFIG.ROCK_SPAWN_CLEAR_RADIUS +
+        def.radius +
+        Math.random() * Math.max(0, maxR - CONFIG.ROCK_SPAWN_CLEAR_RADIUS - def.radius);
+      if (r > maxR) continue;
+      const x = cx + Math.cos(ang) * r;
+      const y = cy + Math.sin(ang) * r;
       const fromCenter = Math.hypot(x - cx, y - cy);
+      if (fromCenter + def.radius > arenaR) continue;
       if (fromCenter < CONFIG.ROCK_SPAWN_CLEAR_RADIUS + def.radius) continue;
 
       let overlaps = false;
-      for (const r of rocks) {
-        if (Math.hypot(x - r.x, y - r.y) < r.radius + def.radius + 10) {
+      for (const rock of rocks) {
+        if (Math.hypot(x - rock.x, y - rock.y) < rock.radius + def.radius + 10) {
           overlaps = true;
           break;
         }
@@ -278,6 +288,15 @@ export class Match {
     const cy = CONFIG.ARENA_CENTER_Y;
     const r = this.arenaRadius;
     this.trees = this.trees.filter((t) => Math.hypot(t.x - cx, t.y - cy) + t.radius <= r);
+  }
+
+  /** Remove pedras que ficaram fora do círculo após o shrink. */
+  cullRocksOutsideArena() {
+    if (!this.rocks.length) return;
+    const cx = CONFIG.ARENA_CENTER_X;
+    const cy = CONFIG.ARENA_CENTER_Y;
+    const r = this.arenaRadius;
+    this.rocks = this.rocks.filter((rock) => Math.hypot(rock.x - cx, rock.y - cy) + rock.radius <= r);
   }
 
   solidObstacles() {
@@ -2637,6 +2656,7 @@ export class Match {
         this.nextShrinkAt += CONFIG.ARENA_SHRINK_INTERVAL;
       }
       this.cullTreesOutsideArena();
+      this.cullRocksOutsideArena();
       this.pushEvent({ type: 'arena_shrink', radius: this.arenaRadius });
     }
 
