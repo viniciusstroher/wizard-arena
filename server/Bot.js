@@ -1,5 +1,34 @@
 /** IA simples para preencher o lobby e testar PvP. */
 
+import { CONFIG } from './config.js';
+
+function dirsToward(px, py, tx, ty, deadzone = 10) {
+  const dx = tx - px;
+  const dy = ty - py;
+  return {
+    up: dy < -deadzone,
+    down: dy > deadzone,
+    left: dx < -deadzone,
+    right: dx > deadzone,
+  };
+}
+
+function dirsAway(px, py, fx, fy, deadzone = 8) {
+  let dx = px - fx;
+  let dy = py - fy;
+  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+    const a = Math.random() * Math.PI * 2;
+    dx = Math.cos(a);
+    dy = Math.sin(a);
+  }
+  return {
+    up: dy < -deadzone,
+    down: dy > deadzone,
+    left: dx < -deadzone,
+    right: dx > deadzone,
+  };
+}
+
 export class BotController {
   constructor(match, playerId) {
     this.match = match;
@@ -39,6 +68,38 @@ export class BotController {
       choiceSetId: player.choiceSetId,
     });
     this.levelUpChoiceSetId = null;
+  }
+
+  /** Meteoro em aviso que ainda pode acertar o bot (com margem de fuga). */
+  findThreateningMeteor(player) {
+    const margin = 36;
+    let best = null;
+    let bestD = Infinity;
+    for (const m of this.match.meteors || []) {
+      if (m.phase !== 'warn') continue;
+      const d = Math.hypot(m.x - player.x, m.y - player.y);
+      const dangerR = m.radius + CONFIG.PLAYER_RADIUS + margin;
+      if (d <= dangerR && d < bestD) {
+        best = m;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** Mass heal em aviso — prioriza a mais próxima. */
+  findMassHealTarget(player) {
+    let best = null;
+    let bestD = Infinity;
+    for (const h of this.match.massHeals || []) {
+      if (h.phase !== 'warn') continue;
+      const d = Math.hypot(h.x - player.x, h.y - player.y);
+      if (d < bestD) {
+        best = h;
+        bestD = d;
+      }
+    }
+    return best;
   }
 
   update(dt) {
@@ -97,8 +158,8 @@ export class BotController {
     }
 
     const arena = {
-      x: 640,
-      y: 360,
+      x: CONFIG.ARENA_CENTER_X,
+      y: CONFIG.ARENA_CENTER_Y,
       r: this.match.arenaRadius * 0.75,
     };
     const fromCenter = Math.hypot(player.x - arena.x, player.y - arena.y);
@@ -109,15 +170,50 @@ export class BotController {
     let down = false;
     let left = false;
     let right = false;
+    let fleeMeteor = false;
 
-    // Fica dentro da arena
-    if (fromCenter > arena.r) {
+    const threat = this.findThreateningMeteor(player);
+    const heal = this.findMassHealTarget(player);
+
+    // 1) Prioridade máxima: sair da área do meteoro
+    if (threat) {
+      fleeMeteor = true;
+      // Mira na direção da fuga (blink segue aimX/aimY)
+      let fleeDx = player.x - threat.x;
+      let fleeDy = player.y - threat.y;
+      if (Math.abs(fleeDx) < 1 && Math.abs(fleeDy) < 1) {
+        const a = Math.random() * Math.PI * 2;
+        fleeDx = Math.cos(a);
+        fleeDy = Math.sin(a);
+      }
+      if (fromCenter > arena.r * 0.85) {
+        fleeDx += (arena.x - player.x) * 0.75;
+        fleeDy += (arena.y - player.y) * 0.75;
+      }
+      const fleeLen = Math.hypot(fleeDx, fleeDy) || 1;
+      aimX = player.x + (fleeDx / fleeLen) * 200;
+      aimY = player.y + (fleeDy / fleeLen) * 200;
+      ({ up, down, left, right } = dirsToward(player.x, player.y, aimX, aimY, 8));
+    } else if (heal) {
+      // 2) Sempre tenta pegar mass heal (aviso)
+      aimX = heal.x;
+      aimY = heal.y;
+      const inside =
+        Math.hypot(heal.x - player.x, heal.y - player.y) <=
+        Math.max(12, heal.radius - CONFIG.PLAYER_RADIUS * 0.5);
+      if (inside) {
+        // Já na zona: fica parado para receber a cura
+        up = down = left = right = false;
+      } else if (fromCenter > arena.r) {
+        ({ up, down, left, right } = dirsToward(player.x, player.y, arena.x, arena.y));
+      } else {
+        ({ up, down, left, right } = dirsToward(player.x, player.y, heal.x, heal.y));
+      }
+    } else if (fromCenter > arena.r) {
+      // Fica dentro da arena
       aimX = arena.x;
       aimY = arena.y;
-      if (player.x < arena.x) right = true;
-      if (player.x > arena.x) left = true;
-      if (player.y < arena.y) down = true;
-      if (player.y > arena.y) up = true;
+      ({ up, down, left, right } = dirsToward(player.x, player.y, arena.x, arena.y));
     } else if (this.target) {
       aimX = this.target.x;
       aimY = this.target.y;
@@ -126,15 +222,9 @@ export class BotController {
       const d = Math.hypot(dx, dy);
       const ideal = 140;
       if (d > ideal + 20) {
-        if (dx > 10) right = true;
-        if (dx < -10) left = true;
-        if (dy > 10) down = true;
-        if (dy < -10) up = true;
+        ({ up, down, left, right } = dirsToward(player.x, player.y, this.target.x, this.target.y));
       } else if (d < ideal - 30) {
-        if (dx > 10) left = true;
-        if (dx < -10) right = true;
-        if (dy > 10) up = true;
-        if (dy < -10) down = true;
+        ({ up, down, left, right } = dirsAway(player.x, player.y, this.target.x, this.target.y, 10));
       } else {
         // strafe
         const sx = -dy * this.strafe;
@@ -147,7 +237,7 @@ export class BotController {
     }
 
     let castSlot = -1;
-    if (this.castTimer <= 0 && this.target) {
+    if (this.castTimer <= 0 && this.target && !fleeMeteor) {
       // Prefere slot com cooldown pronto
       for (let i = 0; i < player.spells.length; i++) {
         if (player.spells[i].cooldownLeft <= 0) {
@@ -163,14 +253,14 @@ export class BotController {
 
     const level = player.level || 1;
 
-    // Escudo inato (lv2+): sempre que possível
+    // Escudo inato (lv2+): sempre que possível (ainda mais útil sob meteoro)
     const barrier =
       level >= 2 && (player.barrierCooldown || 0) <= 0 && (player.shield || 0) <= 0;
 
     // Heal inato (lv3+): sempre que possível (ferido e fora de CD)
     const mend = level >= 3 && (player.mendCooldown || 0) <= 0 && player.hp < player.maxHp;
 
-    // Blink inato (lv5+): sempre que possível
+    // Blink inato (lv5+): prioriza fuga/cura; no combate usa sempre que possível
     const blink = level >= 5 && (player.blinkCooldown || 0) <= 0;
 
     this.match.setInput(this.playerId, {
