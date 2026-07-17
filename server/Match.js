@@ -686,14 +686,21 @@ export class Match {
     return [...this.players.values()].filter((p) => p.alive && p.pendingLevelUps > 0);
   }
 
-  ensureSpellChoicesForPending() {
+  ensureSpellChoicesForPending({ refreshDeadline = false } = {}) {
     for (const p of this.playersNeedingSpellChoices()) {
-      if (!p.spellChoices) this.assignSpellChoices(p);
+      if (!p.spellChoices) {
+        this.assignSpellChoices(p);
+      } else if (
+        CONFIG.LEVELUP_CHOICE_TIMEOUT > 0 &&
+        (refreshDeadline || p.choiceDeadlineAt == null)
+      ) {
+        p.choiceDeadlineAt = this.matchTime + CONFIG.LEVELUP_CHOICE_TIMEOUT;
+      }
     }
   }
 
   beginPostRoundLevelUp(next) {
-    this.ensureSpellChoicesForPending();
+    this.ensureSpellChoicesForPending({ refreshDeadline: true });
     this.afterLevelUp = next;
     this.phase = 'levelup';
     this.broadcastState(true);
@@ -1714,6 +1721,8 @@ export class Match {
     if (this.phase === 'levelup') {
       // Pausa: combate travado até todos escolherem ou o timeout expirar
       this.matchTime += dt;
+      // Garante deadline (e choiceTimeLeft no cliente) se algum pacote ficou sem timer
+      this.ensureSpellChoicesForPending();
       for (const p of this.players.values()) {
         for (const s of p.spells) s.cooldownLeft = Math.max(0, s.cooldownLeft - dt);
         if (p.ultimate) p.ultimate.cooldownLeft = Math.max(0, p.ultimate.cooldownLeft - dt);

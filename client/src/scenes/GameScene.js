@@ -28,6 +28,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpChoices = [];
     this.choiceCards = [];
     this.levelUpHint = null;
+    this.levelUpCountdown = null;
     this.levelUpDim = null;
     this.levelUpWaitText = null;
     this.eventLog = [];
@@ -2936,13 +2937,37 @@ export class GameScene extends Phaser.Scene {
   updateLevelUpSlotHint() {
     if (!this.levelUpHint || this.levelUpSubmitting) return;
     const slot = this.selectedSpellSlot + 1;
-    const me = this.me();
-    const timeLeft = me?.choiceTimeLeft;
-    const timer =
-      timeLeft != null ? `  ·  auto em ${Math.ceil(timeLeft)}s` : '';
     this.levelUpHint.setText(
-      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${slot} → ${(slot % 4) + 1}${timer}`
+      `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${slot} → ${(slot % 4) + 1}`
     );
+    this.updateLevelUpCountdown();
+  }
+
+  /** Contagem regressiva visível na tela de escolha / espera. */
+  updateLevelUpCountdown() {
+    if (!this.levelUpCountdown || this.levelUpSubmitting) return;
+
+    let timeLeft = null;
+    if (this.levelUpOpen) {
+      timeLeft = this.me()?.choiceTimeLeft;
+    } else if (this.levelUpWaitOpen) {
+      const choosers = this.playersChoosingSpells();
+      for (const p of choosers) {
+        if (p.choiceTimeLeft == null) continue;
+        if (timeLeft == null || p.choiceTimeLeft > timeLeft) timeLeft = p.choiceTimeLeft;
+      }
+    }
+
+    if (timeLeft == null || !Number.isFinite(timeLeft)) {
+      this.levelUpCountdown.setText('').setVisible(false);
+      return;
+    }
+
+    const sec = Math.max(0, Math.ceil(timeLeft));
+    this.levelUpCountdown
+      .setVisible(true)
+      .setColor(sec <= 3 ? '#ff6b6b' : '#ffd166')
+      .setText(sec > 0 ? `Auto-escolha em ${sec}s` : 'Escolhendo…');
   }
 
   submitLevelUpChoice(index) {
@@ -3009,6 +3034,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.levelUpDim = null;
     this.levelUpHint = null;
+    this.levelUpCountdown = null;
     this.levelUpWaitText = null;
     this.choiceCards = [];
   }
@@ -3020,14 +3046,8 @@ export class GameScene extends Phaser.Scene {
         return pts > 1 ? `${p.name} (${pts} pts)` : p.name;
       })
       .join(', ');
-    const maxLeft = Math.max(
-      0,
-      ...choosers.map((p) => (p.choiceTimeLeft != null ? p.choiceTimeLeft : 0))
-    );
-    const hasTimer = choosers.some((p) => p.choiceTimeLeft != null);
-    const timerLine = hasTimer ? `\nAuto em ${Math.ceil(maxLeft)}s` : '';
-    if (!names) return `Jogador distribuindo pontos de habilidade, aguarde!${timerLine}`;
-    return `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} distribuindo pontos de habilidade, aguarde!\n${names}${timerLine}`;
+    if (!names) return 'Jogador distribuindo pontos de habilidade, aguarde!';
+    return `${choosers.length > 1 ? 'Jogadores' : 'Jogador'} distribuindo pontos de habilidade, aguarde!\n${names}`;
   }
 
   showLevelUpWait() {
@@ -3038,6 +3058,7 @@ export class GameScene extends Phaser.Scene {
       if (this.levelUpWaitText) {
         this.levelUpWaitText.setText(this.levelUpWaitMessage(choosers));
       }
+      this.updateLevelUpCountdown();
       return;
     }
 
@@ -3055,15 +3076,23 @@ export class GameScene extends Phaser.Scene {
       .setInteractive();
 
     const title = this.add
-      .text(width / 2, height / 2 - 24, 'PAUSA', {
+      .text(width / 2, height / 2 - 48, 'PAUSA', {
         fontFamily: 'Georgia, serif',
         fontSize: '34px',
         color: '#f4e8ff',
       })
       .setOrigin(0.5);
 
+    this.levelUpCountdown = this.add
+      .text(width / 2, height / 2 - 8, '', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '28px',
+        color: '#ffd166',
+      })
+      .setOrigin(0.5);
+
     this.levelUpWaitText = this.add
-      .text(width / 2, height / 2 + 28, this.levelUpWaitMessage(choosers), {
+      .text(width / 2, height / 2 + 40, this.levelUpWaitMessage(choosers), {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '20px',
         color: '#e8dfff',
@@ -3072,8 +3101,17 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.levelUpLayer.add([this.levelUpDim, title, this.levelUpWaitText]);
-    this.fadeInLevelUpOverlay([title, this.levelUpWaitText], 0.72);
+    this.updateLevelUpCountdown();
+    this.levelUpLayer.add([
+      this.levelUpDim,
+      title,
+      this.levelUpCountdown,
+      this.levelUpWaitText,
+    ]);
+    this.fadeInLevelUpOverlay(
+      [title, this.levelUpCountdown, this.levelUpWaitText],
+      0.72
+    );
   }
 
   showLevelUp(choices, key = null) {
@@ -3097,14 +3135,21 @@ export class GameScene extends Phaser.Scene {
         ? `SUBIU DE NÍVEL — ${remaining} pontos de habilidade`
         : 'SUBIU DE NÍVEL — 1 ponto de habilidade';
     const title = this.add
-      .text(width / 2, 120, titleText, {
+      .text(width / 2, 100, titleText, {
         fontFamily: 'Georgia, serif',
         fontSize: '28px',
         color: '#f4e8ff',
       })
       .setOrigin(0.5);
+    this.levelUpCountdown = this.add
+      .text(width / 2, 142, '', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '26px',
+        color: '#ffd166',
+      })
+      .setOrigin(0.5);
     this.levelUpHint = this.add
-      .text(width / 2, 158, '', {
+      .text(width / 2, 178, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#a99bc8',
@@ -3112,9 +3157,14 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.updateLevelUpSlotHint();
 
-    this.levelUpLayer.add([this.levelUpDim, title, this.levelUpHint]);
+    this.levelUpLayer.add([
+      this.levelUpDim,
+      title,
+      this.levelUpCountdown,
+      this.levelUpHint,
+    ]);
 
-    const fadeTargets = [title, this.levelUpHint];
+    const fadeTargets = [title, this.levelUpCountdown, this.levelUpHint];
 
     choices.forEach((choice, i) => {
       const x = width / 2 + (i - (choices.length - 1) / 2) * 270;
@@ -3201,6 +3251,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpSubmittedKey = null;
     this.levelUpChoices = [];
     this.levelUpHint = null;
+    this.levelUpCountdown = null;
     this.levelUpWaitText = null;
     this.choiceCards = [];
     this.levelUpDim = null;
