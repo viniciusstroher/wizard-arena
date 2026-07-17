@@ -54,6 +54,7 @@ export class GameScene extends Phaser.Scene {
     this.burstSeen = new Set();
     this.aoeFxAt = new Map();
     this.dashGhosts = [];
+    this.pendingBarrier = false;
     /** Direção de dash pendente até o próximo emit (evita perder toques curtos). */
     this.pendingDash = null;
     this.lastHurtSoundAt = 0;
@@ -282,10 +283,10 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    // 1–3 magias, 4 = ultimate, Shift = dash (depois do ultimate, com gap)
-    const slotLabels = ['1', '2', '3', '4', 'Shift'];
-    for (let i = 0; i < 5; i++) {
-      const gapAfterUlt = i === 4 ? 24 : 0;
+    // 1–3 magias, 4 = ultimate, Shift = dash, D = escudo (inatas depois do ultimate)
+    const slotLabels = ['1', '2', '3', '4', 'Shift', 'D'];
+    for (let i = 0; i < 6; i++) {
+      const gapAfterUlt = i >= 4 ? 24 : 0;
       const x = 24 + i * 70 + gapAfterUlt;
       const y = this.scale.height - 70;
       const slot = this.add.container(x, y).setScrollFactor(0).setDepth(100);
@@ -294,7 +295,7 @@ export class GameScene extends Phaser.Scene {
       const key = this.add
         .text(-26, -26, slotLabels[i], {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: i === 4 ? '9px' : '11px',
+          fontSize: i >= 4 ? '9px' : '11px',
           color: '#9a8bb8',
         })
         .setOrigin(0);
@@ -319,7 +320,7 @@ export class GameScene extends Phaser.Scene {
       slot.name = name;
       slot.cd = cd;
       slot.slotIndex = i;
-      // Slot 4 = dash (não selecionável como magia)
+      // Slots 4–5 = dash / escudo (não selecionáveis como magia)
       if (i < 4) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
@@ -1122,10 +1123,14 @@ export class GameScene extends Phaser.Scene {
   onDashKeyDown(event) {
     if (event.repeat) return;
     if (this.disconnectConfirmOpen || this.matchEndOpen || this.leaving) return;
+    if (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) return;
 
     const dirByCode = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right' };
     const dir = dirByCode[event.code];
     const shiftHeld = event.shiftKey || this.cursors.dash?.isDown;
+
+    // Escudo inato (D) — mesmo sem Shift; latch para não perder toque curto.
+    if (event.code === 'KeyD') this.pendingBarrier = true;
 
     // Shift + WASD (W/A/S/D apertado com Shift).
     if (dir && shiftHeld) {
@@ -1164,6 +1169,8 @@ export class GameScene extends Phaser.Scene {
 
     // Durante level-up: combate pausado. Quem escolhe usa 1–4 / Tab; quem espera só aguarda.
     if (levelUpPaused) {
+      this.pendingBarrier = false;
+      this.pendingDash = null;
       if (this.levelUpOpen && !this.levelUpSubmitting) {
         if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
           this.cycleSpellSlot();
@@ -1183,6 +1190,7 @@ export class GameScene extends Phaser.Scene {
         aimY: pointer.worldY,
         castSlot: -1,
         dash: null,
+        barrier: false,
       });
       return;
     }
@@ -1197,6 +1205,9 @@ export class GameScene extends Phaser.Scene {
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
+    // Escudo inato: tecla D (mesmo keycode do movimento direita — dispara no JustDown)
+    const barrier = !!this.pendingBarrier || Phaser.Input.Keyboard.JustDown(this.cursors.right);
+    this.pendingBarrier = false;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,
@@ -1207,6 +1218,7 @@ export class GameScene extends Phaser.Scene {
       aimY: pointer.worldY,
       castSlot,
       dash,
+      barrier,
     });
   }
 
@@ -3314,6 +3326,17 @@ export class GameScene extends Phaser.Scene {
     dashSlot.icon.setAlpha(dashCd > 0 && !dashing ? 0.45 : 1);
     dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
     dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
+
+    // Slot depois do dash (5): escudo inato (D)
+    const barrierSlot = this.spellSlots[5];
+    const barrierCd = me.barrierCooldown || 0;
+    const shielded = !!me.alive && (me.shield || 0) > 0;
+    this.setSpellSlotIcon(barrierSlot, 'barrier');
+    barrierSlot.name.setText(shielded ? 'escudo!' : 'escudo');
+    barrierSlot.cd.setText(barrierCd > 0 ? barrierCd.toFixed(1) : '');
+    barrierSlot.icon.setAlpha(barrierCd > 0 && !shielded ? 0.45 : 1);
+    barrierSlot.bg.setStrokeStyle(2, shielded ? 0xffffff : barrierCd > 0 ? 0x445566 : 0x88aaff);
+    barrierSlot.bg.setFillStyle(shielded ? 0x1a2848 : 0x1a1430, 0.95);
 
     this.updateScoreboard();
   }

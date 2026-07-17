@@ -108,9 +108,12 @@ export const SPELLS = {
   barrier: {
     id: 'barrier',
     name: 'Barrier',
-    description: 'Escudo que absorve dano por alguns segundos.',
+    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (D).',
     type: 'basic',
     playerUsable: true,
+    /** Não aparece na tela de escolha de habilidade; todos já possuem. */
+    selectable: false,
+    innate: true,
     cooldown: 6.0,
     manaCost: 0,
     shield: 35,
@@ -190,8 +193,10 @@ export const ULTIMATES = {
 const BASIC_IDS = Object.keys(SPELLS);
 const ULTIMATE_IDS = Object.keys(ULTIMATES);
 
-/** Magias básicas que jogadores podem aprender / sortear. */
-export const PLAYER_BASIC_IDS = BASIC_IDS.filter((id) => SPELLS[id].playerUsable !== false);
+/** Magias básicas que jogadores podem aprender / sortear (exclui inatas como barrier). */
+export const PLAYER_BASIC_IDS = BASIC_IDS.filter(
+  (id) => SPELLS[id].playerUsable !== false && SPELLS[id].selectable !== false
+);
 /** Ultimates disponíveis para jogadores. */
 export const PLAYER_ULTIMATE_IDS = ULTIMATE_IDS.filter((id) => ULTIMATES[id].playerUsable !== false);
 
@@ -321,6 +326,7 @@ export function applySpellChoice(player, choice) {
   const def = getSpellDef(choice.spellId);
   if (!def) return false;
   if (def.playerUsable === false) return false;
+  if (def.selectable === false || def.innate) return false;
 
   if (def.type === 'ultimate') {
     if (player.ultimate) return false;

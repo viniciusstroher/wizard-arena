@@ -126,6 +126,13 @@ export class BotController {
       castSlot = mendIdx;
     }
 
-    this.match.setInput(this.playerId, { up, down, left, right, aimX, aimY, castSlot });
+    // Escudo inato (D) quando ferido
+    const barrier =
+      player.hp < 55 &&
+      (player.barrierCooldown || 0) <= 0 &&
+      (player.shield || 0) <= 0 &&
+      Math.random() < 0.35;
+
+    this.match.setInput(this.playerId, { up, down, left, right, aimX, aimY, castSlot, barrier });
   }
 }
