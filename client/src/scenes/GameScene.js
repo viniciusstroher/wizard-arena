@@ -2800,7 +2800,9 @@ export class GameScene extends Phaser.Scene {
 
     this.levelText.setPosition(PAD_X + 4, y);
     this.levelText.setText(`Lv ${me.level}  ·  XP ${me.xp}/${me.xpToNext}`);
-    this.scoreText.setText(`·  ${me.kills || 0}/${me.deaths || 0}  (${me.score || 0} pts)`);
+    this.scoreText.setText(
+      `·  ${me.kills || 0}/${me.deaths || 0}  (${me.score || 0} pts)  ·  ${me.damageDealt || 0} dmg`
+    );
     this.scoreText.setPosition(this.levelText.x + this.levelText.width + 8, y);
     y += 22;
 

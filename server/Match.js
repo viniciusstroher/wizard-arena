@@ -242,6 +242,7 @@ export class Match {
       kills: 0,
       deaths: 0,
       monsterKills: 0,
+      damageDealt: 0,
       wizardType: wizard.type,
       color: wizard.color,
       zoneDmgAcc: 0,
@@ -813,8 +814,9 @@ export class Match {
   damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false) {
     if (!target.alive) return false;
     let dmg = amount;
+    let absorbed = 0;
     if (isPlayer && target.shield > 0) {
-      const absorbed = Math.min(target.shield, dmg);
+      absorbed = Math.min(target.shield, dmg);
       target.shield -= absorbed;
       dmg -= absorbed;
       if (target.shield <= 0) {
@@ -822,6 +824,11 @@ export class Match {
         target.maxShield = 0;
         target.shieldTimer = 0;
       }
+    }
+    const source = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
+    if (source) {
+      const hpHit = dmg > 0 ? Math.min(dmg, target.hp) : 0;
+      source.damageDealt += absorbed + hpHit;
     }
     if (dmg <= 0) return false;
     target.hp -= dmg;
@@ -2230,6 +2237,7 @@ export class Match {
       kills: p.kills,
       deaths: p.deaths,
       score: p.score,
+      damageDealt: Math.round(p.damageDealt || 0),
       pendingLevelUps: p.pendingLevelUps,
       spellChoices: p.spellChoices,
       choiceSetId: p.choiceSetId,
