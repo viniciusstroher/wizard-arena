@@ -705,17 +705,24 @@ export class GameScene extends Phaser.Scene {
         (b.level || 0) - (a.level || 0)
     );
     const winner = ranking.find((p) => p.id === state.winnerId) || ranking[0] || null;
+    const header = 'Jogador          K/M   Mob   Dano   Pts';
     const rows = ranking
       .map((p, i) => {
         const mark = p.id === winner?.id ? '★' : `${i + 1}.`;
-        return `${mark} ${p.name}  ${p.kills || 0}K / ${p.deaths || 0}M  ·  ${p.score || 0} pts`;
+        const name = `${mark} ${(p.name || 'Wizard').slice(0, 12)}`.padEnd(16, ' ');
+        const km = `${p.kills || 0}/${p.deaths || 0}`.padStart(5, ' ');
+        const mob = String(p.monsterKills || 0).padStart(5, ' ');
+        const dmg = String(p.damageDealt || 0).padStart(6, ' ');
+        const pts = String(p.score || 0).padStart(5, ' ');
+        return `${name}${km} ${mob} ${dmg} ${pts}`;
       })
       .join('\n');
 
-    const panelH = Math.min(420, 210 + ranking.length * 22);
+    const panelW = 520;
+    const panelH = Math.min(440, 230 + ranking.length * 22);
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
     const panel = this.add
-      .rectangle(width / 2, height / 2, 460, panelH, 0x161228, 0.98)
+      .rectangle(width / 2, height / 2, panelW, panelH, 0x161228, 0.98)
       .setStrokeStyle(2, 0xf1c40f);
     const title = this.add
       .text(width / 2, height / 2 - panelH / 2 + 36, winner ? `${winner.name} venceu!` : 'Partida encerrada', {
@@ -731,15 +738,23 @@ export class GameScene extends Phaser.Scene {
         color: '#a99bc8',
       })
       .setOrigin(0.5);
+    const boardHeader = this.add
+      .text(width / 2, height / 2 - panelH / 2 + 96, header, {
+        fontFamily: 'Consolas, Monaco, monospace',
+        fontSize: '13px',
+        color: '#7a6d9a',
+        align: 'left',
+      })
+      .setOrigin(0.5, 0);
     const board = this.add
-      .text(width / 2, height / 2 - 10, rows || 'Sem jogadores', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
+      .text(width / 2, height / 2 - panelH / 2 + 118, rows || 'Sem jogadores', {
+        fontFamily: 'Consolas, Monaco, monospace',
+        fontSize: '14px',
         color: '#e8dfff',
-        align: 'center',
+        align: 'left',
         lineSpacing: 6,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 0);
 
     const btnY = height / 2 + panelH / 2 - 42;
     const lobbyBg = this.add.rectangle(width / 2, btnY, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
@@ -755,7 +770,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
-    this.matchEndModal.add([dim, panel, title, subtitle, board, lobbyBg, lobbyLabel]);
+    this.matchEndModal.add([dim, panel, title, subtitle, boardHeader, board, lobbyBg, lobbyLabel]);
     this.bannerText.setAlpha(0);
   }
 

@@ -1142,6 +1142,8 @@ export class Match {
           score: p.score,
           kills: p.kills,
           deaths: p.deaths,
+          monsterKills: p.monsterKills || 0,
+          damageDealt: Math.round(p.damageDealt || 0),
           level: p.level,
         }))
         .sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths || b.level - a.level),
