@@ -27,6 +27,7 @@ export class GameScene extends Phaser.Scene {
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
     this.moveDust = null;
+    this.lavaBurn = null;
   }
 
   create() {
@@ -47,6 +48,7 @@ export class GameScene extends Phaser.Scene {
     this.aoeGraphics = this.add.graphics();
     this.effectGraphics = this.add.graphics();
     this.createMoveDust();
+    this.createLavaBurn();
 
     this.createHud();
     this.createEventBoard();
@@ -610,6 +612,65 @@ export class GameScene extends Phaser.Scene {
       .setDepth(3);
   }
 
+  createLavaBurn() {
+    this.lavaBurn = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xff2200, 0xff5500, 0xff9900, 0xffdd44],
+        speed: { min: 28, max: 70 },
+        angle: { min: 240, max: 300 },
+        scale: { start: 1.35, end: 0 },
+        alpha: { start: 0.95, end: 0 },
+        lifespan: { min: 220, max: 420 },
+        gravityY: -90,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(21);
+  }
+
+  isOnLava(x, y) {
+    const a = this.state?.arena;
+    if (!a) return false;
+    return Math.hypot(x - a.x, y - a.y) > a.radius;
+  }
+
+  /** Chamas + tint enquanto estiver na lava (fora do anel seguro). */
+  updateLavaBurn(sprite, x, y, onFire) {
+    if (!onFire) {
+      if (sprite.burnGlow) sprite.burnGlow.setVisible(false);
+      return;
+    }
+
+    const now = this.time.now;
+    const pulse = 0.5 + 0.5 * Math.sin(now / 70);
+    const tint = Phaser.Display.Color.GetColor(
+      255,
+      Math.floor(50 + 90 * pulse),
+      Math.floor(10 + 20 * pulse)
+    );
+    sprite.setTint(tint);
+
+    if (!sprite.burnGlow) {
+      sprite.burnGlow = this.add
+        .circle(x, y, 18, 0xff6600, 0.25)
+        .setDepth(19)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    }
+    sprite.burnGlow.setPosition(x, y + 2).setVisible(true);
+    sprite.burnGlow.setScale(0.9 + 0.25 * pulse);
+    sprite.burnGlow.setAlpha(0.2 + 0.25 * pulse);
+
+    if (!this.lavaBurn) return;
+    if (now - (sprite.lastBurnAt || 0) < 28) return;
+    sprite.lastBurnAt = now;
+
+    this.lavaBurn.setEmitterAngle({ min: 240, max: 300 });
+    this.lavaBurn.setParticleSpeed({ min: 30, max: 75 });
+    this.lavaBurn.emitParticleAt(x + Phaser.Math.Between(-7, 7), y + 6, 2);
+    this.lavaBurn.emitParticleAt(x + Phaser.Math.Between(-4, 4), y - 2, 2);
+  }
+
   /** Poeira no extremo oposto ao vetor de velocidade (rastro atrás do movimento). */
   emitMoveDust(sprite, x, y, vx = 0, vy = 0) {
     if (!this.moveDust) return;
@@ -870,7 +931,9 @@ export class GameScene extends Phaser.Scene {
       s.setScale(p.id === this.playerId ? 1.15 : 1);
       if (p.stun) s.setAngle(Math.sin(this.time.now / 40) * 8);
       else s.setAngle(0);
-      if (p.alive) this.emitMoveDust(s, p.x, p.y, p.vx, p.vy);
+      const onLava = p.alive && this.isOnLava(p.x, p.y);
+      if (p.alive && !onLava) this.emitMoveDust(s, p.x, p.y, p.vx, p.vy);
+      this.updateLavaBurn(s, p.x, p.y, onLava);
 
       s.nameTag.setText(p.name + (p.alive ? '' : ' ✝'));
       s.nameTag.setPosition(p.x, p.y - 28);
@@ -898,6 +961,7 @@ export class GameScene extends Phaser.Scene {
         s.hpBg.destroy();
         s.hpFg.destroy();
         s.shieldRing?.destroy();
+        s.burnGlow?.destroy();
         this.playerSprites.delete(id);
       }
     }
