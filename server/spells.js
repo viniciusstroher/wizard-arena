@@ -1,0 +1,282 @@
+/** Catálogo de magias e utilitários de escolha estilo rogue. */
+
+export const SPELLS = {
+  firebolt: {
+    id: 'firebolt',
+    name: 'Firebolt',
+    description: 'Projétil de fogo que causa dano a distância.',
+    type: 'basic',
+    cooldown: 0.8,
+    manaCost: 0,
+    damage: 18,
+    range: 320,
+    speed: 420,
+    radius: 10,
+    color: 0xff5533,
+  },
+  ice_shard: {
+    id: 'ice_shard',
+    name: 'Ice Shard',
+    description: 'Fragmento de gelo que causa dano e reduz velocidade.',
+    type: 'basic',
+    cooldown: 1.0,
+    manaCost: 0,
+    damage: 14,
+    range: 280,
+    speed: 380,
+    radius: 10,
+    slow: 0.45,
+    slowDuration: 1.5,
+    color: 0x66ccff,
+  },
+  arc_lightning: {
+    id: 'arc_lightning',
+    name: 'Arc Lightning',
+    description: 'Raio instantâneo no alvo mais próximo.',
+    type: 'basic',
+    cooldown: 1.2,
+    manaCost: 0,
+    damage: 22,
+    range: 260,
+    color: 0xffee55,
+  },
+  flame_nova: {
+    id: 'flame_nova',
+    name: 'Flame Nova',
+    description: 'Explosão circular ao redor do mago.',
+    type: 'basic',
+    cooldown: 2.5,
+    manaCost: 0,
+    damage: 28,
+    radius: 110,
+    color: 0xff8844,
+  },
+  mend: {
+    id: 'mend',
+    name: 'Mend',
+    description: 'Cura rápida.',
+    type: 'basic',
+    cooldown: 4.0,
+    manaCost: 0,
+    heal: 28,
+    color: 0x55ff88,
+  },
+  poison_cloud: {
+    id: 'poison_cloud',
+    name: 'Poison Cloud',
+    description: 'Nuvem tóxica que causa dano ao longo do tempo.',
+    type: 'basic',
+    cooldown: 3.0,
+    manaCost: 0,
+    damage: 8,
+    duration: 4,
+    radius: 90,
+    tick: 0.5,
+    color: 0x88ff44,
+  },
+  blink: {
+    id: 'blink',
+    name: 'Blink',
+    description: 'Teleporte curto na direção do cursor.',
+    type: 'basic',
+    cooldown: 3.5,
+    manaCost: 0,
+    range: 180,
+    color: 0xaa88ff,
+  },
+  barrier: {
+    id: 'barrier',
+    name: 'Barrier',
+    description: 'Escudo que absorve dano por alguns segundos.',
+    type: 'basic',
+    cooldown: 6.0,
+    manaCost: 0,
+    shield: 35,
+    duration: 3.5,
+    color: 0x88aaff,
+  },
+};
+
+export const ULTIMATES = {
+  apocalypse: {
+    id: 'apocalypse',
+    name: 'Apocalypse',
+    description: 'Chuva de meteoros em grande área. 1x por round.',
+    type: 'ultimate',
+    cooldown: 9999,
+    oncePerRound: true,
+    damage: 70,
+    radius: 200,
+    color: 0xff2200,
+  },
+  time_freeze: {
+    id: 'time_freeze',
+    name: 'Time Freeze',
+    description: 'Congela inimigos próximos. 1x por round.',
+    type: 'ultimate',
+    cooldown: 9999,
+    oncePerRound: true,
+    duration: 3,
+    radius: 220,
+    color: 0xaaddff,
+  },
+  storm_call: {
+    id: 'storm_call',
+    name: 'Storm Call',
+    description: 'Cadeia de raios em todos os inimigos próximos. 1x por round.',
+    type: 'ultimate',
+    cooldown: 9999,
+    oncePerRound: true,
+    damage: 45,
+    range: 320,
+    color: 0xffdd33,
+  },
+  phoenix: {
+    id: 'phoenix',
+    name: 'Phoenix Form',
+    description: 'Ao morrer, revive com 50% de vida (1x por round).',
+    type: 'ultimate',
+    cooldown: 9999,
+    oncePerRound: true,
+    passive: true,
+    reviveHp: 50,
+    color: 0xff6600,
+  },
+};
+
+const BASIC_IDS = Object.keys(SPELLS);
+const ULTIMATE_IDS = Object.keys(ULTIMATES);
+
+export function getSpellDef(id) {
+  return SPELLS[id] || ULTIMATES[id] || null;
+}
+
+export function createSpellInstance(id, level = 1) {
+  const base = getSpellDef(id);
+  if (!base) return null;
+  return {
+    id,
+    level,
+    type: base.type,
+    cooldownLeft: 0,
+    usedThisRound: false,
+  };
+}
+
+/** Multiplicadores por nível de upgrade da magia. */
+export function spellStats(id, level = 1) {
+  const base = getSpellDef(id);
+  if (!base) return null;
+  const mul = 1 + (level - 1) * 0.25;
+  return {
+    ...base,
+    damage: base.damage != null ? Math.round(base.damage * mul) : undefined,
+    heal: base.heal != null ? Math.round(base.heal * mul) : undefined,
+    shield: base.shield != null ? Math.round(base.shield * mul) : undefined,
+    radius: base.radius != null ? Math.round(base.radius * (1 + (level - 1) * 0.12)) : undefined,
+    range: base.range != null ? Math.round(base.range * (1 + (level - 1) * 0.08)) : undefined,
+    cooldown: base.cooldown != null && !base.oncePerRound
+      ? Math.max(0.35, +(base.cooldown * (1 - (level - 1) * 0.08)).toFixed(2))
+      : base.cooldown,
+    level,
+  };
+}
+
+/**
+ * Oferece 3 opções:
+ * - preferencialmente 1 upgrade se o jogador já tem magias
+ * - resto magias novas (ou ultimate no nível 4 se ainda não tiver)
+ */
+export function rollSpellChoices(player, forLevel) {
+  const owned = player.spells.map((s) => s.id);
+  const hasUltimate = !!player.ultimate;
+  const choices = [];
+  const used = new Set();
+
+  const wantUltimate = forLevel >= 4 && !hasUltimate;
+  if (wantUltimate) {
+    const pool = ULTIMATE_IDS.filter((id) => !used.has(id));
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick) {
+      choices.push({ kind: 'new', spellId: pick, label: 'ULTIMATE' });
+      used.add(pick);
+    }
+  }
+
+  // Uma opção de upgrade se possível
+  if (owned.length > 0 && choices.length < 3 && Math.random() < 0.85) {
+    const upgradable = player.spells.filter((s) => s.level < 5);
+    if (upgradable.length) {
+      const s = upgradable[Math.floor(Math.random() * upgradable.length)];
+      choices.push({ kind: 'upgrade', spellId: s.id, fromLevel: s.level, toLevel: s.level + 1 });
+      used.add(`upgrade:${s.id}`);
+    }
+  }
+
+  const canLearnNew = owned.length < 4;
+  while (choices.length < 3) {
+    if (canLearnNew) {
+      const pool = BASIC_IDS.filter((id) => !owned.includes(id) && !used.has(id));
+      if (pool.length) {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        choices.push({ kind: 'new', spellId: pick });
+        used.add(pick);
+        continue;
+      }
+    }
+    // Fallback: upgrades
+    const upgradable = player.spells.filter(
+      (s) => s.level < 5 && !used.has(`upgrade:${s.id}`)
+    );
+    if (upgradable.length) {
+      const s = upgradable[Math.floor(Math.random() * upgradable.length)];
+      choices.push({ kind: 'upgrade', spellId: s.id, fromLevel: s.level, toLevel: s.level + 1 });
+      used.add(`upgrade:${s.id}`);
+      continue;
+    }
+    // Último recurso: qualquer basic não usada na lista
+    const pool = BASIC_IDS.filter((id) => !used.has(id));
+    if (!pool.length) break;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    choices.push({
+      kind: owned.includes(pick) ? 'upgrade' : 'new',
+      spellId: pick,
+      fromLevel: owned.includes(pick)
+        ? player.spells.find((s) => s.id === pick).level
+        : 1,
+      toLevel: owned.includes(pick)
+        ? player.spells.find((s) => s.id === pick).level + 1
+        : 1,
+    });
+    used.add(pick);
+  }
+
+  return choices.map((c) => ({
+    ...c,
+    def: spellStats(c.spellId, c.kind === 'upgrade' ? c.toLevel : 1),
+  }));
+}
+
+export function applySpellChoice(player, choice) {
+  if (!choice) return false;
+  const def = getSpellDef(choice.spellId);
+  if (!def) return false;
+
+  if (def.type === 'ultimate') {
+    if (player.ultimate) return false;
+    player.ultimate = createSpellInstance(choice.spellId, 1);
+    return true;
+  }
+
+  if (choice.kind === 'upgrade') {
+    const existing = player.spells.find((s) => s.id === choice.spellId);
+    if (!existing) return false;
+    existing.level += 1;
+    return true;
+  }
+
+  if (player.spells.length >= 4) return false;
+  if (player.spells.some((s) => s.id === choice.spellId)) return false;
+  player.spells.push(createSpellInstance(choice.spellId, 1));
+  return true;
+}
