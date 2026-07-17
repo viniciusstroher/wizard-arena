@@ -13,6 +13,7 @@ export class GameScene extends Phaser.Scene {
     this.monsterSprites = new Map();
     this.projectileSprites = new Map();
     this.rockSprites = new Map();
+    this.bloodSprites = new Map();
     this.aoeGraphics = null;
     this.arenaGraphics = null;
     this.effectGraphics = null;
@@ -804,7 +805,26 @@ export class GameScene extends Phaser.Scene {
 
   renderEffects() {
     this.effectGraphics.clear();
+    const seenBlood = new Set();
+
     for (const e of this.state.effects || []) {
+      if (e.type === 'blood') {
+        seenBlood.add(e.entityId);
+        let s = this.bloodSprites.get(e.entityId);
+        if (!s) {
+          const key = `blood_${e.variant ?? 0}`;
+          s = this.add
+            .image(e.x, e.y, this.textures.exists(key) ? key : 'blood_0')
+            .setDepth(2)
+            .setRotation(e.rotation || 0)
+            .setScale(e.scale || 1);
+          this.bloodSprites.set(e.entityId, s);
+        }
+        const fade = e.life < 2 ? e.life / 2 : 1;
+        s.setAlpha(0.75 * fade);
+        continue;
+      }
+
       if (e.type === 'lightning') {
         this.effectGraphics.lineStyle(2, e.color || 0xffee55, 0.9);
         this.effectGraphics.lineBetween(e.x1, e.y1, e.x2, e.y2);
@@ -813,6 +833,13 @@ export class GameScene extends Phaser.Scene {
         this.effectGraphics.strokeCircle(e.x, e.y, e.radius || 30);
         this.effectGraphics.fillStyle(e.color || 0xffffff, 0.12);
         this.effectGraphics.fillCircle(e.x, e.y, e.radius || 24);
+      }
+    }
+
+    for (const [id, s] of this.bloodSprites) {
+      if (!seenBlood.has(id)) {
+        s.destroy();
+        this.bloodSprites.delete(id);
       }
     }
   }

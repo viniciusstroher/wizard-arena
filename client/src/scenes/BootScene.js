@@ -67,6 +67,7 @@ export class BootScene extends Phaser.Scene {
     this.createArenaBrickTexture();
     this.createLavaTextures();
     this.createRockSprites();
+    this.createBloodSprites();
     this.scene.start('Lobby');
   }
 
@@ -135,6 +136,57 @@ export class BootScene extends Phaser.Scene {
       ],
       { D: 0x2f2f36, L: 0x5c5c66, H: 0x8a8a96 },
       3
+    );
+  }
+
+  createBloodSprites() {
+    makePixelTexture(
+      this,
+      'blood_0',
+      [
+        '........',
+        '..RR....',
+        '.RRRR...',
+        '.RRDRR..',
+        '..RRRR..',
+        '...RR...',
+        '........',
+        '........',
+      ],
+      { R: 0x8b0000, D: 0x5a0000 },
+      2
+    );
+    makePixelTexture(
+      this,
+      'blood_1',
+      [
+        '........',
+        '...R.R..',
+        '..RRRR..',
+        '.RRDRRR.',
+        '..RRRR..',
+        '.R..R...',
+        '........',
+        '........',
+      ],
+      { R: 0xa00000, D: 0x4a0000 },
+      2
+    );
+    makePixelTexture(
+      this,
+      'blood_2',
+      [
+        '........',
+        '..RRR...',
+        '.RRDRR..',
+        '.RRRRRR.',
+        '..RDRR..',
+        '...RR...',
+        '........',
+        '........',
+      ],
+      { R: 0x9b1b1b, D: 0x3d0000 },
+      2
     );
   }
 

@@ -375,7 +375,21 @@ export class Match {
     }
   }
 
-  damageEntity(target, amount, sourcePlayerId = null, isPlayer = true) {
+  spawnBlood(x, y) {
+    this.effects.push({
+      entityId: eid(),
+      type: 'blood',
+      x: +(x + (Math.random() - 0.5) * 12).toFixed(1),
+      y: +(y + (Math.random() - 0.5) * 12).toFixed(1),
+      life: 7,
+      scale: +(0.75 + Math.random() * 0.7).toFixed(2),
+      rotation: +(Math.random() * Math.PI * 2).toFixed(2),
+      variant: Math.floor(Math.random() * 3),
+    });
+  }
+
+  /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
+  damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false) {
     if (!target.alive) return false;
     let dmg = amount;
     if (isPlayer && target.shield > 0) {
@@ -385,6 +399,11 @@ export class Match {
     }
     if (dmg <= 0) return false;
     target.hp -= dmg;
+
+    if (fromHit || sourcePlayerId) {
+      this.spawnBlood(target.x, target.y);
+    }
+
     if (target.hp <= 0) {
       target.hp = 0;
       return this.killEntity(target, sourcePlayerId, isPlayer);
@@ -720,20 +739,20 @@ export class Match {
 
   damageHostile(hostile, amount, sourceId) {
     if (hostile._isPlayer) {
-      this.damageEntity(hostile.ref, amount, sourceId, true);
+      this.damageEntity(hostile.ref, amount, sourceId, true, true);
     } else {
-      this.damageEntity(hostile.ref, amount, sourceId, false);
+      this.damageEntity(hostile.ref, amount, sourceId, false, true);
     }
   }
 
   applyNova(origin, radius, damage, sourceId) {
     for (const p of this.players.values()) {
       if (p.id === sourceId || !p.alive) continue;
-      if (dist(origin, p) <= radius) this.damageEntity(p, damage, sourceId, true);
+      if (dist(origin, p) <= radius) this.damageEntity(p, damage, sourceId, true, true);
     }
     for (const m of this.monsters) {
       if (!m.alive) continue;
-      if (dist(origin, m) <= radius) this.damageEntity(m, damage, sourceId, false);
+      if (dist(origin, m) <= radius) this.damageEntity(m, damage, sourceId, false, true);
     }
   }
 
@@ -895,7 +914,7 @@ export class Match {
         m.y += (dy / len) * m.speed * dt;
         this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
       } else if (m.attackCd <= 0) {
-        this.damageEntity(nearest, m.damage, null, true);
+        this.damageEntity(nearest, m.damage, null, true, true);
         m.attackCd = CONFIG.MONSTER_ATTACK_COOLDOWN;
       }
     }
@@ -909,7 +928,7 @@ export class Match {
       for (const p of this.players.values()) {
         if (!p.alive || p.id === proj.ownerId) continue;
         if (dist(proj, p) <= proj.radius + CONFIG.PLAYER_RADIUS) {
-          this.damageEntity(p, proj.damage, proj.ownerId, true);
+          this.damageEntity(p, proj.damage, proj.ownerId, true, true);
           if (proj.slow) {
             p.slow = Math.max(p.slow, proj.slow);
             p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
@@ -922,7 +941,7 @@ export class Match {
         for (const m of this.monsters) {
           if (!m.alive) continue;
           if (dist(proj, m) <= proj.radius + m.radius) {
-            this.damageEntity(m, proj.damage, proj.ownerId, false);
+            this.damageEntity(m, proj.damage, proj.ownerId, false, true);
             hit = true;
             break;
           }
@@ -940,11 +959,11 @@ export class Match {
         aoe.tickAcc -= aoe.tick;
         for (const p of this.players.values()) {
           if (!p.alive || p.id === aoe.ownerId) continue;
-          if (dist(aoe, p) <= aoe.radius) this.damageEntity(p, aoe.damage, aoe.ownerId, true);
+          if (dist(aoe, p) <= aoe.radius) this.damageEntity(p, aoe.damage, aoe.ownerId, true, true);
         }
         for (const m of this.monsters) {
           if (!m.alive) continue;
-          if (dist(aoe, m) <= aoe.radius) this.damageEntity(m, aoe.damage, aoe.ownerId, false);
+          if (dist(aoe, m) <= aoe.radius) this.damageEntity(m, aoe.damage, aoe.ownerId, false, true);
         }
       }
     }
