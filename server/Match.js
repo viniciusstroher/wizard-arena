@@ -959,13 +959,14 @@ export class Match {
         return;
     }
 
+    const pentagramLife = CONFIG.PENTAGRAM_FADEOUT;
     this.effects.push({
       type: 'pentagram',
       x: castX,
       y: castY,
       radius: 38,
-      life: 2.2,
-      maxLife: 2.2,
+      life: pentagramLife,
+      maxLife: pentagramLife,
       color: stats.color,
     });
 

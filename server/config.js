@@ -84,4 +84,7 @@ export const CONFIG = {
   ROCK_SPAWN_CLEAR_RADIUS: 170,
   ROCK_MIN: 16,
   ROCK_MAX: 28,
+
+  /** Duração do fade-out do pentagrama ao lançar magia (segundos). */
+  PENTAGRAM_FADEOUT: envNumber('PENTAGRAM_FADEOUT', 2.2),
 };
