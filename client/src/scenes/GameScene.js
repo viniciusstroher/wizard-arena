@@ -972,6 +972,11 @@ export class GameScene extends Phaser.Scene {
     this.sound.play('player_hurt', { volume: 0.75 });
   }
 
+  playKikoLaugh() {
+    if (!this.cache.audio.exists('kiko_laugh')) return;
+    this.sound.play('kiko_laugh', { volume: 0.85 });
+  }
+
   onState(state) {
     const prevPhase = this.state?.phase;
     this.state = state;
@@ -1021,6 +1026,9 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'round_start') {
         this.playRoundStartSound();
+      }
+      if (ev.type === 'kiko_laugh') {
+        this.playKikoLaugh();
       }
       if (ev.type === 'round_win') {
         roundEnded = true;

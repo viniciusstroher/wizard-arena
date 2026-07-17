@@ -80,6 +80,7 @@ export class Match {
     this.effects = [];
     this.meteors = [];
     this.meteorTimer = 0;
+    this.kikoLaughTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
     this.matchTime = 0;
@@ -361,6 +362,7 @@ export class Match {
     this.effects = [];
     this.meteors = [];
     this.meteorTimer = 0;
+    this.kikoLaughTimer = 0;
     this.events = [];
     this.winnerId = null;
     this.generateRocks();
@@ -950,6 +952,7 @@ export class Match {
 
     this.meteors = [];
     this.meteorTimer = 0;
+    this.kikoLaughTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
       winner.score += 1;
@@ -1391,30 +1394,36 @@ export class Match {
     this.monsters.push(monster);
   }
 
+  isPlayerEntity(target) {
+    return !!(target?.id && this.players.has(target.id));
+  }
+
   /** Aplica/renova veneno (duração sempre no máximo). */
   applyPoison(target, ownerId, damage, tick, duration) {
     if (!target?.alive) return;
     const wasPoisoned = (target.poisonTimer || 0) > 0;
-    target.poisonTimer = duration;
-    target.poisonDamage = damage;
-    target.poisonTick = tick > 0 ? tick : 1;
+    const dmg = Math.max(0, Math.round(Number(damage) || 0));
+    target.poisonTimer = Math.max(0.05, Number(duration) || 5);
+    target.poisonDamage = dmg;
+    target.poisonTick = Math.max(0.05, Number(tick) || 1);
     target.poisonOwnerId = ownerId;
-    // Só zera o acumulador na primeira aplicação — renovar não pausa o DoT
+    // Renovar não pausa o DoT; na 1ª aplicação causa tick imediato
     if (!wasPoisoned) {
       target.poisonTickAcc = 0;
-      const isPlayer = !!(target.id && this.players.has(target.id));
-      this.damageEntity(target, damage, ownerId, isPlayer, true);
+      if (dmg > 0) this.damageEntity(target, dmg, ownerId, this.isPlayerEntity(target), true);
     }
   }
 
   /** Processa DoT de veneno em jogador ou monstro. */
   tickPoison(target, dt, isPlayer) {
-    if (!target.alive || !(target.poisonTimer > 0)) return;
+    if (!target?.alive || !(target.poisonTimer > 0)) return;
+    if (!Number.isFinite(target.poisonTickAcc)) target.poisonTickAcc = 0;
+    const tick = Math.max(0.05, Number(target.poisonTick) || 1);
+    const dmg = Math.max(0, Math.round(Number(target.poisonDamage) || 0));
     target.poisonTickAcc += dt;
-    const tick = target.poisonTick > 0 ? target.poisonTick : 1;
     while (target.poisonTickAcc >= tick && target.alive && target.poisonTimer > 0) {
       target.poisonTickAcc -= tick;
-      this.damageEntity(target, target.poisonDamage, target.poisonOwnerId, isPlayer, true);
+      if (dmg > 0) this.damageEntity(target, dmg, target.poisonOwnerId, isPlayer, true);
     }
     target.poisonTimer = Math.max(0, target.poisonTimer - dt);
     if (target.poisonTimer <= 0 || !target.alive) {
@@ -1429,22 +1438,28 @@ export class Match {
   applyBurn(target, ownerId, damage, tick, duration) {
     if (!target?.alive) return;
     const wasBurning = (target.burnTimer || 0) > 0;
-    target.burnTimer = duration;
-    target.burnDamage = damage;
-    target.burnTick = tick > 0 ? tick : 1;
+    const dmg = Math.max(0, Math.round(Number(damage) || 0));
+    target.burnTimer = Math.max(0.05, Number(duration) || 10);
+    target.burnDamage = dmg;
+    target.burnTick = Math.max(0.05, Number(tick) || 1);
     target.burnOwnerId = ownerId;
-    // Renovar não pausa o DoT; na 1ª aplicação o 1º tick vem após `tick` segundos
-    if (!wasBurning) target.burnTickAcc = 0;
+    // Renovar não pausa o DoT; na 1ª aplicação causa tick imediato
+    if (!wasBurning) {
+      target.burnTickAcc = 0;
+      if (dmg > 0) this.damageEntity(target, dmg, ownerId, this.isPlayerEntity(target), true);
+    }
   }
 
   /** Processa DoT de queimadura em jogador ou monstro. */
   tickBurn(target, dt, isPlayer) {
-    if (!target.alive || !(target.burnTimer > 0)) return;
+    if (!target?.alive || !(target.burnTimer > 0)) return;
+    if (!Number.isFinite(target.burnTickAcc)) target.burnTickAcc = 0;
+    const tick = Math.max(0.05, Number(target.burnTick) || 1);
+    const dmg = Math.max(0, Math.round(Number(target.burnDamage) || 0));
     target.burnTickAcc += dt;
-    const tick = target.burnTick > 0 ? target.burnTick : 1;
     while (target.burnTickAcc >= tick && target.alive && target.burnTimer > 0) {
       target.burnTickAcc -= tick;
-      this.damageEntity(target, target.burnDamage, target.burnOwnerId, isPlayer, true);
+      if (dmg > 0) this.damageEntity(target, dmg, target.burnOwnerId, isPlayer, true);
     }
     target.burnTimer = Math.max(0, target.burnTimer - dt);
     if (target.burnTimer <= 0 || !target.alive) {
@@ -1452,6 +1467,20 @@ export class Match {
       target.burnDamage = 0;
       target.burnTickAcc = 0;
       target.burnOwnerId = null;
+    }
+  }
+
+  /** Aplica DoTs de todas as entidades (depois dos AoEs). */
+  tickAllDots(dt) {
+    for (const p of this.players.values()) {
+      if (!p.alive) continue;
+      this.tickPoison(p, dt, true);
+      this.tickBurn(p, dt, true);
+    }
+    for (const m of this.monsters) {
+      if (!m.alive) continue;
+      this.tickPoison(m, dt, false);
+      this.tickBurn(m, dt, false);
     }
   }
 
@@ -1469,13 +1498,16 @@ export class Match {
     const burnDmg = stats.burnDamage ?? 1;
     const burnTick = stats.burnTick ?? 1;
     const burnDuration = stats.burnDuration ?? 10;
-    const groundLife = stats.duration ?? 4;
+    const groundLife = Math.max(0.5, Number(stats.duration) || 4);
+    const burnDmgSafe = Math.max(1, Math.round(Number(burnDmg) || 1));
+    const burnTickSafe = Math.max(0.05, Number(burnTick) || 1);
+    const burnDurationSafe = Math.max(0.5, Number(burnDuration) || 10);
 
     for (const p of this.players.values()) {
       if (!p.alive || p.id === ownerId) continue;
       if (dist(origin, p) <= radius) {
         this.damageEntity(p, burst, ownerId, true, true);
-        this.applyBurn(p, ownerId, burnDmg, burnTick, burnDuration);
+        this.applyBurn(p, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
       }
     }
     if (hitMonsters) {
@@ -1483,7 +1515,7 @@ export class Match {
         if (!m.alive) continue;
         if (dist(origin, m) <= radius) {
           this.damageEntity(m, burst, ownerId, false, true);
-          this.applyBurn(m, ownerId, burnDmg, burnTick, burnDuration);
+          this.applyBurn(m, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
         }
       }
     }
@@ -1494,9 +1526,9 @@ export class Match {
       x: origin.x,
       y: origin.y,
       radius,
-      damage: burnDmg,
-      tick: burnTick,
-      burnDuration,
+      damage: burnDmgSafe,
+      tick: burnTickSafe,
+      burnDuration: burnDurationSafe,
       life: groundLife,
       maxLife: groundLife,
       color: stats.color || 0xff8844,
@@ -1773,18 +1805,19 @@ export class Match {
           radius: 42,
         });
         break;
-      case 'poison_cloud':
+      case 'poison_cloud': {
+        const groundLife = Math.max(0.5, Number(stats.duration) || 4);
         this.aoes.push({
           entityId: eid(),
           ownerId: player.id,
           x: player.x + dirX * 80,
           y: player.y + dirY * 80,
-          radius: stats.radius,
-          damage: stats.damage,
-          tick: stats.tick || 1,
-          poisonDuration: stats.poisonDuration || 5,
-          life: stats.duration,
-          maxLife: stats.duration,
+          radius: stats.radius || 90,
+          damage: Math.max(1, Math.round(Number(stats.damage) || 3)),
+          tick: Math.max(0.05, Number(stats.tick) || 1),
+          poisonDuration: Math.max(0.5, Number(stats.poisonDuration) || 5),
+          life: groundLife,
+          maxLife: groundLife,
           color: stats.color,
           spellId: 'poison_cloud',
         });
@@ -1798,6 +1831,7 @@ export class Match {
           color: stats.color,
         });
         break;
+      }
       case 'blink': {
         const fromX = player.x;
         const fromY = player.y;
@@ -2125,13 +2159,13 @@ export class Match {
 
     // Evento aleatório: meteoro com aviso em área
     this.tickMeteors(dt);
+    // Risada do Kiko (áudio aleatório no client)
+    this.tickKikoLaugh(dt);
 
     // Players
     for (const p of this.players.values()) {
       if (!p.alive) continue;
 
-      this.tickPoison(p, dt, true);
-      this.tickBurn(p, dt, true);
       p.stunTimer = Math.max(0, p.stunTimer - dt);
       p.slowTimer = Math.max(0, p.slowTimer - dt);
       if (p.slowTimer <= 0) p.slow = 0;
@@ -2220,8 +2254,6 @@ export class Match {
     // Monsters AI
     for (const m of this.monsters) {
       if (!m.alive) continue;
-      this.tickPoison(m, dt, false);
-      this.tickBurn(m, dt, false);
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
       m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
@@ -2418,13 +2450,14 @@ export class Match {
     // AoEs — poison / flame_nova aplicam ou renovam status no chão
     for (const aoe of this.aoes) {
       aoe.life -= dt;
-      const tick = aoe.tick || 1;
+      const tick = Math.max(0.05, Number(aoe.tick) || 1);
+      const dmg = Math.max(0, Math.round(Number(aoe.damage) || 0));
       if (aoe.spellId === 'flame_nova') {
-        const burnDuration = aoe.burnDuration || 10;
+        const burnDuration = Number(aoe.burnDuration) || 10;
         for (const p of this.players.values()) {
           if (!p.alive || p.id === aoe.ownerId) continue;
           if (dist(aoe, p) <= aoe.radius) {
-            this.applyBurn(p, aoe.ownerId, aoe.damage, tick, burnDuration);
+            this.applyBurn(p, aoe.ownerId, dmg, tick, burnDuration);
           }
         }
         // Fogo de jogador também queima monstros no chão
@@ -2432,27 +2465,32 @@ export class Match {
           for (const m of this.monsters) {
             if (!m.alive) continue;
             if (dist(aoe, m) <= aoe.radius) {
-              this.applyBurn(m, aoe.ownerId, aoe.damage, tick, burnDuration);
+              this.applyBurn(m, aoe.ownerId, dmg, tick, burnDuration);
             }
           }
         }
         continue;
       }
-      const poisonDuration = aoe.poisonDuration || 5;
-      for (const p of this.players.values()) {
-        if (!p.alive || p.id === aoe.ownerId) continue;
-        if (dist(aoe, p) <= aoe.radius) {
-          this.applyPoison(p, aoe.ownerId, aoe.damage, tick, poisonDuration);
+      if (aoe.spellId === 'poison_cloud') {
+        const poisonDuration = Number(aoe.poisonDuration) || 5;
+        for (const p of this.players.values()) {
+          if (!p.alive || p.id === aoe.ownerId) continue;
+          if (dist(aoe, p) <= aoe.radius) {
+            this.applyPoison(p, aoe.ownerId, dmg, tick, poisonDuration);
+          }
         }
-      }
-      for (const m of this.monsters) {
-        if (!m.alive) continue;
-        if (dist(aoe, m) <= aoe.radius) {
-          this.applyPoison(m, aoe.ownerId, aoe.damage, tick, poisonDuration);
+        for (const m of this.monsters) {
+          if (!m.alive) continue;
+          if (dist(aoe, m) <= aoe.radius) {
+            this.applyPoison(m, aoe.ownerId, dmg, tick, poisonDuration);
+          }
         }
       }
     }
-    this.aoes = this.aoes.filter((a) => a.life > 0);
+    this.aoes = this.aoes.filter((a) => (a.life || 0) > 0);
+
+    // DoTs depois dos AoEs (status já aplicado/renovado neste tick)
+    this.tickAllDots(dt);
 
     // Effects lifetime
     for (const e of this.effects) e.life -= dt;

@@ -144,4 +144,12 @@ export const CONFIG = {
   METEOR_IMPACT_TIME: envNumber('METEOR_IMPACT_TIME', 0.85),
   METEOR_RADIUS: envNumber('METEOR_RADIUS', 78),
   METEOR_DAMAGE: envNumber('METEOR_DAMAGE', 42),
+
+  /**
+   * Risada do Kiko: intervalo min/max entre tentativas (segundos)
+   * e chance (0–1) de tocar quando o timer dispara.
+   */
+  KIKO_LAUGH_MIN_INTERVAL: envNumber('KIKO_LAUGH_MIN_INTERVAL', 25),
+  KIKO_LAUGH_MAX_INTERVAL: envNumber('KIKO_LAUGH_MAX_INTERVAL', 55),
+  KIKO_LAUGH_CHANCE: envNumber('KIKO_LAUGH_CHANCE', 0.35),
 };
