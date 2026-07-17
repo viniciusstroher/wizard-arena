@@ -13,19 +13,42 @@ export class LobbyScene extends Phaser.Scene {
     this.ready = false;
     this.lobby = null;
     this.lobbyMusic = null;
+    this.lobbyMusicVolume = this.loadLobbyMusicVolume();
+    this.settingsModalOpen = false;
+    this.settingsModal = null;
+    this.volumeSlider = null;
 
     this.drawBackground();
     this.buildUI();
     this.bindSocket();
     this.startLobbyMusic();
 
-    this.events.once('shutdown', () => this.stopLobbyMusic());
+    this.events.once('shutdown', () => {
+      this.closeSettingsModal();
+      this.stopLobbyMusic();
+    });
+  }
+
+  loadLobbyMusicVolume() {
+    const raw = localStorage.getItem('wa_lobby_music_vol');
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 0.2;
+    return Phaser.Math.Clamp(n, 0, 1);
+  }
+
+  saveLobbyMusicVolume(vol) {
+    this.lobbyMusicVolume = Phaser.Math.Clamp(vol, 0, 1);
+    localStorage.setItem('wa_lobby_music_vol', String(this.lobbyMusicVolume));
+    if (this.lobbyMusic) this.lobbyMusic.setVolume(this.lobbyMusicVolume);
   }
 
   startLobbyMusic() {
     if (!this.cache.audio.exists('lobby_music')) return;
     this.stopLobbyMusic();
-    this.lobbyMusic = this.sound.add('lobby_music', { loop: true, volume: 0.55 });
+    this.lobbyMusic = this.sound.add('lobby_music', {
+      loop: true,
+      volume: this.lobbyMusicVolume,
+    });
     const play = () => {
       if (this.lobbyMusic && !this.lobbyMusic.isPlaying) {
         this.lobbyMusic.play();
@@ -87,12 +110,10 @@ export class LobbyScene extends Phaser.Scene {
   buildUI() {
     const { width, height } = this.scale;
     const panelX = width / 2;
-    const panelY = height / 2 + 20;
+    const panelY = height / 2 + 10;
     const btnW = 280;
     const btnH = 48;
-    const btnGap = 10;
-
-    this.add.rectangle(panelX, panelY, 680, 560, 0x161228, 0.92).setStrokeStyle(2, 0x6b5cff);
+    const btnGap = 8;
 
     this.add
       .text(panelX, panelY - 210, 'Lobby', {
@@ -183,8 +204,18 @@ export class LobbyScene extends Phaser.Scene {
       btnW
     );
 
+    this.settingsBtn = this.makeButton(
+      panelX,
+      btnStartY + step * 4,
+      'Config',
+      0x443866,
+      () => this.openSettingsModal(),
+      btnW
+    );
+
     this.controlsModalOpen = false;
     this.controlsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
+    this.settingsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
 
     this.hint = this.add
       .text(panelX, height - 36, 'Mín. 2 jogadores ready para iniciar', {
@@ -195,8 +226,118 @@ export class LobbyScene extends Phaser.Scene {
       .setOrigin(0.5);
   }
 
+  openSettingsModal() {
+    if (this.settingsModalOpen) return;
+    if (this.controlsModalOpen) this.closeControlsModal();
+    this.settingsModalOpen = true;
+
+    if (this.nameInput) this.nameInput.setVisible(false);
+
+    const { width, height } = this.scale;
+    this.settingsModal.removeAll(true);
+    this.settingsModal.setDepth(10000).setVisible(true);
+    this.children.bringToTop(this.settingsModal);
+
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
+    dim.setInteractive();
+    dim.on('pointerup', () => this.closeSettingsModal());
+
+    const panel = this.add
+      .rectangle(width / 2, height / 2, 420, 260, 0x161228, 0.98)
+      .setStrokeStyle(2, 0x6b5cff)
+      .setInteractive();
+
+    const title = this.add
+      .text(width / 2, height / 2 - 90, 'Configurações', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '26px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5);
+
+    const volLabel = this.add
+      .text(width / 2, height / 2 - 30, 'Volume da música de fundo', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#c4b5e0',
+      })
+      .setOrigin(0.5);
+
+    const pct = Math.round(this.lobbyMusicVolume * 100);
+    this.volumeValueText = this.add
+      .text(width / 2, height / 2 + 8, `${pct}%`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '18px',
+        color: '#e8dfff',
+      })
+      .setOrigin(0.5);
+
+    const sliderEl = document.createElement('input');
+    sliderEl.type = 'range';
+    sliderEl.min = '0';
+    sliderEl.max = '100';
+    sliderEl.step = '1';
+    sliderEl.value = String(pct);
+    sliderEl.style.cssText = [
+      'width: 280px',
+      'height: 28px',
+      'accent-color: #6b5cff',
+      'cursor: pointer',
+    ].join(';');
+    sliderEl.addEventListener('input', () => {
+      const v = Number(sliderEl.value) / 100;
+      this.saveLobbyMusicVolume(v);
+      if (this.volumeValueText) {
+        this.volumeValueText.setText(`${Math.round(v * 100)}%`);
+      }
+    });
+
+    this.volumeSlider = this.add.dom(width / 2, height / 2 + 48, sliderEl).setOrigin(0.5);
+
+    const closeBg = this.add
+      .rectangle(width / 2, height / 2 + 95, 140, 40, 0x6b5cff, 1)
+      .setStrokeStyle(1, 0xffffff, 0.15);
+    const closeLabel = this.add
+      .text(width / 2, height / 2 + 95, 'Fechar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    closeBg.setInteractive({ useHandCursor: true });
+    closeBg.on('pointerover', () => closeBg.setScale(1.04));
+    closeBg.on('pointerout', () => closeBg.setScale(1));
+    closeBg.on('pointerup', () => this.closeSettingsModal());
+
+    this.settingsModal.add([
+      dim,
+      panel,
+      title,
+      volLabel,
+      this.volumeValueText,
+      closeBg,
+      closeLabel,
+    ]);
+  }
+
+  closeSettingsModal() {
+    if (!this.settingsModalOpen && !this.volumeSlider) return;
+    this.settingsModalOpen = false;
+    if (this.volumeSlider) {
+      this.volumeSlider.destroy();
+      this.volumeSlider = null;
+    }
+    if (this.settingsModal) {
+      this.settingsModal.removeAll(true);
+      this.settingsModal.setVisible(false);
+    }
+    this.volumeValueText = null;
+    if (this.nameInput && !this.controlsModalOpen) this.nameInput.setVisible(true);
+  }
+
   openControlsModal() {
     if (this.controlsModalOpen) return;
+    if (this.settingsModalOpen) this.closeSettingsModal();
     this.controlsModalOpen = true;
 
     // DOM fica acima do canvas — esconde o input enquanto o modal está aberto
