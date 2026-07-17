@@ -171,11 +171,15 @@ export class LobbyScene extends Phaser.Scene {
     if (this.controlsModalOpen) return;
     this.controlsModalOpen = true;
 
+    // DOM fica acima do canvas — esconde o input enquanto o modal está aberto
+    if (this.nameInput) this.nameInput.setVisible(false);
+
     const { width, height } = this.scale;
     this.controlsModal.removeAll(true);
-    this.controlsModal.setVisible(true);
+    this.controlsModal.setDepth(10000).setVisible(true);
+    this.children.bringToTop(this.controlsModal);
 
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.65);
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
     dim.setInteractive();
     dim.on('pointerup', () => this.closeControlsModal());
 
@@ -242,6 +246,7 @@ export class LobbyScene extends Phaser.Scene {
     this.controlsModalOpen = false;
     this.controlsModal.removeAll(true);
     this.controlsModal.setVisible(false);
+    if (this.nameInput) this.nameInput.setVisible(true);
   }
 
   makeButton(x, y, label, iconKey, onClick, width = 280) {
