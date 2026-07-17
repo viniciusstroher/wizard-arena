@@ -1204,6 +1204,7 @@ export class Match {
       dashing: p.dashTimer > 0,
       dashDx: p.dashDx,
       dashDy: p.dashDy,
+      dashCooldown: +Math.max(0, p.dashCooldown).toFixed(2),
       kills: p.kills,
       deaths: p.deaths,
       score: p.score,

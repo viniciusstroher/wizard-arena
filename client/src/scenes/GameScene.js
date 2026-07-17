@@ -167,16 +167,17 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    for (let i = 0; i < 5; i++) {
+    const slotLabels = ['1', '2', '3', '4', 'R', 'WASD'];
+    for (let i = 0; i < 6; i++) {
       const x = 24 + i * 70;
       const y = this.scale.height - 70;
       const slot = this.add.container(x, y).setScrollFactor(0).setDepth(100);
       const bg = this.add.rectangle(0, 0, 60, 60, 0x1a1430, 0.95).setStrokeStyle(2, 0x6b5cff);
       const icon = this.add.image(0, -4, 'spell_firebolt').setScale(1.35).setVisible(false);
       const key = this.add
-        .text(-26, -26, i < 4 ? String(i + 1) : 'R', {
+        .text(-26, -26, slotLabels[i], {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '11px',
+          fontSize: i === 5 ? '9px' : '11px',
           color: '#9a8bb8',
         })
         .setOrigin(0);
@@ -201,11 +202,14 @@ export class GameScene extends Phaser.Scene {
       slot.name = name;
       slot.cd = cd;
       slot.slotIndex = i;
-      bg.setInteractive({ useHandCursor: true });
-      bg.on('pointerdown', () => {
-        if (this.disconnectConfirmOpen || this.leaving) return;
-        this.selectedSpellSlot = i;
-      });
+      // Slot 5 = dash (não selecionável como magia)
+      if (i < 5) {
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerdown', () => {
+          if (this.disconnectConfirmOpen || this.leaving) return;
+          this.selectedSpellSlot = i;
+        });
+      }
       this.spellSlots.push(slot);
     }
 
@@ -1321,6 +1325,16 @@ export class GameScene extends Phaser.Scene {
       ultSlot.bg.setStrokeStyle(ultSelected ? 3 : 2, ultSelected ? 0xffffff : ult.stats.color || 0xffaa33);
       ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     }
+
+    const dashSlot = this.spellSlots[5];
+    const dashCd = me.dashCooldown || 0;
+    const dashing = !!me.dashing;
+    this.setSpellSlotIcon(dashSlot, 'dash');
+    dashSlot.name.setText(dashing ? 'dash!' : 'dash');
+    dashSlot.cd.setText(dashCd > 0 ? dashCd.toFixed(1) : 'OK');
+    dashSlot.icon.setAlpha(dashCd > 0 && !dashing ? 0.45 : 1);
+    dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
+    dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
 
     const board = [...this.state.players]
       .sort(

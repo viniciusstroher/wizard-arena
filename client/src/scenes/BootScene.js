@@ -328,6 +328,27 @@ export class BootScene extends Phaser.Scene {
         ],
         palette: { Y: 0xffee55, O: 0xff8833, R: 0xff4400, D: 0xaa2200, W: 0xffcc88 },
       },
+      dash: {
+        rows: [
+          '................',
+          '................',
+          '....WW..........',
+          '...WYYW.........',
+          '..WYYYYW........',
+          '.WYYYYYYWWWWWWW.',
+          'WYYYYYYYYYYYYYYW',
+          '.WYYYYYYWWWWWWW.',
+          '..WYYYYW........',
+          '...WYYW.........',
+          '....WW..........',
+          '................',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { W: 0xf5f0e0, Y: 0xd4c48a },
+      },
     };
 
     for (const [id, { rows, palette }] of Object.entries(icons)) {
