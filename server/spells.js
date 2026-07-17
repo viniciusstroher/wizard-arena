@@ -108,7 +108,7 @@ export const SPELLS = {
   barrier: {
     id: 'barrier',
     name: 'Barrier',
-    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (D).',
+    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E).',
     type: 'basic',
     playerUsable: true,
     /** Não aparece na tela de escolha de habilidade; todos já possuem. */

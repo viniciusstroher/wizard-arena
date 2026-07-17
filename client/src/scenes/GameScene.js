@@ -97,6 +97,8 @@ export class GameScene extends Phaser.Scene {
       left: Phaser.Input.Keyboard.KeyCodes.A,
       right: Phaser.Input.Keyboard.KeyCodes.D,
       dash: Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      /** Escudo inato — tecla própria (não usa D, que é andar para a direita). */
+      barrier: Phaser.Input.Keyboard.KeyCodes.E,
       one: Phaser.Input.Keyboard.KeyCodes.ONE,
       two: Phaser.Input.Keyboard.KeyCodes.TWO,
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
@@ -283,8 +285,8 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     this.spellSlots = [];
-    // 1–3 magias, 4 = ultimate, Shift = dash, D = escudo (inatas depois do ultimate)
-    const slotLabels = ['1', '2', '3', '4', 'Shift', 'D'];
+    // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (inatas depois do ultimate)
+    const slotLabels = ['1', '2', '3', '4', 'Shift', 'E'];
     for (let i = 0; i < 6; i++) {
       const gapAfterUlt = i >= 4 ? 24 : 0;
       const x = 24 + i * 70 + gapAfterUlt;
@@ -320,12 +322,20 @@ export class GameScene extends Phaser.Scene {
       slot.name = name;
       slot.cd = cd;
       slot.slotIndex = i;
-      // Slots 4–5 = dash / escudo (não selecionáveis como magia)
       if (i < 4) {
+        // Magias / ultimate: seleciona slot
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
           this.selectedSpellSlot = i;
+        });
+      } else if (i === 5) {
+        // Escudo inato: clique no slot ativa
+        bg.setInteractive({ useHandCursor: true });
+        bg.on('pointerdown', () => {
+          if (this.disconnectConfirmOpen || this.leaving) return;
+          if (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) return;
+          this.pendingBarrier = true;
         });
       }
       this.spellSlots.push(slot);
@@ -1129,8 +1139,8 @@ export class GameScene extends Phaser.Scene {
     const dir = dirByCode[event.code];
     const shiftHeld = event.shiftKey || this.cursors.dash?.isDown;
 
-    // Escudo inato (D) — mesmo sem Shift; latch para não perder toque curto.
-    if (event.code === 'KeyD') this.pendingBarrier = true;
+    // Escudo inato (E) — tecla dedicada; latch para não perder toque curto.
+    if (event.code === 'KeyE') this.pendingBarrier = true;
 
     // Shift + WASD (W/A/S/D apertado com Shift).
     if (dir && shiftHeld) {
@@ -1205,8 +1215,9 @@ export class GameScene extends Phaser.Scene {
     const castSlot = this.cursors.cast.isDown ? this.selectedSpellSlot : -1;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
-    // Escudo inato: tecla D (mesmo keycode do movimento direita — dispara no JustDown)
-    const barrier = !!this.pendingBarrier || Phaser.Input.Keyboard.JustDown(this.cursors.right);
+    // Escudo inato: só tecla E ou clique no slot (nunca ao andar com D)
+    const barrier =
+      !!this.pendingBarrier || Phaser.Input.Keyboard.JustDown(this.cursors.barrier);
     this.pendingBarrier = false;
 
     this.socket.emit('player_input', {
@@ -3327,7 +3338,7 @@ export class GameScene extends Phaser.Scene {
     dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
     dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
 
-    // Slot depois do dash (5): escudo inato (D)
+    // Slot depois do dash (5): escudo inato (E)
     const barrierSlot = this.spellSlots[5];
     const barrierCd = me.barrierCooldown || 0;
     const shielded = !!me.alive && (me.shield || 0) > 0;

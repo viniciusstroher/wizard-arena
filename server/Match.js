@@ -228,7 +228,7 @@ export class Match {
         dash: null,
         barrier: false,
       },
-      /** Escudo inato (tecla D) — todos os jogadores/bots. */
+      /** Escudo inato (tecla E) — todos os jogadores/bots. */
       barrierCooldown: 0,
       barrierBuffer: 0,
       shield: 0,
@@ -656,7 +656,7 @@ export class Match {
     player.input.dash = null;
   }
 
-  /** Escudo inato (D) — disponível para todos os jogadores e bots. */
+  /** Escudo inato (E) — disponível para todos os jogadores e bots. */
   tryCastBarrier(player) {
     const wants = player.input?.barrier || (player.barrierBuffer || 0) > 0;
     if (!wants) return;
@@ -665,8 +665,10 @@ export class Match {
       player.barrierBuffer = 0;
       return;
     }
-    if (player.stunTimer > 0 || (player.barrierCooldown || 0) > 0) {
-      if ((player.barrierBuffer || 0) <= 0) player.input.barrier = false;
+    // Já tem escudo ativo ou em cooldown: descarta o pedido (não fica re-tentando).
+    if (player.stunTimer > 0 || (player.barrierCooldown || 0) > 0 || (player.shield || 0) > 0) {
+      player.input.barrier = false;
+      player.barrierBuffer = 0;
       return;
     }
 
@@ -1940,7 +1942,7 @@ export class Match {
         break;
       }
       case 'barrier':
-        // Escudo é habilidade inata (tecla D), não slot de magia.
+        // Escudo é habilidade inata (tecla E), não slot de magia.
         player.input.castSlot = -1;
         return;
       case 'apocalypse':
