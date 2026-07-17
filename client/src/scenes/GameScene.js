@@ -1503,12 +1503,6 @@ export class GameScene extends Phaser.Scene {
         .setDepth(depth + 1);
       sprite.hpBg = this.add.rectangle(0, 0, 36, 5, 0x000000, 0.6).setDepth(depth + 1);
       sprite.hpFg = this.add.rectangle(0, 0, 36, 5, 0x2ecc71).setDepth(depth + 2);
-      // Triângulo apontando para baixo: marca o personagem local
-      sprite.selfMarker = this.add
-        .triangle(0, 0, 0, 7, -7, -5, 7, -5, 0xffd166)
-        .setStrokeStyle(1, 0x000000, 0.85)
-        .setDepth(depth + 3)
-        .setVisible(false);
       sprite.shieldBg = this.add
         .rectangle(0, 0, 36, 4, 0x0a1830, 0.75)
         .setDepth(depth + 1)
@@ -1602,10 +1596,10 @@ export class GameScene extends Phaser.Scene {
       const isSelf = p.id === this.playerId;
       const hpY = p.y - 20;
       const shieldY = hpY - 7;
-      const markerY = hasShield ? shieldY - 12 : hpY - 12;
-      const nameY = (hasShield ? p.y - 36 : p.y - 28) - (isSelf && p.alive ? 14 : 0);
+      const nameY = hasShield ? p.y - 36 : p.y - 28;
 
       s.nameTag.setText(`${p.name} Lv${p.level || 1}${p.alive ? '' : ' ✝'}`);
+      s.nameTag.setColor(isSelf ? '#ffd166' : '#ffffff');
       s.nameTag.setPosition(p.x, nameY);
       s.hpBg.setPosition(p.x, hpY);
       const ratio = p.maxHp ? p.hp / p.maxHp : 0;
@@ -1614,10 +1608,6 @@ export class GameScene extends Phaser.Scene {
       s.hpFg.setFillStyle(ratio > 0.35 ? 0x2ecc71 : 0xe74c3c);
       s.hpBg.setVisible(p.alive);
       s.hpFg.setVisible(p.alive);
-
-      if (s.selfMarker) {
-        s.selfMarker.setPosition(p.x, markerY).setVisible(isSelf && p.alive);
-      }
 
       if (hasShield) {
         const maxShield = p.maxShield > 0 ? p.maxShield : p.shield;
@@ -1671,7 +1661,6 @@ export class GameScene extends Phaser.Scene {
         s.nameTag.destroy();
         s.hpBg.destroy();
         s.hpFg.destroy();
-        s.selfMarker?.destroy();
         s.shieldBg?.destroy();
         s.shieldFg?.destroy();
         s.shieldRing?.destroy();
@@ -1730,7 +1719,6 @@ export class GameScene extends Phaser.Scene {
         s.nameTag.destroy();
         s.hpBg.destroy();
         s.hpFg.destroy();
-        s.selfMarker?.destroy();
         this.monsterSprites.delete(id);
       }
     }
