@@ -23,7 +23,6 @@ export class GameScene extends Phaser.Scene {
     this.arenaGraphics = null;
     this.effectGraphics = null;
     this.levelUpOpen = false;
-    this.levelUpWaitOpen = false;
     this.levelUpSubmitting = false;
     this.levelUpSubmitAt = 0;
     this.levelUpChoiceKey = null;
@@ -32,9 +31,7 @@ export class GameScene extends Phaser.Scene {
     this.choiceCards = [];
     this.levelUpHint = null;
     this.levelUpCountdown = null;
-    this.levelUpDim = null;
-    this.levelUpWaitText = null;
-    this.levelUpWaitTitle = null;
+    this.levelUpPointsText = null;
     this.eventLog = [];
     this.eventScroll = 0;
     this.disconnectConfirmOpen = false;
@@ -446,36 +443,18 @@ export class GameScene extends Phaser.Scene {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
-          if (
-            (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) &&
-            !this.isPveLiveSpellChoice()
-          ) {
-            return;
-          }
           this.pendingBarrier = true;
         });
       } else if (i === 6) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
-          if (
-            (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) &&
-            !this.isPveLiveSpellChoice()
-          ) {
-            return;
-          }
           this.pendingMend = true;
         });
       } else if (i === 7) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
           if (this.disconnectConfirmOpen || this.leaving) return;
-          if (
-            (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) &&
-            !this.isPveLiveSpellChoice()
-          ) {
-            return;
-          }
           this.pendingBlink = true;
         });
       }
@@ -957,12 +936,6 @@ export class GameScene extends Phaser.Scene {
   onSpellSlotWheel(dy) {
     if (!dy) return;
     if (this.leaving || this.disconnectConfirmOpen || this.matchEndOpen) return;
-    if (
-      (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) &&
-      !this.isPveLiveSpellChoice()
-    ) {
-      return;
-    }
     // Scroll para baixo = próxima magia; para cima = anterior
     this.cycleSpellSlot(dy > 0 ? 1 : -1);
   }
@@ -1420,14 +1393,6 @@ export class GameScene extends Phaser.Scene {
   onDashKeyDown(event) {
     if (event.repeat) return;
     if (this.disconnectConfirmOpen || this.matchEndOpen || this.leaving) return;
-    // PvE ao vivo: dash/habilidades seguem liberados com a UI de escolha aberta
-    if (
-      (this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting) &&
-      !this.isPveLiveSpellChoice()
-    ) {
-      return;
-    }
-
     const dirByCode = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right' };
     const dir = dirByCode[event.code];
     const shiftHeld = event.shiftKey || this.cursors.dash?.isDown;
@@ -1470,43 +1435,8 @@ export class GameScene extends Phaser.Scene {
 
   sendInput() {
     const pointer = this.input.activePointer;
-    const levelUpUiOpen = this.levelUpOpen || this.levelUpWaitOpen || this.levelUpSubmitting;
-    const livePveChoice = this.isPveLiveSpellChoice() && this.levelUpOpen;
-
-    // PvP / phase levelup: combate pausado. Quem escolhe usa 1–4 / Tab; quem espera só aguarda.
-    // PvE ao vivo: combate continua — só intercepta 1–4 para a escolha.
-    if (levelUpUiOpen && !livePveChoice) {
-      this.pendingBarrier = false;
-      this.pendingMend = false;
-      this.pendingBlink = false;
-      this.pendingDash = null;
-      if (this.levelUpOpen && !this.levelUpSubmitting) {
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
-          this.cycleSpellSlot();
-          this.updateLevelUpSlotHint();
-        }
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.submitLevelUpChoice(0);
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.submitLevelUpChoice(1);
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.submitLevelUpChoice(2);
-        if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.submitLevelUpChoice(3);
-      }
-      this.socket.emit('player_input', {
-        up: false,
-        down: false,
-        left: false,
-        right: false,
-        aimX: pointer.worldX,
-        aimY: pointer.worldY,
-        castSlot: -1,
-        dash: null,
-        barrier: false,
-        mend: false,
-        blink: false,
-      });
-      return;
-    }
-
-    if (livePveChoice && !this.levelUpSubmitting) {
+    // Escolha ao vivo: combate continua — 1–4 escolhem a magia enquanto o painel está aberto
+    if (this.levelUpOpen && !this.levelUpSubmitting) {
       if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) {
         this.cycleSpellSlot();
         this.updateLevelUpSlotHint();
@@ -1515,7 +1445,7 @@ export class GameScene extends Phaser.Scene {
       else if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.submitLevelUpChoice(1);
       else if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.submitLevelUpChoice(2);
       else if (Phaser.Input.Keyboard.JustDown(this.cursors.four)) this.submitLevelUpChoice(3);
-    } else {
+    } else if (!this.levelUpOpen) {
       if (Phaser.Input.Keyboard.JustDown(this.cursors.one)) this.selectedSpellSlot = 0;
       if (Phaser.Input.Keyboard.JustDown(this.cursors.two)) this.selectedSpellSlot = 1;
       if (Phaser.Input.Keyboard.JustDown(this.cursors.three)) this.selectedSpellSlot = 2;
@@ -4096,10 +4026,7 @@ export class GameScene extends Phaser.Scene {
     const shrinksDone = this.state.arena?.shrinksDone ?? 0;
     const shrinkTimes = this.state.arena?.shrinkTimes ?? 0;
     let zoneLabel = 'posicionando';
-    const choosers = this.playersChoosingSpells();
-    if (this.state.phase === 'levelup' || choosers.length > 0) {
-      zoneLabel = this.skillChoiceStatusLabel(choosers);
-    } else if (this.state.phase !== 'countdown') {
+    if (this.state.phase !== 'countdown') {
       if (this.state.arena?.shrinking) {
         zoneLabel = 'fechando zona';
       } else {
@@ -4249,12 +4176,7 @@ export class GameScene extends Phaser.Scene {
     ) {
       this.bannerText.setText('Você morreu\nRevive no próximo round');
       this.bannerText.setAlpha(1);
-    } else if (
-      this.state.phase === 'playing' &&
-      this.bannerText.alpha > 0 &&
-      !this.levelUpOpen &&
-      !this.levelUpWaitOpen
-    ) {
+    } else if (this.state.phase === 'playing' && this.bannerText.alpha > 0 && !this.levelUpOpen) {
       this.bannerText.setAlpha(Math.max(0, this.bannerText.alpha - 0.02));
     }
   }
@@ -4269,42 +4191,23 @@ export class GameScene extends Phaser.Scene {
     return `${base}#${pendingLevelUps}`;
   }
 
-  playersChoosingSpells() {
-    return (this.state?.players || []).filter((p) => p.alive && p.pendingLevelUps > 0);
-  }
-
-  /** PvE: escolha de magia sem pausar o combate. */
-  isPveMode() {
-    return this.state?.pvpEnabled === false;
-  }
-
-  /** Fase em que a UI de escolha pode aparecer sem phase === 'levelup'. */
-  isPveLiveSpellChoice() {
-    if (!this.isPveMode()) return false;
+  /** Escolha de magia ao vivo (PvE e PvP), sem pausar o combate. */
+  isLiveSpellChoice() {
     const phase = this.state?.phase;
-    return phase === 'playing' || phase === 'intermission' || phase === 'countdown';
-  }
-
-  /** Texto curto pro status do topo enquanto alguém escolhe habilidade. */
-  skillChoiceStatusLabel(choosers = this.playersChoosingSpells()) {
-    if (!choosers.length) return 'escolhendo habilidades';
-    if (choosers.length === 1) {
-      return `${choosers[0].name} escolhendo habilidade`;
-    }
-    if (choosers.length === 2) {
-      return `${choosers[0].name} e ${choosers[1].name} escolhendo`;
-    }
-    return `${choosers.length} jogadores escolhendo habilidades`;
+    return (
+      phase === 'playing' ||
+      phase === 'intermission' ||
+      phase === 'countdown' ||
+      phase === 'levelup'
+    );
   }
 
   updateLevelUpUi() {
     const me = this.me();
     if (!me || !this.state) return;
 
-    const pausedPhase = this.state.phase === 'levelup';
-    const livePve = this.isPveLiveSpellChoice();
-    if (!pausedPhase && !livePve) {
-      if (this.levelUpOpen || this.levelUpWaitOpen) this.hideLevelUp();
+    if (!this.isLiveSpellChoice()) {
+      if (this.levelUpOpen) this.hideLevelUp();
       return;
     }
 
@@ -4315,12 +4218,7 @@ export class GameScene extends Phaser.Scene {
       this.levelUpSubmitting = false;
       this.levelUpSubmittedKey = null;
       this.levelUpChoices = [];
-      // PvE ao vivo: não trava esperando os outros — só fecha a UI
-      if (livePve && !pausedPhase) {
-        if (this.levelUpOpen || this.levelUpWaitOpen) this.hideLevelUp();
-        return;
-      }
-      this.showLevelUpWait();
+      if (this.levelUpOpen) this.hideLevelUp();
       return;
     }
 
@@ -4338,15 +4236,25 @@ export class GameScene extends Phaser.Scene {
         this.levelUpSubmitting = false;
         this.levelUpSubmittedKey = null;
         this.showLevelUp(choices, key);
+      } else if (this.levelUpPointsText) {
+        this.levelUpPointsText.setText(this.levelUpPointsLabel(me.pendingLevelUps));
       }
       return;
     }
 
-    if (!this.levelUpOpen || this.levelUpWaitOpen || key !== this.levelUpChoiceKey) {
+    if (!this.levelUpOpen || key !== this.levelUpChoiceKey) {
       this.showLevelUp(choices, key);
     } else {
+      if (this.levelUpPointsText) {
+        this.levelUpPointsText.setText(this.levelUpPointsLabel(me.pendingLevelUps));
+      }
       this.updateLevelUpSlotHint();
     }
+  }
+
+  levelUpPointsLabel(pending) {
+    const pts = Math.max(1, pending || 1);
+    return pts === 1 ? '1 ponto para distribuir' : `${pts} pontos para distribuir`;
   }
 
   spellIconKey(spellId) {
@@ -4403,37 +4311,15 @@ export class GameScene extends Phaser.Scene {
 
   updateLevelUpSlotHint() {
     if (!this.levelUpHint || this.levelUpSubmitting) return;
-    const filled = this.filledSpellSlots();
-    const cur = this.selectedSpellSlot + 1;
-    let nextLabel = '1';
-    if (filled.length) {
-      const idx = filled.indexOf(this.selectedSpellSlot);
-      const nextIdx = idx < 0 ? 0 : (idx + 1) % filled.length;
-      nextLabel = String(filled[nextIdx] + 1);
-    }
-    this.levelUpHint.setText(
-      this.isPveLiveSpellChoice()
-        ? `1 · 2 · 3 · 4 para escolher  ·  combate continua  ·  Tab: slot ${cur} → ${nextLabel}`
-        : `Pressione 1 · 2 · 3 · 4 para escolher  ·  Tab: slot ${cur} → ${nextLabel}`
-    );
+    this.levelUpHint.setText('1 · 2 · 3 · 4 para escolher');
     this.updateLevelUpCountdown();
   }
 
-  /** Contagem regressiva visível na tela de escolha / espera. */
+  /** Contagem regressiva do auto-escolha no painel. */
   updateLevelUpCountdown() {
     if (!this.levelUpCountdown || this.levelUpSubmitting) return;
 
-    let timeLeft = null;
-    if (this.levelUpOpen) {
-      timeLeft = this.me()?.choiceTimeLeft;
-    } else if (this.levelUpWaitOpen) {
-      const choosers = this.playersChoosingSpells();
-      for (const p of choosers) {
-        if (p.choiceTimeLeft == null) continue;
-        if (timeLeft == null || p.choiceTimeLeft > timeLeft) timeLeft = p.choiceTimeLeft;
-      }
-    }
-
+    const timeLeft = this.me()?.choiceTimeLeft;
     if (timeLeft == null || !Number.isFinite(timeLeft)) {
       this.levelUpCountdown.setText('').setVisible(false);
       return;
@@ -4443,7 +4329,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpCountdown
       .setVisible(true)
       .setColor(sec <= 3 ? '#ff6b6b' : '#ffd166')
-      .setText(sec > 0 ? `Auto-escolha em ${sec}s` : 'Escolhendo…');
+      .setText(sec > 0 ? `Auto ${sec}s` : '…');
   }
 
   submitLevelUpChoice(index) {
@@ -4477,30 +4363,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  fadeInLevelUpOverlay(targets, dimTargetAlpha = 0.7) {
-    for (const obj of targets) {
-      if (!obj || obj === this.levelUpDim) continue;
-      const to = obj.alpha ?? 1;
-      obj.setAlpha(0);
-      this.tweens.add({
-        targets: obj,
-        alpha: to,
-        duration: 320,
-        ease: 'Cubic.Out',
-        delay: 80,
-      });
-    }
-    if (this.levelUpDim) {
-      this.levelUpDim.setAlpha(0);
-      this.tweens.add({
-        targets: this.levelUpDim,
-        alpha: dimTargetAlpha,
-        duration: 380,
-        ease: 'Cubic.Out',
-      });
-    }
-  }
-
   clearLevelUpLayer() {
     if (this.levelUpLayer) {
       for (const child of this.levelUpLayer.list.slice()) {
@@ -4508,119 +4370,15 @@ export class GameScene extends Phaser.Scene {
       }
       this.levelUpLayer.removeAll(true);
     }
-    this.levelUpDim = null;
     this.levelUpHint = null;
     this.levelUpCountdown = null;
-    this.levelUpWaitText = null;
-    this.levelUpWaitTitle = null;
+    this.levelUpPointsText = null;
     this.choiceCards = [];
-  }
-
-  levelUpWaitMessage(choosers) {
-    if (!choosers.length) {
-      return 'Aguardando confirmação…';
-    }
-    const lines = choosers.map((p) => {
-      const tag = p.isBot ? ' (bot)' : '';
-      const pts = p.pendingLevelUps || 0;
-      const ptsLabel = pts > 1 ? ` — ${pts} pontos` : '';
-      return `• ${p.name}${tag}${ptsLabel}`;
-    });
-    const header =
-      choosers.length === 1 ? 'Ainda falta escolher:' : 'Ainda faltam escolher:';
-    return `${header}\n${lines.join('\n')}`;
-  }
-
-  refreshLevelUpWaitContent(choosers) {
-    if (this.levelUpWaitTitle) {
-      this.levelUpWaitTitle.setText(
-        choosers.length === 1
-          ? 'Aguardando escolha de habilidade'
-          : 'Aguardando escolhas de habilidade'
-      );
-    }
-    if (this.levelUpWaitText) {
-      this.levelUpWaitText.setText(this.levelUpWaitMessage(choosers));
-    }
-    this.updateLevelUpCountdown();
-  }
-
-  showLevelUpWait() {
-    const choosers = this.playersChoosingSpells();
-    const waitKey =
-      choosers.map((p) => `${p.id}:${p.pendingLevelUps || 0}`).sort().join(',') || 'none';
-
-    // Já aberto: só atualiza o aviso (evita recriar e matar o fade todo frame)
-    if (this.levelUpWaitOpen && !this.levelUpOpen) {
-      this.levelUpChoiceKey = `wait:${waitKey}`;
-      this.refreshLevelUpWaitContent(choosers);
-      return;
-    }
-
-    this.levelUpOpen = false;
-    this.levelUpWaitOpen = true;
-    this.levelUpSubmitting = false;
-    this.levelUpChoiceKey = `wait:${waitKey}`;
-    this.levelUpChoices = [];
-    this.clearLevelUpLayer();
-    this.levelUpLayer.setVisible(true);
-
-    const { width, height } = this.scale;
-    this.levelUpDim = this.add
-      .rectangle(width / 2, height / 2, width, height, 0x000000, 1)
-      .setInteractive();
-
-    this.levelUpWaitTitle = this.add
-      .text(width / 2, height / 2 - 56, 'Aguardando escolha de habilidade', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '28px',
-        color: '#f4e8ff',
-        stroke: '#1a1030',
-        strokeThickness: 5,
-        align: 'center',
-      })
-      .setOrigin(0.5);
-
-    this.levelUpCountdown = this.add
-      .text(width / 2, height / 2 - 14, '', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '20px',
-        color: '#ffd166',
-        stroke: '#1a1030',
-        strokeThickness: 4,
-      })
-      .setOrigin(0.5);
-
-    this.levelUpWaitText = this.add
-      .text(width / 2, height / 2 + 36, this.levelUpWaitMessage(choosers), {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '22px',
-        color: '#e8dfff',
-        stroke: '#1a1030',
-        strokeThickness: 4,
-        align: 'center',
-        lineSpacing: 8,
-      })
-      .setOrigin(0.5);
-
-    this.refreshLevelUpWaitContent(choosers);
-    this.levelUpLayer.add([
-      this.levelUpDim,
-      this.levelUpWaitTitle,
-      this.levelUpCountdown,
-      this.levelUpWaitText,
-    ]);
-    this.fadeInLevelUpOverlay(
-      [this.levelUpWaitTitle, this.levelUpCountdown, this.levelUpWaitText],
-      0.55
-    );
   }
 
   showLevelUp(choices, key = null) {
     const me = this.me();
-    const livePve = this.isPveLiveSpellChoice();
     this.levelUpOpen = true;
-    this.levelUpWaitOpen = false;
     this.levelUpSubmitting = false;
     this.levelUpChoices = choices || [];
     this.levelUpChoiceKey =
@@ -4629,74 +4387,73 @@ export class GameScene extends Phaser.Scene {
     this.levelUpLayer.setVisible(true);
 
     const { width, height } = this.scale;
-    // PvE ao vivo: overlay leve e sem capturar o pointer (mira/combate seguem)
-    this.levelUpDim = this.add.rectangle(
-      width / 2,
-      height / 2,
-      width,
-      height,
-      0x000000,
-      1
-    );
-    if (!livePve) {
-      this.levelUpDim.setInteractive();
-    }
-    const remaining = this.me()?.pendingLevelUps || 1;
-    const titleText =
-      remaining > 1
-        ? `SUBIU DE NÍVEL — ${remaining} pontos de habilidade`
-        : 'SUBIU DE NÍVEL — 1 ponto de habilidade';
-    const titleY = livePve ? 56 : 100;
-    const title = this.add
-      .text(width / 2, titleY, titleText, {
+    const pointsLabel = this.levelUpPointsLabel(me?.pendingLevelUps);
+
+    // Painel no canto inferior direito (sem overlay)
+    const n = Math.max(1, choices.length);
+    const cardW = 168;
+    const cardH = 200;
+    const gap = 176;
+    const cardScale = 0.88;
+    const clusterW = (n - 1) * gap;
+    const rightPad = 20;
+    const anchorX = width - rightPad - (cardW * cardScale) / 2;
+    const startX = anchorX - clusterW;
+    const cardY = height - 128;
+    const headerX = width - rightPad;
+    const titleY = cardY - cardH * cardScale * 0.5 - 58;
+
+    this.levelUpPointsText = this.add
+      .text(headerX, titleY, pointsLabel, {
         fontFamily: 'Georgia, serif',
-        fontSize: livePve ? '22px' : '28px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5);
-    this.levelUpCountdown = this.add
-      .text(width / 2, titleY + 36, '', {
-        fontFamily: 'Georgia, serif',
-        fontSize: livePve ? '20px' : '26px',
+        fontSize: '22px',
         color: '#ffd166',
+        stroke: '#1a1030',
+        strokeThickness: 4,
       })
-      .setOrigin(0.5);
+      .setOrigin(1, 0.5);
+    this.levelUpCountdown = this.add
+      .text(headerX, titleY + 24, '', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '16px',
+        color: '#ffd166',
+        stroke: '#1a1030',
+        strokeThickness: 3,
+      })
+      .setOrigin(1, 0.5);
     this.levelUpHint = this.add
-      .text(width / 2, titleY + 68, '', {
+      .text(headerX, titleY + 44, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#a99bc8',
+        fontSize: '12px',
+        color: '#c4b5e0',
+        stroke: '#1a1030',
+        strokeThickness: 3,
       })
-      .setOrigin(0.5);
+      .setOrigin(1, 0.5);
     this.updateLevelUpSlotHint();
 
     this.levelUpLayer.add([
-      this.levelUpDim,
-      title,
+      this.levelUpPointsText,
       this.levelUpCountdown,
       this.levelUpHint,
     ]);
 
-    const fadeTargets = [title, this.levelUpCountdown, this.levelUpHint];
-
     choices.forEach((choice, i) => {
-      const cardW = livePve ? 200 : 240;
-      const cardH = livePve ? 220 : 300;
-      const x = width / 2 + (i - (choices.length - 1) / 2) * (livePve ? 210 : 270);
-      const y = livePve ? height - 140 : height / 2 + 30;
+      const x = startX + i * gap;
+      const y = cardY;
       const card = this.add.container(x, y);
       const stroke = choice.kind === 'upgrade' ? 0xf1c40f : choice.def?.color || 0x6b5cff;
       const bg = this.add
-        .rectangle(0, 0, cardW, cardH, 0x1a1430, livePve ? 0.92 : 0.98)
+        .rectangle(0, 0, cardW, cardH, 0x1a1430, 0.92)
         .setStrokeStyle(2, stroke);
-      const topY = livePve ? -92 : -132;
-      const badgeY = livePve ? -88 : -128;
-      const iconY = livePve ? -42 : -68;
-      const nameY = livePve ? 8 : -12;
-      const descY = livePve ? 52 : 48;
-      const metaY = livePve ? 88 : 120;
+      const topY = -84;
+      const badgeY = -80;
+      const iconY = -38;
+      const nameY = 10;
+      const descY = 48;
+      const metaY = 80;
       const keyHint = this.add
-        .text(-(cardW / 2 - 20), topY, `${i + 1}`, {
+        .text(-(cardW / 2 - 18), topY, `${i + 1}`, {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '14px',
           color: '#ffffff',
@@ -4713,28 +4470,26 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       const iconKey = this.spellIconKey(choice.spellId || choice.def?.id);
-      const iconBg = this.add
-        .rectangle(0, iconY, livePve ? 56 : 72, livePve ? 56 : 72, 0x0e0a1a, 0.95)
-        .setStrokeStyle(2, stroke);
+      const iconBg = this.add.rectangle(0, iconY, 52, 52, 0x0e0a1a, 0.95).setStrokeStyle(2, stroke);
       const icon =
         iconKey && this.textures.exists(iconKey)
-          ? this.add.image(0, iconY, iconKey).setScale(livePve ? 1.6 : 2)
-          : this.add.circle(0, iconY, livePve ? 16 : 20, choice.def?.color || 0x6b5cff, 0.9);
+          ? this.add.image(0, iconY, iconKey).setScale(1.5)
+          : this.add.circle(0, iconY, 15, choice.def?.color || 0x6b5cff, 0.9);
 
       const name = this.add
         .text(0, nameY, choice.def?.name || choice.spellId, {
           fontFamily: 'Georgia, serif',
-          fontSize: livePve ? '17px' : '20px',
+          fontSize: '16px',
           color: '#ffffff',
         })
         .setOrigin(0.5);
       const desc = this.add
         .text(0, descY, choice.def?.description || '', {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: livePve ? '12px' : '13px',
+          fontSize: '11px',
           color: '#c4b5e0',
           align: 'center',
-          wordWrap: { width: cardW - 30 },
+          wordWrap: { width: cardW - 28 },
         })
         .setOrigin(0.5);
       const meta = this.add
@@ -4748,7 +4503,7 @@ export class GameScene extends Phaser.Scene {
               : `Dano ${choice.def?.damage ?? '-'} · CD ${choice.def?.cooldown ?? '-'}s`,
           {
             fontFamily: 'Trebuchet MS, sans-serif',
-            fontSize: '13px',
+            fontSize: '12px',
             color: '#ffcc66',
             align: 'center',
           }
@@ -4757,52 +4512,25 @@ export class GameScene extends Phaser.Scene {
 
       card.add([bg, keyHint, badge, iconBg, icon, name, desc, meta]);
       card.setSize(cardW, cardH);
-      if (livePve) card.setScale(0.92);
+      card.setScale(cardScale);
       // Escolha só por hotkeys 1–4 (sem clique)
       this.levelUpLayer.add(card);
       this.choiceCards.push(card);
-      fadeTargets.push(card);
     });
-
-    this.fadeInLevelUpOverlay(fadeTargets, livePve ? 0.28 : 0.7);
   }
 
   hideLevelUp() {
     const layer = this.levelUpLayer;
-    const kids = layer?.visible ? layer.list.slice() : [];
     this.levelUpOpen = false;
-    this.levelUpWaitOpen = false;
     this.levelUpSubmitting = false;
     this.levelUpChoiceKey = null;
     this.levelUpSubmittedKey = null;
     this.levelUpChoices = [];
     this.levelUpHint = null;
     this.levelUpCountdown = null;
-    this.levelUpWaitText = null;
-    this.levelUpWaitTitle = null;
+    this.levelUpPointsText = null;
     this.choiceCards = [];
-    this.levelUpDim = null;
-
-    if (!layer?.visible) return;
-
-    if (kids.length) {
-      for (const child of kids) this.tweens.killTweensOf(child);
-      this.tweens.add({
-        targets: kids,
-        alpha: 0,
-        duration: 220,
-        ease: 'Cubic.In',
-        onComplete: () => {
-          // Só limpa se nenhum novo overlay foi aberto no meio tempo
-          if (!this.levelUpOpen && !this.levelUpWaitOpen) {
-            this.clearLevelUpLayer();
-            layer.setVisible(false);
-          }
-        },
-      });
-    } else {
-      this.clearLevelUpLayer();
-      layer.setVisible(false);
-    }
+    this.clearLevelUpLayer();
+    if (layer) layer.setVisible(false);
   }
 }

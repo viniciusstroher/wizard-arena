@@ -127,14 +127,13 @@ export class BotController {
     const player = this.match.players.get(this.playerId);
     if (!player || !player.alive) return;
     if (player.spellChoices?.length && player.pendingLevelUps > 0) {
-      const livePveChoice =
-        !this.match.pvpEnabled &&
-        (this.match.phase === 'playing' ||
-          this.match.phase === 'intermission' ||
-          this.match.phase === 'countdown');
+      const liveChoice =
+        this.match.phase === 'playing' ||
+        this.match.phase === 'intermission' ||
+        this.match.phase === 'countdown';
       const pausedChoice = this.match.phase === 'levelup';
 
-      if (pausedChoice || livePveChoice) {
+      if (pausedChoice || liveChoice) {
         // Flag off: resolve na hora (Match.autoResolveBotLevelUpsIfDisabled também cobre).
         if (!this.match.botLevelUpChoiceEnabled) {
           this.pickRandomSpell(player);
@@ -149,7 +148,7 @@ export class BotController {
             this.pickRandomSpell(player);
           }
         }
-        // PvP pausado: bot não age até escolher. PvE: segue combatendo.
+        // Só trava a AI do bot se a partida estiver na phase levelup (legado).
         if (pausedChoice) return;
       }
     }
