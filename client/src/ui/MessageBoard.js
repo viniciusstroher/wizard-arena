@@ -217,9 +217,20 @@ export class MessageBoard {
     return this.activeTab === 'chat' ? this.maxVisibleChat : this.maxVisibleEvents;
   }
 
+  _formatStamp(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const dd = pad(date.getDate());
+    const mm = pad(date.getMonth() + 1);
+    const yyyy = date.getFullYear();
+    const hh = pad(date.getHours());
+    const mi = pad(date.getMinutes());
+    const ss = pad(date.getSeconds());
+    return `[${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}]`;
+  }
+
   pushEvent(message) {
     if (!message || this.destroyed) return;
-    this.eventLog.push(message);
+    this.eventLog.push(`${this._formatStamp()} ${message}`);
     if (this.eventLog.length > this.maxLog) {
       this.eventLog.splice(0, this.eventLog.length - this.maxLog);
     }
@@ -229,7 +240,7 @@ export class MessageBoard {
 
   pushChat(message) {
     if (!message || this.destroyed) return;
-    this.chatLog.push(message);
+    this.chatLog.push(`${this._formatStamp()} ${message}`);
     if (this.chatLog.length > this.maxLog) {
       this.chatLog.splice(0, this.chatLog.length - this.maxLog);
     }
