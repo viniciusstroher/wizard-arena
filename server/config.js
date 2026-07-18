@@ -21,6 +21,17 @@ function envBool(key, fallback) {
   return fallback;
 }
 
+/** Lista de inteiros separados por vírgula (ex.: "1,10,20"). */
+function envIntList(key, fallback = []) {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  const list = String(raw)
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n >= 1);
+  return list.length ? list : fallback;
+}
+
 const ARENA_START_RADIUS = 320;
 const ARENA_MIN_RADIUS = 80;
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
@@ -127,8 +138,13 @@ export const CONFIG = {
   MONSTER_AGGRO_RANGE: 220,
   /** Peso base dos monstros comuns no sorteio de spawn. */
   MONSTER_WEIGHT_COMMON: envNumber('MONSTER_WEIGHT_COMMON', 10),
-  /** Peso base dos bosses (beholder, dragon, lich). */
+  /** Peso relativo entre bosses ao sortear qual aparece no round de boss. */
   MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
+  /**
+   * Rounds em que um boss aparece (ex.: 1,10,20). Vazio = nenhum round de boss.
+   * Nesses rounds o boss não vem do spawn contínuo — só no início do round.
+   */
+  BOSS_APPEARS: envIntList('BOSS_APPEARS', []),
   /**
    * Diversidade do spawn (0–2+). Penaliza tipos já vivos e o último spawnado.
    * 0 = só pesos fixos; 1 = variação forte; >1 = ainda mais espalhado.

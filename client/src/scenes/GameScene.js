@@ -249,7 +249,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   createHud() {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
 
     // Box do canto superior esquerdo (estilo painéis do lobby/matchmaking)
     this.hudPanel = this.add
@@ -390,6 +390,21 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(200)
       .setAlpha(0);
+
+    this.bossFightText = this.add
+      .text(width / 2, height / 2, 'BOSS FIGHT!', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '64px',
+        color: '#ff3344',
+        stroke: '#1a0000',
+        strokeThickness: 8,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(250)
+      .setAlpha(0)
+      .setScale(0.85);
 
     this.spellSlots = [];
     // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (lv2), H = heal (lv3), B = blink (lv5)
@@ -972,7 +987,9 @@ export class GameScene extends Phaser.Scene {
       case 'countdown':
         return `Começa em ${ev.seconds}s`;
       case 'round_start':
-        return `Round ${ev.round} iniciado`;
+        return ev.bossRound ? `BOSS FIGHT — Round ${ev.round}` : `Round ${ev.round} iniciado`;
+      case 'boss_fight':
+        return `BOSS FIGHT! Round ${ev.round}`;
       case 'round_win':
         return `${this.playerName(ev.playerId)} venceu o round ${ev.round}`;
       case 'player_kill':
@@ -1242,6 +1259,7 @@ export class GameScene extends Phaser.Scene {
         this.playRoundStartSound();
         // Continua o ping um pouco após o round começar
         this.startSpawnPing();
+        if (ev.bossRound) this.showBossFightAlert();
       }
       if (ev.type === 'kiko_laugh') {
         this.playKikoLaugh();
@@ -4220,11 +4238,18 @@ export class GameScene extends Phaser.Scene {
     this.hudPanel.setSize(panelW, panelH);
     this.hudPanel.setStrokeStyle(2, 0x6b5cff);
 
-    const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 60;
-    const remain = Math.max(0, roundDuration - (this.state.roundTime || 0));
-    const m = Math.floor(remain / 60);
-    const s = Math.floor(remain % 60);
-    this.timerText.setText(`${m}:${String(s).padStart(2, '0')}`);
+    const bossRound = !!this.state.bossRound;
+    if (bossRound && this.state.phase === 'playing') {
+      this.timerText.setText('BOSS');
+    } else if (bossRound && this.state.phase === 'countdown') {
+      this.timerText.setText('--:--');
+    } else {
+      const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 60;
+      const remain = Math.max(0, roundDuration - (this.state.roundTime || 0));
+      const m = Math.floor(remain / 60);
+      const s = Math.floor(remain % 60);
+      this.timerText.setText(`${m}:${String(s).padStart(2, '0')}`);
+    }
     const maxRounds = this.state.maxRounds || '?';
     const displayRound =
       this.state.phase === 'countdown' ? Math.max(1, (this.state.round || 0) + 1) : this.state.round || 1;
@@ -4232,7 +4257,9 @@ export class GameScene extends Phaser.Scene {
     const shrinkTimes = this.state.arena?.shrinkTimes ?? 0;
     let zoneLabel = 'posicionando';
     if (this.state.phase !== 'countdown') {
-      if (this.state.arena?.shrinking) {
+      if (bossRound) {
+        zoneLabel = 'boss fight';
+      } else if (this.state.arena?.shrinking) {
         zoneLabel = 'fechando zona';
       } else {
         zoneLabel =
@@ -4241,7 +4268,11 @@ export class GameScene extends Phaser.Scene {
             : `zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`;
       }
     }
-    this.roundText.setText(`Round ${displayRound}/${maxRounds} · ${zoneLabel}`);
+    this.roundText.setText(
+      bossRound && this.state.phase !== 'countdown'
+        ? `Round ${displayRound}/${maxRounds} · BOSS`
+        : `Round ${displayRound}/${maxRounds} · ${zoneLabel}`
+    );
 
     // Spells (máx. 3 básicas)
     for (let i = 0; i < 3; i++) {
@@ -4359,12 +4390,42 @@ export class GameScene extends Phaser.Scene {
     this.updateScoreboard();
   }
 
+  showBossFightAlert() {
+    if (!this.bossFightText) return;
+    this.bossFightText.setText('BOSS FIGHT!');
+    this.bossFightText.setAlpha(1);
+    this.bossFightText.setScale(0.7);
+    this.tweens.killTweensOf(this.bossFightText);
+    this.tweens.add({
+      targets: this.bossFightText,
+      scale: 1.05,
+      duration: 280,
+      ease: 'Back.easeOut',
+      yoyo: true,
+      hold: 900,
+      onComplete: () => {
+        this.tweens.add({
+          targets: this.bossFightText,
+          alpha: 0,
+          scale: 1.2,
+          duration: 700,
+          ease: 'Cubic.easeIn',
+        });
+      },
+    });
+  }
+
   handleBanners() {
     if (!this.state || this.matchEndOpen) return;
     if (this.state.phase === 'countdown') {
       const nextRound = (this.state.round || 0) + 1;
       const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
-      this.bannerText.setText(`Round ${nextRound}\nComeça em ${sec}`);
+      const bossSoon = !!this.state.bossRound;
+      this.bannerText.setText(
+        bossSoon
+          ? `BOSS FIGHT\nRound ${nextRound} · ${sec}`
+          : `Round ${nextRound}\nComeça em ${sec}`
+      );
       this.bannerText.setAlpha(1);
     } else if (this.state.phase === 'intermission') {
       const w = this.state.players.find((p) => p.id === this.state.winnerId);

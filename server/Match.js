@@ -106,6 +106,8 @@ export class Match {
     this.shrinkElapsed = 0;
     this.monsterSpawnTimer = 0;
     this.lastSpawnedMonsterType = null;
+    /** Round atual é luta de boss (sem tempo; win ao matar o boss). */
+    this.bossRound = false;
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
@@ -695,15 +697,26 @@ export class Match {
     this.ensureLoop();
   }
 
+  isBossAppearRound(round = this.round) {
+    return CONFIG.BOSS_APPEARS.includes(round);
+  }
+
   startRound() {
     this.round += 1;
     this.phase = 'playing';
     this.roundTime = 0;
+    this.bossRound = this.isBossAppearRound(this.round);
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
     this.scheduleNextKikoLaugh();
-    this.pushEvent({ type: 'round_start', round: this.round });
+    if (this.bossRound) {
+      // Round de boss: limpa mobs persistidos e spawna um único boss.
+      this.monsters = [];
+      this.spawnBoss();
+      this.pushEvent({ type: 'boss_fight', round: this.round });
+    }
+    this.pushEvent({ type: 'round_start', round: this.round, bossRound: this.bossRound });
     this.broadcastState(true);
   }
 
@@ -1668,6 +1681,7 @@ export class Match {
     // Monster — ossos + saco de loot OU moeda; remove da lista
     const mx = target.x;
     const my = target.y;
+    const wasBoss = !!target.isBoss;
     const bones = this.spawnBones(mx, my);
     this.spawnMonsterDrop(bones);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
@@ -1677,6 +1691,14 @@ export class Match {
     }
     this.monsters = this.monsters.filter((m) => m.entityId !== target.entityId);
     this.pushEvent({ type: 'monster_kill', monsterId: target.entityId, killerId: sourcePlayerId, x: mx, y: my });
+    // Round de boss termina ao derrotar o boss
+    if (this.bossRound && wasBoss && this.phase === 'playing') {
+      const winner =
+        killer?.alive
+          ? killer
+          : [...this.players.values()].find((p) => p.alive) || null;
+      this.finishRound(winner);
+    }
     return true;
   }
 
@@ -1697,6 +1719,7 @@ export class Match {
   finishRound(winner) {
     if (this.afterLevelUp || this.phase === 'intermission' || this.phase === 'ended') return;
 
+    this.bossRound = false;
     this.meteors = [];
     this.meteorTimer = 0;
     this.massHeals = [];
@@ -1932,7 +1955,7 @@ export class Match {
         hpMul: 2.4,
         speedMul: 0.55,
         dmgMul: 1.25,
-        radius: 20,
+        radius: 30, // +50% vs base visual
         color: 0x9b59b6,
         attack: 'caster',
         spells: ['arc_lightning'],
@@ -1940,13 +1963,14 @@ export class Match {
         preferRange: 130,
         attackCooldown: 1.35,
         weight: boss,
+        isBoss: true,
       },
       // Dragão — Firebreath / Firebolt + Flame Nova de perto
       dragon: {
         hpMul: 3.8,
         speedMul: 0.5,
         dmgMul: 1.55,
-        radius: 28,
+        radius: 42, // +50%
         color: 0xe74c3c,
         attack: 'caster',
         spells: ['firebreath', 'firebolt', 'flame_nova'],
@@ -1959,13 +1983,14 @@ export class Match {
         novaRadius: 120,
         novaCooldown: 4.2,
         weight: boss,
+        isBoss: true,
       },
       // Lich — morto-vivo arcano que lança Ice Shard
       lich: {
         hpMul: 2.1,
         speedMul: 0.6,
         dmgMul: 1.15,
-        radius: 16,
+        radius: 24, // +50%
         color: 0x66ccff,
         attack: 'caster',
         spells: ['ice_shard'],
@@ -1976,6 +2001,7 @@ export class Match {
         projectileColor: 0x66ccff,
         attackCooldown: 1.25,
         weight: boss,
+        isBoss: true,
       },
       // Elemental de fogo — chama viva: Firebreath / Firebolt + Flame Nova
       fire_elemental: {
@@ -2001,7 +2027,7 @@ export class Match {
         hpMul: 2.2,
         speedMul: 0.85,
         dmgMul: 1.4,
-        radius: 28,
+        radius: 42, // +50%
         color: 0x8b1a2b,
         attack: 'caster',
         spells: ['electric_bolt', 'electric_storm'],
@@ -2012,13 +2038,14 @@ export class Match {
         novaRadius: 130,
         novaCooldown: 4.5,
         weight: boss,
+        isBoss: true,
       },
       // Ceifador — onda radial de caveiras
       grim_reaper: {
         hpMul: 2.6,
         speedMul: 0.7,
         dmgMul: 1.35,
-        radius: 18,
+        radius: 27, // +50%
         color: 0x2a0044,
         attack: 'caster',
         spells: ['skull_wave'],
@@ -2030,6 +2057,7 @@ export class Match {
         attackCooldown: 2.4,
         skullCount: 10,
         weight: boss,
+        isBoss: true,
       },
       // Bruxo — bolas de fogo, firebreath e rastro de fogo no chão
       bruxo: {
@@ -2059,7 +2087,7 @@ export class Match {
   }
 
   /** Sorteia tipo com pesos + diversidade (evita repetir tipos já vivos / último spawn). */
-  pickMonsterType(types) {
+  pickMonsterType(types, { bossesOnly = false } = {}) {
     const diversity = Math.max(0, CONFIG.MONSTER_SPAWN_DIVERSITY);
     const aliveCount = {};
     for (const m of this.monsters) {
@@ -2067,7 +2095,13 @@ export class Match {
       aliveCount[m.type] = (aliveCount[m.type] || 0) + 1;
     }
 
-    const ids = Object.keys(types);
+    // Spawn contínuo nunca inclui bosses — eles só aparecem em BOSS_APPEARS.
+    const ids = Object.keys(types).filter((id) => {
+      const isBoss = !!types[id].isBoss;
+      return bossesOnly ? isBoss : !isBoss;
+    });
+    if (!ids.length) return null;
+
     let totalWeight = 0;
     const weights = new Map();
     for (const id of ids) {
@@ -2131,12 +2165,7 @@ export class Match {
     monster.xp = 0;
   }
 
-  spawnMonster() {
-    if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
-    const types = this.monsterTypeDefs();
-    const type = this.pickMonsterType(types);
-    const def = types[type];
-
+  createMonsterEntity(type, def) {
     let x = CONFIG.ARENA_CENTER_X;
     let y = CONFIG.ARENA_CENTER_Y;
     for (let i = 0; i < 16; i++) {
@@ -2147,7 +2176,7 @@ export class Match {
       if (!this.isBlockedByRock(x, y, def.radius)) break;
     }
 
-    const monster = {
+    return {
       entityId: eid(),
       type,
       x,
@@ -2188,6 +2217,7 @@ export class Match {
       trailAcc: 0,
       radius: def.radius,
       color: def.color,
+      isBoss: !!def.isBoss,
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
@@ -2202,7 +2232,29 @@ export class Match {
       burnTickAcc: 0,
       burnOwnerId: null,
     };
+  }
+
+  spawnMonster() {
+    if (this.bossRound) return;
+    if (this.monsters.length >= CONFIG.MONSTER_MAX) return;
+    const types = this.monsterTypeDefs();
+    const type = this.pickMonsterType(types);
+    if (!type) return;
+    const def = types[type];
+    const monster = this.createMonsterEntity(type, def);
     this.scaleMonsterToLevel(monster, this.rollMonsterSpawnLevel());
+    this.monsters.push(monster);
+  }
+
+  /** Spawna um boss aleatório (só em rounds de BOSS_APPEARS). */
+  spawnBoss() {
+    const types = this.monsterTypeDefs();
+    const type = this.pickMonsterType(types, { bossesOnly: true });
+    if (!type) return;
+    const def = types[type];
+    const monster = this.createMonsterEntity(type, def);
+    // Boss um pouco acima do nível da partida
+    this.scaleMonsterToLevel(monster, this.matchMaxPlayerLevel() + 2);
     this.monsters.push(monster);
   }
 
@@ -3012,7 +3064,8 @@ export class Match {
     this.ensureSpellChoicesForPending();
     this.resolveLevelUpTimeouts();
 
-    if (this.roundTime >= CONFIG.ROUND_DURATION) {
+    // Round de boss não tem limite de tempo — só acaba ao matar o boss (ou todos morrerem).
+    if (!this.bossRound && this.roundTime >= CONFIG.ROUND_DURATION) {
       const alive = [...this.players.values()].filter((p) => p.alive);
       if (alive.length === 1) {
         this.finishRound(alive[0]);
@@ -3098,8 +3151,8 @@ export class Match {
       }
     }
 
-    // Spawns
-    if (this.monsterSpawnEnabled) {
+    // Spawns (desligado no round de boss — só o boss do início)
+    if (this.monsterSpawnEnabled && !this.bossRound) {
       this.monsterSpawnTimer -= dt;
       if (this.monsterSpawnTimer <= 0) {
         const count = CONFIG.MONSTER_SPAWN_COUNT;
@@ -3616,7 +3669,17 @@ export class Match {
       matchTime: +this.matchTime.toFixed(2),
       matchDuration: CONFIG.MATCH_DURATION,
       roundTime: +this.roundTime.toFixed(2),
-      roundDuration: CONFIG.ROUND_DURATION,
+      roundDuration: (() => {
+        const boss =
+          this.phase === 'countdown'
+            ? this.isBossAppearRound(this.round + 1)
+            : this.bossRound;
+        return boss ? 0 : CONFIG.ROUND_DURATION;
+      })(),
+      bossRound:
+        this.phase === 'countdown'
+          ? this.isBossAppearRound(this.round + 1)
+          : this.bossRound,
       countdown: this.countdown,
       pvpEnabled: this.pvpEnabled,
       arena: {
@@ -3647,6 +3710,7 @@ export class Match {
         xpToNext: m.xpToNext || 0,
         radius: m.radius,
         color: m.color,
+        isBoss: !!m.isBoss,
       })),
       projectiles: this.projectiles.map((p) => ({
         entityId: p.entityId,
