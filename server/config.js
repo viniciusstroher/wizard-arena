@@ -204,6 +204,20 @@ export const CONFIG = {
   /** Cura aplicada a jogadores/bots na área no impacto. */
   MASS_HEAL_AMOUNT: envNumber('MASS_HEAL_AMOUNT', 42),
 
+  /** Intervalo mínimo/máximo entre névoas de cooldown aleatórias (segundos). */
+  COOLDOWN_MIST_EVENT_MIN_INTERVAL: envNumber('COOLDOWN_MIST_EVENT_MIN_INTERVAL', 12),
+  COOLDOWN_MIST_EVENT_MAX_INTERVAL: envNumber('COOLDOWN_MIST_EVENT_MAX_INTERVAL', 24),
+  /** Tempo de aviso (círculo de atenção) antes do impacto. */
+  COOLDOWN_MIST_WARN_TIME: envNumber('COOLDOWN_MIST_WARN_TIME', 2.2),
+  /** Duração do efeito visual de impacto. */
+  COOLDOWN_MIST_IMPACT_TIME: envNumber('COOLDOWN_MIST_IMPACT_TIME', 0.85),
+  COOLDOWN_MIST_RADIUS: envNumber('COOLDOWN_MIST_RADIUS', 78),
+  /**
+   * Fração (0–1) de redução dos cooldowns restantes no impacto.
+   * Ex.: 0.3 = reduz 30% (multiplica por 0.7).
+   */
+  COOLDOWN_MIST_REDUCTION: envNumber('COOLDOWN_MIST_REDUCTION', 0.3),
+
   /**
    * Vozes aleatórias (Kiko / Seu Madruga): intervalo min/max entre
    * tentativas (segundos) e chance (0–1) de tocar quando o timer dispara.

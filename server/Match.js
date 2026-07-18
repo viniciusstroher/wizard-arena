@@ -90,6 +90,8 @@ export class Match {
     this.meteorTimer = 0;
     this.massHeals = [];
     this.massHealTimer = 0;
+    this.cooldownMists = [];
+    this.cooldownMistTimer = 0;
     this.kikoLaughTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
@@ -613,6 +615,8 @@ export class Match {
     this.meteorTimer = 0;
     this.massHeals = [];
     this.massHealTimer = 0;
+    this.cooldownMists = [];
+    this.cooldownMistTimer = 0;
     this.kikoLaughTimer = 0;
     this.events = [];
     this.winnerId = null;
@@ -690,6 +694,7 @@ export class Match {
     this.roundTime = 0;
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
+    this.scheduleNextCooldownMist();
     this.scheduleNextKikoLaugh();
     this.pushEvent({ type: 'round_start', round: this.round });
     this.broadcastState(true);
@@ -705,6 +710,12 @@ export class Match {
     const min = CONFIG.MASS_HEAL_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.MASS_HEAL_EVENT_MAX_INTERVAL);
     this.massHealTimer = min + Math.random() * (max - min);
+  }
+
+  scheduleNextCooldownMist() {
+    const min = CONFIG.COOLDOWN_MIST_EVENT_MIN_INTERVAL;
+    const max = Math.max(min, CONFIG.COOLDOWN_MIST_EVENT_MAX_INTERVAL);
+    this.cooldownMistTimer = min + Math.random() * (max - min);
   }
 
   scheduleNextKikoLaugh() {
@@ -890,6 +901,91 @@ export class Match {
       maxLife: h.maxLife,
       color: h.color,
       seed: h.seed,
+    }));
+  }
+
+  spawnCooldownMistEvent() {
+    const radius = CONFIG.COOLDOWN_MIST_RADIUS;
+    const { x, y } = this.pickMeteorPoint(radius);
+    const warnMax = CONFIG.COOLDOWN_MIST_WARN_TIME;
+    const reduction = Math.min(1, Math.max(0, CONFIG.COOLDOWN_MIST_REDUCTION));
+    this.cooldownMists.push({
+      entityId: eid(),
+      x,
+      y,
+      radius,
+      reduction,
+      phase: 'warn',
+      life: warnMax,
+      maxLife: warnMax,
+      seed: (Math.random() * 1e9) | 0,
+      color: 0xaa66ff,
+    });
+    this.pushEvent({ type: 'cooldown_mist_warn', x, y, radius });
+  }
+
+  applyCooldownMist(event) {
+    const mul = 1 - (event.reduction ?? CONFIG.COOLDOWN_MIST_REDUCTION);
+    for (const p of this.players.values()) {
+      if (!p.alive) continue;
+      if (dist(event, p) > event.radius + CONFIG.PLAYER_RADIUS) continue;
+      p.dashCooldown = Math.max(0, (p.dashCooldown || 0) * mul);
+      p.barrierCooldown = Math.max(0, (p.barrierCooldown || 0) * mul);
+      p.mendCooldown = Math.max(0, (p.mendCooldown || 0) * mul);
+      p.blinkCooldown = Math.max(0, (p.blinkCooldown || 0) * mul);
+      for (const s of p.spells) {
+        s.cooldownLeft = Math.max(0, (s.cooldownLeft || 0) * mul);
+      }
+      if (p.ultimate) {
+        p.ultimate.cooldownLeft = Math.max(0, (p.ultimate.cooldownLeft || 0) * mul);
+      }
+      this.pushEvent({
+        type: 'cooldown_mist',
+        playerId: p.id,
+        reduction: event.reduction,
+        x: p.x,
+        y: p.y,
+      });
+    }
+  }
+
+  tickCooldownMists(dt) {
+    this.cooldownMistTimer -= dt;
+    if (this.cooldownMistTimer <= 0) {
+      this.spawnCooldownMistEvent();
+      this.scheduleNextCooldownMist();
+    }
+
+    for (const m of this.cooldownMists) {
+      m.life -= dt;
+      if (m.phase === 'warn' && m.life <= 0) {
+        this.applyCooldownMist(m);
+        m.phase = 'impact';
+        m.life = CONFIG.COOLDOWN_MIST_IMPACT_TIME;
+        m.maxLife = CONFIG.COOLDOWN_MIST_IMPACT_TIME;
+        this.pushEvent({
+          type: 'cooldown_mist_strike',
+          x: m.x,
+          y: m.y,
+          radius: m.radius,
+          reduction: m.reduction,
+        });
+      }
+    }
+    this.cooldownMists = this.cooldownMists.filter((m) => m.life > 0);
+  }
+
+  serializeCooldownMistEffects() {
+    return this.cooldownMists.map((m) => ({
+      type: m.phase === 'warn' ? 'cooldown_mist_warn' : 'cooldown_mist_strike',
+      entityId: m.entityId,
+      x: m.x,
+      y: m.y,
+      radius: m.radius,
+      life: Math.max(0, m.life),
+      maxLife: m.maxLife,
+      color: m.color,
+      seed: m.seed,
     }));
   }
 
@@ -1598,6 +1694,8 @@ export class Match {
     this.meteorTimer = 0;
     this.massHeals = [];
     this.massHealTimer = 0;
+    this.cooldownMists = [];
+    this.cooldownMistTimer = 0;
     this.kikoLaughTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
@@ -3003,9 +3101,10 @@ export class Match {
       }
     }
 
-    // Eventos aleatórios: meteoro (dano) e mass heal (cura)
+    // Eventos aleatórios: meteoro (dano), mass heal (cura) e névoa de cooldown
     this.tickMeteors(dt);
     this.tickMassHeals(dt);
+    this.tickCooldownMists(dt);
     // Vozes aleatórias (Kiko / Seu Madruga) no client
     this.tickKikoLaugh(dt);
 
@@ -3568,6 +3667,7 @@ export class Match {
         ...this.effects,
         ...this.serializeMeteorEffects(),
         ...this.serializeMassHealEffects(),
+        ...this.serializeCooldownMistEffects(),
       ],
       lootBags: this.lootBags.map((b) => ({
         entityId: b.entityId,

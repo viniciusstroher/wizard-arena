@@ -102,6 +102,21 @@ export class BotController {
     return best;
   }
 
+  /** Névoa de cooldown em aviso — prioriza a mais próxima. */
+  findCooldownMistTarget(player) {
+    let best = null;
+    let bestD = Infinity;
+    for (const m of this.match.cooldownMists || []) {
+      if (m.phase !== 'warn') continue;
+      const d = Math.hypot(m.x - player.x, m.y - player.y);
+      if (d < bestD) {
+        best = m;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
   /** Saco de loot ou moeda mais próximo dentro do alcance de busca. */
   findNearestPickup(player, maxDist = 220) {
     let best = null;
@@ -203,7 +218,10 @@ export class BotController {
 
     const threat = this.findThreateningMeteor(player);
     const heal = this.findMassHealTarget(player);
+    const mist = this.findCooldownMistTarget(player);
     const pickup = this.findNearestPickup(player);
+    // Prefere cura; se não houver, névoa de cooldown
+    const buff = heal || mist;
 
     // 1) Prioridade máxima: sair da área do meteoro
     if (threat) {
@@ -224,20 +242,20 @@ export class BotController {
       aimX = player.x + (fleeDx / fleeLen) * 200;
       aimY = player.y + (fleeDy / fleeLen) * 200;
       ({ up, down, left, right } = dirsToward(player.x, player.y, aimX, aimY, 8));
-    } else if (heal) {
-      // 2) Sempre tenta pegar mass heal (aviso)
-      aimX = heal.x;
-      aimY = heal.y;
+    } else if (buff) {
+      // 2) Sempre tenta pegar mass heal / névoa de cooldown (aviso)
+      aimX = buff.x;
+      aimY = buff.y;
       const inside =
-        Math.hypot(heal.x - player.x, heal.y - player.y) <=
-        Math.max(12, heal.radius - CONFIG.PLAYER_RADIUS * 0.5);
+        Math.hypot(buff.x - player.x, buff.y - player.y) <=
+        Math.max(12, buff.radius - CONFIG.PLAYER_RADIUS * 0.5);
       if (inside) {
-        // Já na zona: fica parado para receber a cura
+        // Já na zona: fica parado para receber o buff
         up = down = left = right = false;
       } else if (fromCenter > arena.r) {
         ({ up, down, left, right } = dirsToward(player.x, player.y, arena.x, arena.y));
       } else {
-        ({ up, down, left, right } = dirsToward(player.x, player.y, heal.x, heal.y));
+        ({ up, down, left, right } = dirsToward(player.x, player.y, buff.x, buff.y));
       }
     } else if (pickup && fromCenter <= arena.r) {
       // 3) Coleta saco de loot ou moeda próximo

@@ -46,6 +46,7 @@ export class GameScene extends Phaser.Scene {
     this.fireballFx = null;
     this.iceFx = null;
     this.healFx = null;
+    this.mistFx = null;
     this.poisonFx = null;
     this.necroFx = null;
     this.sparkFx = null;
@@ -1012,6 +1013,11 @@ export class GameScene extends Phaser.Scene {
         return 'Atenção: bênção de cura se aproxima!';
       case 'mass_heal_strike':
         return 'Uma onda de cura varreu a arena!';
+      case 'cooldown_mist_warn':
+        return 'Atenção: névoa mística se aproxima!';
+      case 'cooldown_mist_strike':
+        return 'A névoa acelerou os cooldowns!';
+      case 'cooldown_mist':
       case 'heal':
         return null;
       case 'match_end': {
@@ -1613,6 +1619,21 @@ export class GameScene extends Phaser.Scene {
       })
       .setDepth(26);
 
+    this.mistFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x6b2cff, 0xaa66ff, 0xcc99ff, 0x8844dd, 0x5522aa],
+        speed: { min: 6, max: 28 },
+        angle: { min: 0, max: 360 },
+        scale: { start: 2.4, end: 0 },
+        alpha: { start: 0.55, end: 0 },
+        lifespan: { min: 520, max: 980 },
+        gravityY: -18,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(7);
+
     this.poisonFx = this.add
       .particles(0, 0, 'particle', {
         tint: [0x88ff44, 0x66cc33, 0xaaff66, 0x44aa22],
@@ -1783,6 +1804,12 @@ export class GameScene extends Phaser.Scene {
       if (e.type === 'mass_heal_strike') {
         this.magicFx?.emitParticleAt(x, y, 10);
       }
+    } else if (
+      e.type === 'cooldown_mist_strike' ||
+      e.type === 'cooldown_mist'
+    ) {
+      this.mistFx?.emitParticleAt(x, y, e.type === 'cooldown_mist_strike' ? 26 : 14);
+      this.magicFx?.emitParticleAt(x, y, 8);
     } else if (e.type === 'blink') {
       this.magicFx?.emitParticleAt(x, y, 14);
     } else if (e.type === 'barrier') {
@@ -3502,6 +3529,138 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Círculo de atenção + névoa roxa se formando (cooldown mist). */
+  drawCooldownMistWarn(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xaa66ff;
+    const r = e.radius || 78;
+    const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 110);
+    const flash = 0.55 + 0.45 * Math.sin(this.time.now / 70);
+    const imminent = Math.max(0, (p - 0.75) / 0.25);
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    g.fillStyle(color, (0.12 + 0.14 * imminent) * fade * pulse);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0x6b2cff, (0.06 + 0.1 * imminent) * fade * flash);
+    g.fillCircle(e.x, e.y, r * 0.62);
+    g.fillStyle(0xcc99ff, (0.04 + 0.08 * imminent) * fade);
+    g.fillCircle(e.x, e.y, r * 0.32);
+
+    g.lineStyle(3, color, (0.7 + 0.25 * imminent) * fade * flash);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(2, 0xddccff, 0.4 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.78);
+
+    const remain = Math.max(0.05, 1 - p);
+    g.lineStyle(4, 0xffffff, 0.7 * fade);
+    g.beginPath();
+    g.arc(e.x, e.y, r * 0.92, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2, false);
+    g.strokePath();
+
+    // Nuvens de névoa flutuando dentro do raio
+    for (let i = 0; i < 7; i++) {
+      const a = rand() * Math.PI * 2 + this.time.now / (900 + i * 80);
+      const dist = r * (0.2 + rand() * 0.65) * (0.55 + 0.45 * p);
+      const cx = e.x + Math.cos(a) * dist;
+      const cy = e.y + Math.sin(a) * dist * 0.75 - 4 - Math.sin(this.time.now / 400 + i) * 6;
+      const br = 10 + rand() * 18 + p * 8;
+      g.fillStyle(i % 2 === 0 ? color : 0x8844dd, (0.1 + 0.08 * pulse) * fade);
+      g.fillEllipse(cx, cy, br * 1.6, br * 0.9);
+      g.fillStyle(0xcc99ff, 0.06 * fade * flash);
+      g.fillEllipse(cx - 2, cy - 3, br * 0.7, br * 0.45);
+    }
+
+    // Coluna suave de névoa subindo
+    const rise = 20 + p * 50;
+    g.fillStyle(color, 0.14 * fade * (0.5 + 0.5 * p));
+    g.fillEllipse(e.x, e.y - rise * 0.35, 22 + p * 10, rise);
+    g.fillStyle(0xcc99ff, 0.1 * fade * flash);
+    g.fillEllipse(e.x, e.y - rise * 0.5, 8, rise * 0.55);
+
+    if (this.mistFx && p > 0.1) {
+      const id = e.entityId ?? `${e.x},${e.y}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(`mist:${id}`) || 0;
+      if (now - last > 80) {
+        this.meteorTrailAt.set(`mist:${id}`, now);
+        const a = Math.random() * Math.PI * 2;
+        const d = Math.random() * r * 0.7;
+        this.mistFx.emitParticleAt(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d * 0.7, 2);
+      }
+    }
+  }
+
+  /** Impacto: explosão de névoa roxa. */
+  drawCooldownMistStrike(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xaa66ff;
+    const r = e.radius || 78;
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    const flash = Math.max(0, 1 - p * 3.2);
+    if (flash > 0) {
+      g.fillStyle(0xffffff, 0.35 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.3 + flash * 0.4));
+      g.fillStyle(0xcc99ff, 0.35 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.7 + flash * 0.35));
+    }
+
+    const groundR = r * (0.7 + 0.4 * Math.min(1, p * 1.5));
+    g.fillStyle(color, 0.28 * fade * (1 - p * 0.45));
+    g.fillCircle(e.x, e.y, groundR);
+    g.fillStyle(0x6b2cff, 0.16 * fade * (1 - p * 0.5));
+    g.fillCircle(e.x, e.y, groundR * 0.55);
+    g.lineStyle(3, 0xddccff, 0.65 * fade);
+    g.strokeCircle(e.x, e.y, groundR);
+
+    for (let i = 0; i < 4; i++) {
+      const wave = Math.min(1.5, p * 1.7 + i * 0.16);
+      const wr = r * (0.3 + wave * 0.95);
+      const wa = (0.65 - i * 0.12) * fade * Math.max(0, 1 - wave * 0.6);
+      g.lineStyle(3.5 - i * 0.5, i === 0 ? 0xffffff : color, wa);
+      g.strokeCircle(e.x, e.y, wr);
+    }
+
+    // Névoa expandindo
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + p * 0.8 + rand() * 0.4;
+      const dist = r * (0.2 + (i % 3) * 0.2) * Math.min(1.15, 0.35 + p * 1.1);
+      const cx = e.x + Math.cos(a) * dist;
+      const cy = e.y + Math.sin(a) * dist * 0.8 - p * 18;
+      const br = 14 + (i % 3) * 6 + (1 - p) * 8;
+      g.fillStyle(i % 2 === 0 ? color : 0x8844dd, 0.22 * fade * (1 - p * 0.5));
+      g.fillEllipse(cx, cy, br * 1.7, br);
+      g.fillStyle(0xcc99ff, 0.1 * fade * Math.max(0, 1 - p * 1.4));
+      g.fillEllipse(cx, cy - 4, br * 0.8, br * 0.5);
+    }
+
+    const columnH = 36 + (1 - p) * 80;
+    g.fillStyle(color, 0.22 * fade * (1 - p * 0.45));
+    g.fillEllipse(e.x, e.y - columnH * 0.35, 30 * (1 - p * 0.25), columnH);
+    g.fillStyle(0xffffff, 0.22 * fade * Math.max(0, 1 - p * 2));
+    g.fillEllipse(e.x, e.y - columnH * 0.5, 9, columnH * 0.4);
+
+    if (this.mistFx && p < 0.75) {
+      const id = `mist-strike:${e.entityId ?? `${e.x},${e.y}`}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(id) || 0;
+      if (now - last > 70) {
+        this.meteorTrailAt.set(id, now);
+        this.mistFx.emitParticleAt(
+          e.x + Phaser.Math.Between(-r * 0.4, r * 0.4),
+          e.y + Phaser.Math.Between(-16, 6),
+          3
+        );
+      }
+    }
+  }
+
   /** Impacto: onda de cura e cruzes ascendentes. */
   drawMassHealStrike(e) {
     const g = this.effectGraphics;
@@ -3743,7 +3902,9 @@ export class GameScene extends Phaser.Scene {
         e.type === 'lightning' ||
         e.type === 'sky_lightning' ||
         e.type === 'meteor_strike' ||
-        e.type === 'mass_heal_strike'
+        e.type === 'mass_heal_strike' ||
+        e.type === 'cooldown_mist_strike' ||
+        e.type === 'cooldown_mist'
       ) {
         activeBursts.add(burstKey);
         this.burstOnce(burstKey, () => this.burstSpellParticles(e));
@@ -3793,6 +3954,10 @@ export class GameScene extends Phaser.Scene {
         this.drawMassHealWarn(e);
       } else if (e.type === 'mass_heal_strike') {
         this.drawMassHealStrike(e);
+      } else if (e.type === 'cooldown_mist_warn') {
+        this.drawCooldownMistWarn(e);
+      } else if (e.type === 'cooldown_mist_strike') {
+        this.drawCooldownMistStrike(e);
       } else if (e.type === 'storm') {
         this.drawStorm(e);
       } else if (e.type === 'electric_storm') {
@@ -3816,6 +3981,10 @@ export class GameScene extends Phaser.Scene {
           const id = String(e.entityId ?? `${e.x},${e.y}`);
           alive.add(`heal:${id}`);
           if (e.type === 'mass_heal_strike') alive.add(`heal-strike:${id}`);
+        } else if (e.type === 'cooldown_mist_warn' || e.type === 'cooldown_mist_strike') {
+          const id = String(e.entityId ?? `${e.x},${e.y}`);
+          alive.add(`mist:${id}`);
+          if (e.type === 'cooldown_mist_strike') alive.add(`mist-strike:${id}`);
         }
       }
       for (const key of this.meteorTrailAt.keys()) {
