@@ -147,10 +147,10 @@ export class GalleryModal {
 
     this.tabTexts = [];
     const tabs = [
-      { id: 'monsters', label: 'Monstros' },
-      { id: 'spells', label: 'Magias' },
+      { id: 'monsters', label: `Monstros (${this.monsters.length})` },
+      { id: 'spells', label: `Magias (${this.spells.length})` },
     ];
-    let tabX = L.cx - 70;
+    let tabX = L.cx - 90;
     for (const t of tabs) {
       const text = this.scene.add
         .text(tabX, L.tabY, t.label, {
@@ -162,7 +162,7 @@ export class GalleryModal {
         .setInteractive({ useHandCursor: true });
       text.on('pointerup', () => this._setTab(t.id));
       this.tabTexts.push({ id: t.id, text });
-      tabX += 140;
+      tabX += 180;
     }
 
     const listBg = this.scene.add
@@ -390,7 +390,7 @@ export class GalleryModal {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.dataset.filter = section.id;
-      btn.textContent = section.label;
+      btn.textContent = this._filterTabLabel(section);
       btn.style.cssText = this._filterTabStyle(section.id === activeId, section.color);
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -461,6 +461,14 @@ export class GalleryModal {
     this._fillListContent();
   }
 
+  _filterTabLabel(section) {
+    const count =
+      this.tab === 'monsters'
+        ? this.monsters.filter((m) => m.tier === section.id).length
+        : this.spells.filter((s) => s.category === section.id).length;
+    return `${section.label} (${count})`;
+  }
+
   _filterTabStyle(active, color) {
     return [
       'flex: 1',
@@ -487,6 +495,7 @@ export class GalleryModal {
     for (const btn of this.tierTabEls) {
       const section = sections.find((s) => s.id === btn.dataset.filter);
       if (!section) continue;
+      btn.textContent = this._filterTabLabel(section);
       btn.style.cssText = this._filterTabStyle(section.id === activeId, section.color);
     }
   }
