@@ -47,6 +47,7 @@ export class GameScene extends Phaser.Scene {
     this.iceFx = null;
     this.healFx = null;
     this.mistFx = null;
+    this.windFx = null;
     this.poisonFx = null;
     this.necroFx = null;
     this.sparkFx = null;
@@ -1034,6 +1035,10 @@ export class GameScene extends Phaser.Scene {
         return 'Atenção: névoa mística se aproxima!';
       case 'cooldown_mist_strike':
         return 'A névoa acelerou os cooldowns!';
+      case 'gale_warn':
+        return 'Atenção: ventania se forma!';
+      case 'gale_strike':
+        return 'Uma ventania varre a arena!';
       case 'cooldown_mist':
       case 'heal':
         return null;
@@ -1679,6 +1684,21 @@ export class GameScene extends Phaser.Scene {
       })
       .setDepth(7);
 
+    this.windFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0xffffff, 0xc8e8ff, 0xa8d8ff, 0x88c8ff, 0xe8f4ff],
+        speed: { min: 90, max: 220 },
+        angle: { min: -12, max: 12 },
+        scale: { start: 1.6, end: 0.15 },
+        alpha: { start: 0.7, end: 0 },
+        lifespan: { min: 280, max: 520 },
+        gravityY: 0,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'ADD',
+      })
+      .setDepth(8);
+
     this.poisonFx = this.add
       .particles(0, 0, 'particle', {
         tint: [0x88ff44, 0x66cc33, 0xaaff66, 0x44aa22],
@@ -1855,6 +1875,12 @@ export class GameScene extends Phaser.Scene {
     ) {
       this.mistFx?.emitParticleAt(x, y, e.type === 'cooldown_mist_strike' ? 26 : 14);
       this.magicFx?.emitParticleAt(x, y, 8);
+    } else if (e.type === 'gale_strike') {
+      const deg = Phaser.Math.RadToDeg(e.angle || 0);
+      this.windFx?.setEmitterAngle({ min: deg - 14, max: deg + 14 });
+      this.windFx?.setParticleSpeed({ min: 120, max: 260 });
+      this.windFx?.emitParticleAt(x, y, 28);
+      this.magicFx?.emitParticleAt(x, y, 6);
     } else if (e.type === 'blink') {
       this.magicFx?.emitParticleAt(x, y, 14);
     } else if (e.type === 'barrier') {
@@ -3718,6 +3744,152 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Círculo de atenção + ventania se formando (rajadas laterais). */
+  drawGaleWarn(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0xa8d8ff;
+    const r = e.radius || 78;
+    const angle = e.angle || 0;
+    const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 100);
+    const flash = 0.55 + 0.45 * Math.sin(this.time.now / 65);
+    const imminent = Math.max(0, (p - 0.75) / 0.25);
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const px = -dy;
+    const py = dx;
+
+    g.fillStyle(color, (0.1 + 0.12 * imminent) * fade * pulse);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0x6aa8d8, (0.05 + 0.08 * imminent) * fade * flash);
+    g.fillCircle(e.x, e.y, r * 0.58);
+    g.lineStyle(3, color, (0.65 + 0.3 * imminent) * fade * flash);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(2, 0xffffff, 0.35 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.78);
+
+    const remain = Math.max(0.05, 1 - p);
+    g.lineStyle(4, 0xffffff, 0.7 * fade);
+    g.beginPath();
+    g.arc(e.x, e.y, r * 0.92, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2, false);
+    g.strokePath();
+
+    // Rajadas cruzando o círculo (lado → lado)
+    const sweep = ((this.time.now / 420) % 1) * 2 - 1;
+    for (let i = 0; i < 6; i++) {
+      const lane = (i / 5 - 0.5) * r * 1.5;
+      const t = sweep + (rand() - 0.5) * 0.35 + i * 0.08;
+      const along = t * r * 0.95;
+      const cx = e.x + dx * along + px * lane * 0.55;
+      const cy = e.y + dy * along + py * lane * 0.55;
+      if (Math.hypot(cx - e.x, cy - e.y) > r * 0.95) continue;
+      const len = 18 + rand() * 28 + p * 16;
+      g.lineStyle(2 + (i % 2), i % 2 === 0 ? 0xffffff : color, (0.35 + 0.25 * pulse) * fade);
+      g.lineBetween(cx - dx * len * 0.5, cy - dy * len * 0.5, cx + dx * len * 0.5, cy + dy * len * 0.5);
+      g.fillStyle(0xffffff, 0.12 * fade * flash);
+      g.fillEllipse(cx, cy, 10 + p * 6, 4);
+    }
+
+    if (this.windFx && p > 0.15) {
+      const id = e.entityId ?? `${e.x},${e.y}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(`gale:${id}`) || 0;
+      if (now - last > 70) {
+        this.meteorTrailAt.set(`gale:${id}`, now);
+        const deg = Phaser.Math.RadToDeg(angle);
+        this.windFx.setEmitterAngle({ min: deg - 16, max: deg + 16 });
+        this.windFx.setParticleSpeed({ min: 70, max: 160 });
+        const side = (Math.random() - 0.5) * r * 1.2;
+        const back = -r * (0.55 + Math.random() * 0.25);
+        this.windFx.emitParticleAt(e.x + dx * back + px * side, e.y + dy * back + py * side, 2);
+      }
+    }
+  }
+
+  /** Zona ativa: ventania radial com rajadas contínuas. */
+  drawGaleStrike(e) {
+    const g = this.effectGraphics;
+    // Zona longa: só some no fim (não fade linear de 5s)
+    const fade = Math.min(1, Math.max(0, (e.life || 0) / 0.85));
+    const color = e.color || 0xa8d8ff;
+    const r = e.radius || 78;
+    const angle = e.angle || 0;
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const px = -dy;
+    const py = dx;
+    const pulse = 0.8 + 0.2 * Math.sin(this.time.now / 90);
+    // Flash só no início da zona
+    const age = Math.max(0, (e.maxLife || 0) - (e.life || 0));
+    const flash = Math.max(0, 1 - age * 4);
+    if (flash > 0) {
+      g.fillStyle(0xffffff, 0.28 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.35 + flash * 0.4));
+      g.fillStyle(color, 0.22 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.75 + flash * 0.3));
+    }
+
+    g.fillStyle(color, 0.16 * fade * pulse);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0x6aa8d8, 0.08 * fade);
+    g.fillCircle(e.x, e.y, r * 0.55);
+    g.lineStyle(3, 0xffffff, 0.45 * fade * pulse);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(2, color, 0.55 * fade);
+    g.strokeCircle(e.x, e.y, r * 0.82);
+
+    // Faixas de vento varrendo o círculo
+    const sweep = ((this.time.now / 280) % 1) * 2 - 1;
+    for (let i = 0; i < 10; i++) {
+      const lane = (i / 9 - 0.5) * r * 1.7;
+      const t = sweep + i * 0.11 + (rand() - 0.5) * 0.2;
+      const along = ((t % 2) + 2) % 2; // 0..2
+      const pos = (along - 1) * r; // -r..r
+      const cx = e.x + dx * pos + px * lane * 0.5;
+      const cy = e.y + dy * pos + py * lane * 0.5;
+      if (Math.hypot(cx - e.x, cy - e.y) > r * 0.98) continue;
+      const len = 26 + (i % 3) * 10;
+      const a = (0.55 - (i % 3) * 0.08) * fade * pulse;
+      g.lineStyle(2.5, i % 2 === 0 ? 0xffffff : color, a);
+      g.lineBetween(cx - dx * len * 0.55, cy - dy * len * 0.55, cx + dx * len * 0.55, cy + dy * len * 0.55);
+      g.fillStyle(0xffffff, 0.1 * fade);
+      g.fillEllipse(cx, cy, 12, 3.5);
+    }
+
+    // Setas de direção nas bordas
+    for (let i = 0; i < 4; i++) {
+      const lane = (i / 3 - 0.5) * r * 1.1;
+      const tipX = e.x + dx * r * 0.72 + px * lane;
+      const tipY = e.y + dy * r * 0.72 + py * lane;
+      const baseX = tipX - dx * 16;
+      const baseY = tipY - dy * 16;
+      g.lineStyle(2, 0xffffff, 0.5 * fade * pulse);
+      g.lineBetween(baseX, baseY, tipX, tipY);
+      g.lineBetween(tipX, tipY, tipX - dx * 7 + px * 5, tipY - dy * 7 + py * 5);
+      g.lineBetween(tipX, tipY, tipX - dx * 7 - px * 5, tipY - dy * 7 - py * 5);
+    }
+
+    if (this.windFx && fade > 0.05) {
+      const id = `gale-strike:${e.entityId ?? `${e.x},${e.y}`}`;
+      const now = this.time.now;
+      const last = this.meteorTrailAt.get(id) || 0;
+      if (now - last > 55) {
+        this.meteorTrailAt.set(id, now);
+        const deg = Phaser.Math.RadToDeg(angle);
+        this.windFx.setEmitterAngle({ min: deg - 18, max: deg + 18 });
+        this.windFx.setParticleSpeed({ min: 110, max: 240 });
+        const side = (Math.random() - 0.5) * r * 1.4;
+        const back = -r * (0.65 + Math.random() * 0.2);
+        this.windFx.emitParticleAt(e.x + dx * back + px * side, e.y + dy * back + py * side, 3);
+      }
+    }
+  }
+
   /** Impacto: onda de cura e cruzes ascendentes. */
   drawMassHealStrike(e) {
     const g = this.effectGraphics;
@@ -3961,7 +4133,8 @@ export class GameScene extends Phaser.Scene {
         e.type === 'meteor_strike' ||
         e.type === 'mass_heal_strike' ||
         e.type === 'cooldown_mist_strike' ||
-        e.type === 'cooldown_mist'
+        e.type === 'cooldown_mist' ||
+        e.type === 'gale_strike'
       ) {
         activeBursts.add(burstKey);
         this.burstOnce(burstKey, () => this.burstSpellParticles(e));
@@ -4015,6 +4188,10 @@ export class GameScene extends Phaser.Scene {
         this.drawCooldownMistWarn(e);
       } else if (e.type === 'cooldown_mist_strike') {
         this.drawCooldownMistStrike(e);
+      } else if (e.type === 'gale_warn') {
+        this.drawGaleWarn(e);
+      } else if (e.type === 'gale_strike') {
+        this.drawGaleStrike(e);
       } else if (e.type === 'storm') {
         this.drawStorm(e);
       } else if (e.type === 'electric_storm') {
@@ -4042,6 +4219,10 @@ export class GameScene extends Phaser.Scene {
           const id = String(e.entityId ?? `${e.x},${e.y}`);
           alive.add(`mist:${id}`);
           if (e.type === 'cooldown_mist_strike') alive.add(`mist-strike:${id}`);
+        } else if (e.type === 'gale_warn' || e.type === 'gale_strike') {
+          const id = String(e.entityId ?? `${e.x},${e.y}`);
+          alive.add(`gale:${id}`);
+          if (e.type === 'gale_strike') alive.add(`gale-strike:${id}`);
         }
       }
       for (const key of this.meteorTrailAt.keys()) {

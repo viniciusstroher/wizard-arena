@@ -234,6 +234,19 @@ export const CONFIG = {
    */
   COOLDOWN_MIST_REDUCTION: envNumber('COOLDOWN_MIST_REDUCTION', 0.3),
 
+  /** Intervalo mínimo/máximo entre ventanias aleatórias (segundos). */
+  GALE_EVENT_MIN_INTERVAL: envNumber('GALE_EVENT_MIN_INTERVAL', 12),
+  GALE_EVENT_MAX_INTERVAL: envNumber('GALE_EVENT_MAX_INTERVAL', 24),
+  /** Tempo de aviso (círculo de atenção) antes da ventania. */
+  GALE_WARN_TIME: envNumber('GALE_WARN_TIME', 2.2),
+  /** Duração da zona de vento ativa (segundos). */
+  GALE_DURATION: envNumber('GALE_DURATION', 5),
+  GALE_RADIUS: envNumber('GALE_RADIUS', 78),
+  /** Multiplicador de velocidade dentro da ventania (1.5 = +50%). */
+  GALE_SPEED_MUL: envNumber('GALE_SPEED_MUL', 1.5),
+  /** Multiplicador de inércia dentro da ventania (0.75 = −25%). */
+  GALE_INERTIA_MUL: envNumber('GALE_INERTIA_MUL', 0.75),
+
   /**
    * Vozes aleatórias (Kiko / Seu Madruga): intervalo min/max entre
    * tentativas (segundos) e chance (0–1) de tocar quando o timer dispara.

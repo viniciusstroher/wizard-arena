@@ -117,6 +117,21 @@ export class BotController {
     return best;
   }
 
+  /** Ventania em aviso — prioriza a mais próxima. */
+  findGaleTarget(player) {
+    let best = null;
+    let bestD = Infinity;
+    for (const g of this.match.gales || []) {
+      if (g.phase !== 'warn') continue;
+      const d = Math.hypot(g.x - player.x, g.y - player.y);
+      if (d < bestD) {
+        best = g;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
   /** Saco de loot ou moeda mais próximo dentro do alcance de busca. */
   findNearestPickup(player, maxDist = 220) {
     let best = null;
@@ -219,9 +234,10 @@ export class BotController {
     const threat = this.findThreateningMeteor(player);
     const heal = this.findMassHealTarget(player);
     const mist = this.findCooldownMistTarget(player);
+    const gale = this.findGaleTarget(player);
     const pickup = this.findNearestPickup(player);
-    // Prefere cura; se não houver, névoa de cooldown
-    const buff = heal || mist;
+    // Prefere cura; senão névoa; senão ventania
+    const buff = heal || mist || gale;
 
     // 1) Prioridade máxima: sair da área do meteoro
     if (threat) {
@@ -243,7 +259,7 @@ export class BotController {
       aimY = player.y + (fleeDy / fleeLen) * 200;
       ({ up, down, left, right } = dirsToward(player.x, player.y, aimX, aimY, 8));
     } else if (buff) {
-      // 2) Sempre tenta pegar mass heal / névoa de cooldown (aviso)
+      // 2) Sempre tenta pegar mass heal / névoa / ventania (aviso)
       aimX = buff.x;
       aimY = buff.y;
       const inside =

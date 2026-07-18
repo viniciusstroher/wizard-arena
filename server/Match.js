@@ -92,6 +92,8 @@ export class Match {
     this.massHealTimer = 0;
     this.cooldownMists = [];
     this.cooldownMistTimer = 0;
+    this.gales = [];
+    this.galeTimer = 0;
     this.kikoLaughTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
@@ -627,6 +629,8 @@ export class Match {
     this.massHealTimer = 0;
     this.cooldownMists = [];
     this.cooldownMistTimer = 0;
+    this.gales = [];
+    this.galeTimer = 0;
     this.kikoLaughTimer = 0;
     this.events = [];
     this.winnerId = null;
@@ -710,6 +714,7 @@ export class Match {
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
+    this.scheduleNextGale();
     this.scheduleNextKikoLaugh();
     if (this.bossRound) {
       // Round de boss: limpa mobs persistidos e spawna um único boss.
@@ -737,6 +742,12 @@ export class Match {
     const min = CONFIG.COOLDOWN_MIST_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.COOLDOWN_MIST_EVENT_MAX_INTERVAL);
     this.cooldownMistTimer = min + Math.random() * (max - min);
+  }
+
+  scheduleNextGale() {
+    const min = CONFIG.GALE_EVENT_MIN_INTERVAL;
+    const max = Math.max(min, CONFIG.GALE_EVENT_MAX_INTERVAL);
+    this.galeTimer = min + Math.random() * (max - min);
   }
 
   scheduleNextKikoLaugh() {
@@ -1007,6 +1018,84 @@ export class Match {
       maxLife: m.maxLife,
       color: m.color,
       seed: m.seed,
+    }));
+  }
+
+  spawnGaleEvent() {
+    const radius = CONFIG.GALE_RADIUS;
+    const { x, y } = this.pickMeteorPoint(radius);
+    const warnMax = CONFIG.GALE_WARN_TIME;
+    const seed = (Math.random() * 1e9) | 0;
+    // Direção da ventania (lado → lado), estável por evento
+    const angle = ((seed % 360) / 360) * Math.PI * 2;
+    this.gales.push({
+      entityId: eid(),
+      x,
+      y,
+      radius,
+      angle,
+      speedMul: CONFIG.GALE_SPEED_MUL,
+      inertiaMul: CONFIG.GALE_INERTIA_MUL,
+      phase: 'warn',
+      life: warnMax,
+      maxLife: warnMax,
+      seed,
+      color: 0xa8d8ff,
+    });
+    this.pushEvent({ type: 'gale_warn', x, y, radius, angle });
+  }
+
+  /** Buff de vento se o jogador estiver dentro de alguma ventania ativa. */
+  galeBuffFor(p) {
+    for (const g of this.gales) {
+      if (g.phase !== 'impact') continue;
+      if (dist(g, p) <= g.radius + CONFIG.PLAYER_RADIUS) {
+        return {
+          speedMul: g.speedMul ?? CONFIG.GALE_SPEED_MUL,
+          inertiaMul: g.inertiaMul ?? CONFIG.GALE_INERTIA_MUL,
+        };
+      }
+    }
+    return { speedMul: 1, inertiaMul: 1 };
+  }
+
+  tickGales(dt) {
+    this.galeTimer -= dt;
+    if (this.galeTimer <= 0) {
+      this.spawnGaleEvent();
+      this.scheduleNextGale();
+    }
+
+    for (const g of this.gales) {
+      g.life -= dt;
+      if (g.phase === 'warn' && g.life <= 0) {
+        g.phase = 'impact';
+        g.life = CONFIG.GALE_DURATION;
+        g.maxLife = CONFIG.GALE_DURATION;
+        this.pushEvent({
+          type: 'gale_strike',
+          x: g.x,
+          y: g.y,
+          radius: g.radius,
+          angle: g.angle,
+        });
+      }
+    }
+    this.gales = this.gales.filter((g) => g.life > 0);
+  }
+
+  serializeGaleEffects() {
+    return this.gales.map((g) => ({
+      type: g.phase === 'warn' ? 'gale_warn' : 'gale_strike',
+      entityId: g.entityId,
+      x: g.x,
+      y: g.y,
+      radius: g.radius,
+      angle: g.angle,
+      life: Math.max(0, g.life),
+      maxLife: g.maxLife,
+      color: g.color,
+      seed: g.seed,
     }));
   }
 
@@ -1727,6 +1816,8 @@ export class Match {
     this.massHealTimer = 0;
     this.cooldownMists = [];
     this.cooldownMistTimer = 0;
+    this.gales = [];
+    this.galeTimer = 0;
     this.kikoLaughTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
@@ -3162,10 +3253,11 @@ export class Match {
       }
     }
 
-    // Eventos aleatórios: meteoro (dano), mass heal (cura) e névoa de cooldown
+    // Eventos aleatórios: meteoro, mass heal, névoa de cooldown e ventania
     this.tickMeteors(dt);
     this.tickMassHeals(dt);
     this.tickCooldownMists(dt);
+    this.tickGales(dt);
     // Vozes aleatórias (Kiko / Seu Madruga) no client
     this.tickKikoLaugh(dt);
 
@@ -3243,8 +3335,15 @@ export class Match {
         const floorMul = (CONFIG.FLOOR_SPEED_MUL && CONFIG.FLOOR_SPEED_MUL[this.floorType]) || 1;
         const inertiaMul =
           (CONFIG.FLOOR_INERTIA_MUL && CONFIG.FLOOR_INERTIA_MUL[this.floorType]) || 1;
-        const speed = CONFIG.PLAYER_SPEED * floorMul * (1 - p.slow);
-        applyInertia(p, mx * speed, my * speed, CONFIG.PLAYER_INERTIA * inertiaMul, dt);
+        const gale = this.galeBuffFor(p);
+        const speed = CONFIG.PLAYER_SPEED * floorMul * (1 - p.slow) * gale.speedMul;
+        applyInertia(
+          p,
+          mx * speed,
+          my * speed,
+          CONFIG.PLAYER_INERTIA * inertiaMul * gale.inertiaMul,
+          dt
+        );
         p.x += p.vx * dt;
         this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
         p.y += p.vy * dt;
@@ -3740,6 +3839,7 @@ export class Match {
         ...this.serializeMeteorEffects(),
         ...this.serializeMassHealEffects(),
         ...this.serializeCooldownMistEffects(),
+        ...this.serializeGaleEffects(),
       ],
       lootBags: this.lootBags.map((b) => ({
         entityId: b.entityId,
