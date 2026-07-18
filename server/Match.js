@@ -84,6 +84,7 @@ export class Match {
     this.projectiles = [];
     this.aoes = [];
     this.effects = [];
+    this.lootBags = [];
     this.meteors = [];
     this.meteorTimer = 0;
     this.massHeals = [];
@@ -114,7 +115,7 @@ export class Match {
     this.bots = [];
     this.rocks = [];
     this.trees = [];
-    /** 'dirt' | 'grass' — escolhido ao regenerar a arena. */
+    /** 'dirt' | 'grass' | 'ice' — escolhido ao regenerar a arena. */
     this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
@@ -185,14 +186,21 @@ export class Match {
 
   /** Pedras apenas dentro do círculo da arena. */
   generateRocks() {
-    // 50% grama / 50% terra batida.
-    this.floorType = Math.random() < 0.5 ? 'grass' : 'dirt';
+    // Terços iguais: grama / terra / gelo.
+    const floors = ['grass', 'dirt', 'ice'];
+    this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
-    const types = [
+    const dirtTypes = [
       { type: 'stone', radius: 12 },
       { type: 'rock', radius: 18 },
       { type: 'boulder', radius: 26 },
     ];
+    const iceTypes = [
+      { type: 'ice_stone', radius: 12 },
+      { type: 'ice_rock', radius: 18 },
+      { type: 'ice_boulder', radius: 26 },
+    ];
+    const types = this.floorType === 'ice' ? iceTypes : dirtTypes;
     const count =
       CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
     const rocks = [];
@@ -441,6 +449,7 @@ export class Match {
       kills: 0,
       deaths: 0,
       monsterKills: 0,
+      loot: 0,
       damageDealt: 0,
       critChance: CONFIG.PLAYER_CRIT_CHANCE,
       critMult: CONFIG.PLAYER_CRIT_MULT,
@@ -551,6 +560,7 @@ export class Match {
     this.projectiles = [];
     this.aoes = [];
     this.effects = [];
+    this.lootBags = [];
     this.meteors = [];
     this.meteorTimer = 0;
     this.massHeals = [];
@@ -1301,7 +1311,7 @@ export class Match {
   }
 
   spawnBones(x, y) {
-    this.effects.push({
+    const bone = {
       entityId: eid(),
       type: 'bones',
       x: +(x + (Math.random() - 0.5) * 6).toFixed(1),
@@ -1311,7 +1321,52 @@ export class Match {
       rotation: +((Math.random() - 0.5) * 0.6).toFixed(2),
       skullOffsetX: +((Math.random() - 0.5) * 6).toFixed(1),
       skullOffsetY: +((-6 + (Math.random() - 0.5) * 3).toFixed(1)),
+    };
+    this.effects.push(bone);
+    return bone;
+  }
+
+  /** Saco em cima do crânio do esqueleto. */
+  spawnLootBagOnBones(bones) {
+    const x = bones.x + (bones.skullOffsetX || 0);
+    const y = bones.y + (bones.skullOffsetY || -6) - 2;
+    this.lootBags.push({
+      entityId: eid(),
+      x: +x.toFixed(1),
+      y: +y.toFixed(1),
+      radius: CONFIG.LOOT_BAG_RADIUS,
+      readyAt: this.matchTime + CONFIG.LOOT_BAG_PICKUP_DELAY,
     });
+  }
+
+  /** Jogadores/bots vivos coletam sacos ao passar por cima (após o delay). */
+  collectLootBags() {
+    if (!this.lootBags.length) return;
+    const pickupR = CONFIG.PLAYER_RADIUS + CONFIG.LOOT_BAG_RADIUS;
+    const remaining = [];
+    for (const bag of this.lootBags) {
+      if (this.matchTime < (bag.readyAt || 0)) {
+        remaining.push(bag);
+        continue;
+      }
+      let taken = false;
+      for (const p of this.players.values()) {
+        if (!p.alive) continue;
+        if (dist(p, bag) > pickupR) continue;
+        p.loot = (p.loot || 0) + 1;
+        this.pushEvent({
+          type: 'loot_pickup',
+          playerId: p.id,
+          loot: p.loot,
+          x: bag.x,
+          y: bag.y,
+        });
+        taken = true;
+        break;
+      }
+      if (!taken) remaining.push(bag);
+    }
+    this.lootBags = remaining;
   }
 
   /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
@@ -1406,10 +1461,11 @@ export class Match {
       return true;
     }
 
-    // Monster — ossos no chão + remove da lista
+    // Monster — ossos + saco de loot em cima do esqueleto; remove da lista
     const mx = target.x;
     const my = target.y;
-    this.spawnBones(mx, my);
+    const bones = this.spawnBones(mx, my);
+    this.spawnLootBagOnBones(bones);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
@@ -1502,6 +1558,7 @@ export class Match {
           kills: p.kills,
           deaths: p.deaths,
           monsterKills: p.monsterKills || 0,
+          loot: p.loot || 0,
           damageDealt: Math.round(p.damageDealt || 0),
           level: p.level,
         }))
@@ -2803,7 +2860,8 @@ export class Match {
           mx /= len;
           my /= len;
         }
-        const speed = CONFIG.PLAYER_SPEED * (1 - p.slow);
+        const floorMul = (CONFIG.FLOOR_SPEED_MUL && CONFIG.FLOOR_SPEED_MUL[this.floorType]) || 1;
+        const speed = CONFIG.PLAYER_SPEED * floorMul * (1 - p.slow);
         applyInertia(p, mx * speed, my * speed, CONFIG.PLAYER_INERTIA, dt);
         p.x += p.vx * dt;
         this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
@@ -3091,6 +3149,8 @@ export class Match {
     for (const e of this.effects) e.life -= dt;
     this.effects = this.effects.filter((e) => e.life > 0);
 
+    this.collectLootBags();
+
     this.broadcastState();
   }
 
@@ -3159,6 +3219,7 @@ export class Match {
       kills: p.kills,
       deaths: p.deaths,
       monsterKills: p.monsterKills || 0,
+      loot: p.loot || 0,
       score: p.score,
       damageDealt: Math.round(p.damageDealt || 0),
       pendingLevelUps: p.pendingLevelUps,
@@ -3254,6 +3315,12 @@ export class Match {
         ...this.serializeMeteorEffects(),
         ...this.serializeMassHealEffects(),
       ],
+      lootBags: this.lootBags.map((b) => ({
+        entityId: b.entityId,
+        x: b.x,
+        y: b.y,
+        radius: b.radius,
+      })),
       events: this.events,
       winnerId: this.winnerId,
       intermissionTimer: this.intermissionTimer,

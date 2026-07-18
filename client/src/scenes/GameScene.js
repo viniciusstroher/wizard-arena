@@ -16,6 +16,7 @@ export class GameScene extends Phaser.Scene {
     this.treeSprites = new Map();
     this.bloodSprites = new Map();
     this.boneSprites = new Map();
+    this.lootBagSprites = new Map();
     this.localCorpses = [];
     this.aoeGraphics = null;
     this.arenaGraphics = null;
@@ -322,6 +323,15 @@ export class GameScene extends Phaser.Scene {
       })
       .setScrollFactor(0)
       .setDepth(102);
+    this.lootText = this.add
+      .text(24, 94, 'Loot 0', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#e8c84a',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
 
     // Status recebidos (slow, etc.) — abaixo de Lv/XP
     this.statusSlots = [];
@@ -453,7 +463,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   createScoreboard(width) {
-    const panelW = 280;
+    const panelW = 300;
     const panelX = width - 12 - panelW;
     const panelY = 12;
     const maxRows = 8;
@@ -513,7 +523,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
     this.scoreboardHeaderStats = this.add
-      .text(panelX + panelW - 12, panelY + 36, 'K/M  Mob  Dmg  Pts', {
+      .text(panelX + panelW - 12, panelY + 36, 'K/M  Mob  Loot  Dmg  Pts', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '10px',
         color: '#7a6d9a',
@@ -604,7 +614,7 @@ export class GameScene extends Phaser.Scene {
         .setVisible(true);
       row.stats
         .setText(
-          `${p.kills || 0}/${p.deaths || 0}  ${p.monsterKills || 0}  ${p.damageDealt || 0}  ${p.score || 0}`
+          `${p.kills || 0}/${p.deaths || 0}  ${p.monsterKills || 0}  ${p.loot || 0}  ${p.damageDealt || 0}  ${p.score || 0}`
         )
         .setColor(color)
         .setPosition(panelX + panelW - 12, y)
@@ -798,20 +808,21 @@ export class GameScene extends Phaser.Scene {
         (b.level || 0) - (a.level || 0)
     );
     const winner = ranking.find((p) => p.id === state.winnerId) || ranking[0] || null;
-    const header = 'Jogador          K/M   Mob   Dano   Pts';
+    const header = 'Jogador          K/M   Mob  Loot   Dano   Pts';
     const rows = ranking
       .map((p, i) => {
         const mark = p.id === winner?.id ? '★' : `${i + 1}.`;
         const name = `${mark} ${(p.name || 'Wizard').slice(0, 12)}`.padEnd(16, ' ');
         const km = `${p.kills || 0}/${p.deaths || 0}`.padStart(5, ' ');
         const mob = String(p.monsterKills || 0).padStart(5, ' ');
+        const loot = String(p.loot || 0).padStart(5, ' ');
         const dmg = String(p.damageDealt || 0).padStart(6, ' ');
         const pts = String(p.score || 0).padStart(5, ' ');
-        return `${name}${km} ${mob} ${dmg} ${pts}`;
+        return `${name}${km} ${mob} ${loot} ${dmg} ${pts}`;
       })
       .join('\n');
 
-    const panelW = 520;
+    const panelW = 560;
     const panelH = Math.min(440, 230 + ranking.length * 22);
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
     const panel = this.add
@@ -960,6 +971,8 @@ export class GameScene extends Phaser.Scene {
           : `${this.playerName(ev.playerId)} morreu`;
       case 'monster_kill':
         return `${this.playerName(ev.killerId)} derrotou um monstro`;
+      case 'loot_pickup':
+        return `${this.playerName(ev.playerId)} coletou loot (+1)`;
       case 'damage': {
         // Zona/DoT contínuo: só números flutuantes (evita spam no painel)
         if (!ev.fromHit && !ev.sourceId) return null;
@@ -1295,6 +1308,7 @@ export class GameScene extends Phaser.Scene {
     this.renderProjectiles();
     this.renderAoes();
     this.renderEffects();
+    this.renderLootBags();
     this.renderSpawnPing();
     this.updateHud();
     this.updateLevelUpUi();
@@ -2036,6 +2050,9 @@ export class GameScene extends Phaser.Scene {
       stone: ['rock_stone_0', 'rock_stone_1', 'rock_stone_2'],
       rock: ['rock_rock_0', 'rock_rock_1', 'rock_rock_2'],
       boulder: ['rock_boulder_0', 'rock_boulder_1', 'rock_boulder_2'],
+      ice_stone: ['rock_ice_stone_0', 'rock_ice_stone_1', 'rock_ice_stone_2'],
+      ice_rock: ['rock_ice_rock_0', 'rock_ice_rock_1', 'rock_ice_rock_2'],
+      ice_boulder: ['rock_ice_boulder_0', 'rock_ice_boulder_1', 'rock_ice_boulder_2'],
     };
 
     const hashId = (id) => {
@@ -2053,7 +2070,9 @@ export class GameScene extends Phaser.Scene {
         const h = hashId(rock.id);
         const key = list[h % list.length];
         if (!this.textures.exists(key)) continue;
-        const baseScale = rock.type === 'boulder' ? 1.2 : rock.type === 'rock' ? 1.08 : 1;
+        const isBoulder = rock.type === 'boulder' || rock.type === 'ice_boulder';
+        const isRock = rock.type === 'rock' || rock.type === 'ice_rock';
+        const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : 1;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
         s = this.add
           .image(rock.x, rock.y, key)
@@ -2143,7 +2162,12 @@ export class GameScene extends Phaser.Scene {
 
     this.updateLavaEffects(a);
 
-    const floorKey = a.floorType === 'grass' ? 'arena_grass' : 'arena_brick';
+    const floorKey =
+      a.floorType === 'grass'
+        ? 'arena_grass'
+        : a.floorType === 'ice'
+          ? 'arena_ice'
+          : 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }
@@ -3795,6 +3819,49 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  renderLootBags() {
+    if (!this.textures.exists('loot_bag')) return;
+    const seen = new Set();
+    for (const bag of this.state?.lootBags || []) {
+      seen.add(bag.entityId);
+      let s = this.lootBagSprites.get(bag.entityId);
+      if (!s) {
+        s = this.add
+          .image(bag.x, bag.y, 'loot_bag')
+          .setDepth(6)
+          .setScale(0.2)
+          .setAlpha(1);
+        this.lootBagSprites.set(bag.entityId, s);
+        this.tweens.add({
+          targets: s,
+          scale: 1.15,
+          duration: 220,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            if (!s.active) return;
+            this.tweens.add({
+              targets: s,
+              y: bag.y - 5,
+              duration: 480,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            });
+          },
+        });
+      } else {
+        s.x = bag.x;
+      }
+    }
+    for (const [id, s] of this.lootBagSprites) {
+      if (!seen.has(id)) {
+        this.tweens.killTweensOf(s);
+        s.destroy();
+        this.lootBagSprites.delete(id);
+      }
+    }
+  }
+
   updateHud() {
     const me = this.me();
     if (!me) return;
@@ -3849,7 +3916,11 @@ export class GameScene extends Phaser.Scene {
       `·  ${me.kills || 0}/${me.deaths || 0}  (${me.score || 0} pts)  ·  ${me.damageDealt || 0} dmg`
     );
     this.scoreText.setPosition(this.levelText.x + this.levelText.width + 8, y);
-    y += 22;
+    y += 20;
+
+    this.lootText.setPosition(PAD_X + 4, y);
+    this.lootText.setText(`Loot ${me.loot || 0}`);
+    y += 20;
 
     // Status recebidos (abaixo de Lv/XP)
     const effects = [];
@@ -3894,7 +3965,11 @@ export class GameScene extends Phaser.Scene {
     }
     if (effects.length > 0) y += 34;
 
-    const contentRight = Math.max(PAD_X + BAR_W, this.scoreText.x + this.scoreText.width);
+    const contentRight = Math.max(
+      PAD_X + BAR_W,
+      this.scoreText.x + this.scoreText.width,
+      this.lootText.x + this.lootText.width
+    );
     const panelW = Math.max(240, contentRight - PANEL_X + 12);
     const panelH = Math.max(72, y - PANEL_Y + 8);
     this.hudPanel.setPosition(PANEL_X, PANEL_Y);

@@ -136,11 +136,13 @@ export class BootScene extends Phaser.Scene {
     this.createManaPotionSprite();
     this.createArenaDirtTexture();
     this.createArenaGrassTexture();
+    this.createArenaIceTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
+    this.createLootBagSprite();
     this.createSpellIcons();
     this.scene.start('Lobby');
   }
@@ -647,6 +649,9 @@ export class BootScene extends Phaser.Scene {
     const basalt = { D: 0x1a1a22, L: 0x3e3e4a, M: 0x5c5c6a, H: 0x8e8e9c, C: 0x282834 };
     const granite = { D: 0x2e2828, L: 0x6a5e5a, M: 0x8e8078, H: 0xc4b4a4, C: 0x3e3634 };
     const moss = { D: 0x243028, L: 0x4a5a48, M: 0x6e7e62, H: 0xa0b088, C: 0x2e3a30 };
+    const icePale = { D: 0x2a4a62, L: 0x6a9ab8, M: 0x9ec8e0, H: 0xe8f6ff, C: 0x3a6078 };
+    const iceBlue = { D: 0x1e3a58, L: 0x4a7a9a, M: 0x7ab0d0, H: 0xd0ecff, C: 0x2e5070 };
+    const iceDeep = { D: 0x183048, L: 0x3e6a88, M: 0x68a0c0, H: 0xc0e4f8, C: 0x284860 };
 
     // Pedras pequenas: seixo / lasca alongada / ponta
     makePixelTexture(
@@ -821,6 +826,176 @@ export class BootScene extends Phaser.Scene {
       granite,
       3
     );
+
+    // Pedras de gelo — mesmas formas, paleta azul-clara
+    makePixelTexture(
+      this,
+      'rock_ice_stone_0',
+      [
+        '..........',
+        '...DDD....',
+        '..DLHMD...',
+        '.DLMMMMLD.',
+        '.DLMMCMDD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      icePale,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_stone_1',
+      [
+        '..........',
+        '..DDDDDD..',
+        '.DLMHMMLD.',
+        '.DLMMMCLD.',
+        '..DDDDDD..',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      iceBlue,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_stone_2',
+      [
+        '..........',
+        '....DD....',
+        '...DLHD...',
+        '..DLMMMD..',
+        '.DLMMMCLD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      iceDeep,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_rock_0',
+      [
+        '..............',
+        '...DDDDDDD....',
+        '..DLMHMMLD....',
+        '.DLMMMMMMCD...',
+        '.DLMHMMMMMLD..',
+        '.DDLMMMMMLD...',
+        '..DDLCLLDD....',
+        '...DDDDDD.....',
+        '..............',
+        '..............',
+      ],
+      icePale,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_rock_1',
+      [
+        '..............',
+        '.....DD.......',
+        '....DLHD......',
+        '...DLMMMD.....',
+        '..DLMHMMLD....',
+        '.DLMMMMMCLD...',
+        '.DLMHMMMMLD...',
+        '..DLMMMMLD....',
+        '...DDDDDD.....',
+        '..............',
+      ],
+      iceBlue,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_rock_2',
+      [
+        '..............',
+        '..DDDDDDDDD...',
+        '.DLMHMHMMMLD..',
+        '.DLMMMMMCMLD..',
+        '..DLMMMMMLD...',
+        '...DDLCLDD....',
+        '....DDDD......',
+        '..............',
+        '..............',
+        '..............',
+      ],
+      iceDeep,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_boulder_0',
+      [
+        '................',
+        '....DDDDDD......',
+        '..DDLMHMMLDD....',
+        '.DLMMMMMMMMLD...',
+        '.DLMHMMMMMHMLD..',
+        'DLMMMMMCMMMMLD..',
+        'DLMHMMMMMMMMLD..',
+        '.DDLMMMMMMMLD...',
+        '..DLMMMMMMLD....',
+        '...DDLCLLDD.....',
+        '....DDDD.D......',
+        '................',
+        '................',
+        '................',
+      ],
+      iceBlue,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_boulder_1',
+      [
+        '................',
+        '...DDDDDDDDD....',
+        '.DDLMHMHMMMLD...',
+        'DLMMMMMMMMMMLD..',
+        'DLMHMMMMMHMMLD..',
+        'DLMMMMMCMMMMLD..',
+        'DDLMHMMMMMMMLD..',
+        '.DLMMMMMMMMLD...',
+        '..DDLCLLLDD.....',
+        '...DDDDDDD......',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      iceDeep,
+      3
+    );
+    makePixelTexture(
+      this,
+      'rock_ice_boulder_2',
+      [
+        '................',
+        '.....DDDDD......',
+        '...DDLHMMLD.....',
+        '..DLMHMMMMLD....',
+        '.DLMMMMMCMMMLD..',
+        '.DLMHMMMMMHMLD..',
+        '.DLMMMMMMMMMLD..',
+        '..DLMMMCMMLD....',
+        '...DLMMMMLD.....',
+        '....DDLCLDD.....',
+        '.....DDDD.......',
+        '.......D........',
+        '................',
+        '................',
+      ],
+      icePale,
+      3
+    );
   }
 
   createTreeSprites() {
@@ -989,6 +1164,31 @@ export class BootScene extends Phaser.Scene {
       ],
       { W: 0xf0ebe0, B: 0x1a1410, D: 0xc8b8a8 },
       2
+    );
+  }
+
+  createLootBagSprite() {
+    makePixelTexture(
+      this,
+      'loot_bag',
+      [
+        '..............',
+        '.....YYYY.....',
+        '....YWWWWY....',
+        '...BBBBBBBB...',
+        '..BBRRRRRRBB..',
+        '.BRRRRRRRRRRB.',
+        '.BRRRGGGRRRRB.',
+        '.BRRGGGGGRRRB.',
+        '.BRRRGGGRRRRB.',
+        '.BRRRRRRRRRRB.',
+        '..BBRRRRRRBB..',
+        '...BBBBBBBB...',
+        '..............',
+        '..............',
+      ],
+      { B: 0x3d2410, R: 0xa86b32, G: 0xffd84a, Y: 0xffe066, W: 0xfff2a8 },
+      3
     );
   }
 
@@ -1405,6 +1605,126 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('arena_grass', tw, th);
     g.destroy();
     this.textures.get('arena_grass').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createArenaIceTexture() {
+    // Tile 64×64 seamless — gelo com veios, brilho e pedrinhas congeladas
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x3a6a88, // gelo escuro
+      0x5a8eb0, // gelo médio
+      0x7ab4d0, // gelo claro
+      0x2a4a68, // sombra
+      0xa8d8f0, // brilho / neve
+      0x4a7898, // veia
+      0x8ec4dc, // cristal
+      0xc8e8f8, // highlight
+      0x6a9cbc, // gelo azulado
+      0xb0dcf0, // neve pó
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+
+    const wrap = (v, m) => ((v % m) + m) % m;
+
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 19, tw), wrap(y + 11, th));
+        const n3 = valueAt(wrap(x + 37, tw), wrap(y + 23, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.22) tone = tones[3];
+        else if (n1 < 0.4) tone = tones[0];
+        else if (n1 < 0.58) tone = tones[1];
+        else if (n1 < 0.74) tone = tones[2];
+        else if (n1 < 0.88) tone = tones[8];
+        else tone = tones[4];
+
+        if (n2 > 0.84) tone = tones[4];
+        if (n2 < 0.16) tone = tones[3];
+
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+
+        // Veios de gelo (rachaduras claras)
+        const vein =
+          Math.abs(n3 - n1) < 0.04 && (hash(wrap(x + y, tw), wrap(y * 3, th)) & 3) !== 0;
+        if (vein && n1 > 0.3 && n1 < 0.8) tone = tones[5];
+
+        // Cristais / brilhos
+        if ((h & 127) === 21) tone = tones[6];
+        if ((h & 127) === 42) tone = tones[7];
+        if (n2 > 0.9 && (h & 7) === 3) tone = tones[9];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 10, y: 14, r: 7, c: 0x5a8eb0 },
+      { x: 42, y: 22, r: 6, c: 0x2a4a68 },
+      { x: 24, y: 46, r: 8, c: 0x7ab4d0 },
+      { x: 50, y: 48, r: 5, c: 0xa8d8f0 },
+      { x: 56, y: 10, r: 4, c: 0x3a6a88 },
+      { x: 14, y: 54, r: 5, c: 0xc8e8f8 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    const crystals = [
+      [10, 18], [11, 19], [28, 8], [45, 30], [46, 31], [33, 52],
+      [60, 40], [3, 35], [18, 38], [50, 12], [7, 48], [38, 42],
+    ];
+    for (const [px, py] of crystals) {
+      g.fillStyle(0x8ec4dc, 1);
+      g.fillRect(px, py, 2, 1);
+      g.fillStyle(0xe8f6ff, 1);
+      g.fillRect(px, py, 1, 1);
+    }
+
+    g.generateTexture('arena_ice', tw, th);
+    g.destroy();
+    this.textures.get('arena_ice').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   /** Title decoration: blue mana potion flask. */

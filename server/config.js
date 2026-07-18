@@ -42,7 +42,13 @@ export const CONFIG = {
   PLAYER_MAX_HP: 100,
   /** Velocidade de movimento de jogadores/bots (px/s). */
   PLAYER_SPEED: envNumber('PLAYER_SPEED', 189),
+  /** Multiplicador de velocidade por tipo de chão da arena. */
+  FLOOR_SPEED_MUL: { dirt: 1, grass: 1, ice: 0.75 },
   PLAYER_RADIUS: 16,
+  /** Raio de coleta do saco de loot no chão. */
+  LOOT_BAG_RADIUS: 14,
+  /** Segundos até o saco poder ser coletado (fica visível no corpo). */
+  LOOT_BAG_PICKUP_DELAY: Math.max(0, envNumber('LOOT_BAG_PICKUP_DELAY', 0.8)),
   /**
    * Inércia do jogador (segundos para aproximar da velocidade alvo).
    * 0 = movimento instantâneo; valores maiores = mais deslizamento.
