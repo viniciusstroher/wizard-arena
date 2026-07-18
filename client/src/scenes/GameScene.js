@@ -346,6 +346,14 @@ export class GameScene extends Phaser.Scene {
       })
       .setScrollFactor(0)
       .setDepth(102);
+    this.mapText = this.add
+      .text(24, 112, 'Mapa —', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        color: '#a99bc8',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
 
     // Status recebidos (slow, etc.) — abaixo de Lv/XP
     this.statusSlots = [];
@@ -2246,6 +2254,22 @@ export class GameScene extends Phaser.Scene {
         this.treeSprites.delete(id);
       }
     }
+  }
+
+  arenaMapName(floorType) {
+    const names = {
+      dirt: 'Terra',
+      grass: 'Floresta',
+      ice: 'Gelo',
+      wood: 'Madeira',
+      sea: 'Mar',
+      desert: 'Deserto',
+      swamp: 'Pântano',
+      volcano: 'Vulcão',
+      ruins: 'Ruínas',
+      crystal: 'Cristal',
+    };
+    return names[floorType] || 'Arena';
   }
 
   renderArena() {
@@ -4498,7 +4522,11 @@ export class GameScene extends Phaser.Scene {
     this.lootText.setText(`Loot ${me.loot || 0}`);
     this.goldText.setPosition(this.lootText.x + this.lootText.width + 14, y);
     this.goldText.setText(`Gold ${me.gold || 0}`);
-    y += 20;
+    y += 18;
+
+    this.mapText.setPosition(PAD_X + 4, y);
+    this.mapText.setText(`Mapa ${this.arenaMapName(this.state?.arena?.floorType)}`);
+    y += 18;
 
     // Status recebidos (abaixo de Lv/XP)
     const effects = [];
@@ -4546,7 +4574,8 @@ export class GameScene extends Phaser.Scene {
     const contentRight = Math.max(
       PAD_X + BAR_W,
       this.scoreText.x + this.scoreText.width,
-      this.goldText.x + this.goldText.width
+      this.goldText.x + this.goldText.width,
+      this.mapText.x + this.mapText.width
     );
     const panelW = Math.max(240, contentRight - PANEL_X + 12);
     const panelH = Math.max(72, y - PANEL_Y + 8);
