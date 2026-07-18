@@ -617,6 +617,7 @@ export class Match {
     }
     this.projectiles = [];
     this.aoes = [];
+    // Início de rodada: limpa corpos, sangue, loot e dinheiro do chão
     this.effects = [];
     this.lootBags = [];
     this.coins = [];

@@ -1259,6 +1259,7 @@ export class GameScene extends Phaser.Scene {
         this.playRoundStartSound();
         // Continua o ping um pouco após o round começar
         this.startSpawnPing();
+        this.clearFloorDebris();
         if (ev.bossRound) this.showBossFightAlert();
       }
       if (ev.type === 'kiko_laugh') {
@@ -1283,7 +1284,7 @@ export class GameScene extends Phaser.Scene {
       // Ping já no countdown, antes do round começar
       this.startSpawnPing(10000);
       if (prevPhase && prevPhase !== 'lobby') {
-        this.clearLocalCorpses();
+        this.clearFloorDebris();
       }
     }
     if (state.phase === 'ended') {
@@ -1292,6 +1293,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   ensureCorpseAt(x, y) {
+    // Não espalhar corpos fora do combate (countdown / intermissão / fim)
+    const phase = this.state?.phase;
+    if (phase && phase !== 'playing' && phase !== 'levelup') return;
+
     const near = (this.state?.effects || []).some(
       (e) => e.type === 'bones' && Math.hypot(e.x - x, e.y - y) < 28
     );
@@ -1317,10 +1322,32 @@ export class GameScene extends Phaser.Scene {
 
   clearLocalCorpses() {
     for (const c of this.localCorpses) {
-      c.pile.destroy();
-      c.skull.destroy();
+      c.pile?.destroy();
+      c.skull?.destroy();
     }
     this.localCorpses = [];
+  }
+
+  /** Limpa corpos locais, sangue, ossos, loot e moedas do chão (início de rodada). */
+  clearFloorDebris() {
+    this.clearLocalCorpses();
+    for (const s of this.bloodSprites.values()) s.destroy();
+    this.bloodSprites.clear();
+    for (const pack of this.boneSprites.values()) {
+      pack.pile?.destroy();
+      pack.skull?.destroy();
+    }
+    this.boneSprites.clear();
+    for (const s of this.lootBagSprites.values()) {
+      this.tweens.killTweensOf(s);
+      s.destroy();
+    }
+    this.lootBagSprites.clear();
+    for (const s of this.coinSprites.values()) {
+      this.tweens.killTweensOf(s);
+      s.destroy();
+    }
+    this.coinSprites.clear();
   }
 
   update(_time, delta) {
@@ -2582,7 +2609,8 @@ export class GameScene extends Phaser.Scene {
     }
     for (const [id, s] of this.monsterSprites) {
       if (!seen.has(id)) {
-        this.ensureCorpseAt(s.x, s.y);
+        // Cadáveres vêm do servidor (bones) / evento monster_kill — não recriar aqui,
+        // senão o wipe entre rounds espalha corpos de novo no chão.
         s.destroy();
         s.nameTag.destroy();
         s.hpBg.destroy();
