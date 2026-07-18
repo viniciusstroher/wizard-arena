@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene.js';
 import { LobbyScene } from './scenes/LobbyScene.js';
 import { GameScene } from './scenes/GameScene.js';
+import { applyResolution, loadResolutionId } from './settings/resolution.js';
+
+applyResolution(loadResolutionId());
 
 const config = {
   type: Phaser.AUTO,
@@ -19,5 +22,8 @@ const config = {
   scene: [BootScene, LobbyScene, GameScene],
 };
 
-// eslint-disable-next-line no-new
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+window.addEventListener('resize', () => {
+  applyResolution(loadResolutionId(), game);
+});
