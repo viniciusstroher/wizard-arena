@@ -625,15 +625,25 @@ export class LobbyScene extends Phaser.Scene {
     this.readyBtn = this.makeButton(panelX, btnStartY + step, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
+    const halfW = (btnW - 12) / 2;
     this.botsBtn = this.makeButton(
-      panelX,
+      panelX - halfW / 2 - 6,
       btnStartY + step * 2,
-      '+ Adicionar Bot',
+      '+ Bot',
       0xff8c42,
       () => this.addBot(),
-      btnW
+      halfW
+    );
+    this.removeBotsBtn = this.makeButton(
+      panelX + halfW / 2 + 6,
+      btnStartY + step * 2,
+      '− Bot',
+      0xc0392b,
+      () => this.removeBot(),
+      halfW
     );
     this.setButtonEnabled(this.botsBtn, false);
+    this.setButtonEnabled(this.removeBotsBtn, false);
 
     this.controlsBtn = this.makeButton(
       panelX,
@@ -644,7 +654,6 @@ export class LobbyScene extends Phaser.Scene {
       btnW
     );
 
-    const halfW = (btnW - 12) / 2;
     this.settingsBtn = this.makeButton(
       panelX - halfW / 2 - 6,
       btnStartY + step * 4,
@@ -667,6 +676,7 @@ export class LobbyScene extends Phaser.Scene {
       this.joinBtn,
       this.readyBtn,
       this.botsBtn,
+      this.removeBotsBtn,
       this.controlsBtn,
       this.settingsBtn,
       this.adminBtn,
@@ -1122,6 +1132,7 @@ export class LobbyScene extends Phaser.Scene {
       this.setButtonEnabled(this.readyBtn, true);
       this.setButtonEnabled(this.botsBtn, true);
       this.setButtonEnabled(this.adminBtn, true);
+      this.refreshRemoveBotsBtn();
       this.statusText.setText('No lobby. Marque Ready quando estiver preparado.');
     });
 
@@ -1171,6 +1182,17 @@ export class LobbyScene extends Phaser.Scene {
     this.socket.emit('add_bots', { count: 1 });
   }
 
+  removeBot() {
+    if (!this.joined) return;
+    this.socket.emit('remove_bots', { count: 1 });
+  }
+
+  refreshRemoveBotsBtn() {
+    if (!this.removeBotsBtn) return;
+    const botCount = this.lobby?.players?.filter((p) => p.isBot).length || 0;
+    this.setButtonEnabled(this.removeBotsBtn, this.joined && botCount > 0);
+  }
+
   refreshLobby() {
     if (!this.lobby) return;
     const lines = this.lobby.players.map((p) => {
@@ -1185,6 +1207,7 @@ export class LobbyScene extends Phaser.Scene {
         : 'Nenhum jogador ainda';
       this.playersListEl.style.overflowY = n > 4 ? 'auto' : 'hidden';
     }
+    this.refreshRemoveBotsBtn();
     const readyCount = this.lobby.players.filter((p) => p.ready).length;
     this.statusText.setText(
       `${n}/${this.lobby.maxPlayers} jogadores · ${readyCount} ready · precisa ${this.lobby.minPlayers}+`

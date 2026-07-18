@@ -88,6 +88,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('remove_bots', (payload = {}) => {
+    const match = findMatchBySocket(socket.id);
+    if (!match) return;
+    const count = Math.min(3, Math.max(1, Number(payload.count) || 1));
+    match.removeBots(count);
+  });
+
   socket.on('admin_settings', (payload = {}) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;

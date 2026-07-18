@@ -601,6 +601,19 @@ export class Match {
     return { ok: true, added };
   }
 
+  removeBots(count = 1) {
+    if (this.phase !== 'lobby') return { ok: false, error: 'Match already started' };
+    let removed = 0;
+    for (let i = 0; i < count; i++) {
+      const bot = this.bots.pop();
+      if (!bot) break;
+      this.players.delete(bot.playerId);
+      removed += 1;
+    }
+    if (removed > 0) this.broadcastLobby();
+    return { ok: true, removed };
+  }
+
   removePlayer(socketId) {
     const p = this.players.get(socketId);
     if (!p) return;
