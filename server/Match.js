@@ -1771,7 +1771,7 @@ export class Match {
     }
 
     let absorbed = 0;
-    if (isPlayer && target.shield > 0) {
+    if ((target.shield || 0) > 0) {
       absorbed = Math.min(target.shield, dmg);
       target.shield -= absorbed;
       dmg -= absorbed;
@@ -2138,6 +2138,12 @@ export class Match {
       difficulty: def.difficulty || (isBoss ? 'boss' : isElite ? 'hard' : 'normal'),
       /** Acumulador para tentativa de auto-cura (só bosses). */
       healAcc: 0,
+      /** Inatas de boss: blink (em cima do alvo) e escudo. */
+      blinkCooldown: 0,
+      barrierCooldown: 0,
+      shield: 0,
+      maxShield: 0,
+      shieldTimer: 0,
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
@@ -2152,6 +2158,87 @@ export class Match {
       burnTickAcc: 0,
       burnOwnerId: null,
     };
+  }
+
+  /** Escudo inato de boss (mesma Barrier dos jogadores). */
+  tryBossBarrier(monster) {
+    if (!monster?.alive || !monster.isBoss) return false;
+    if (
+      (monster.stunTimer || 0) > 0 ||
+      (monster.barrierCooldown || 0) > 0 ||
+      (monster.shield || 0) > 0
+    ) {
+      return false;
+    }
+    const stats = spellStats('barrier', 1);
+    if (!stats) return false;
+
+    monster.shield = stats.shield;
+    monster.maxShield = stats.shield;
+    monster.shieldTimer = stats.duration;
+    monster.barrierCooldown = stats.cooldown;
+    this.effects.push({
+      type: 'barrier',
+      x: monster.x,
+      y: monster.y,
+      life: 0.7,
+      maxLife: 0.7,
+      color: stats.color,
+      radius: Math.max(40, (monster.radius || 14) + 18),
+    });
+    return true;
+  }
+
+  /** Blink inato de boss — teleporta em direção / em cima do jogador ou bot. */
+  tryBossBlink(monster, target) {
+    if (!monster?.alive || !monster.isBoss || !target?.alive) return false;
+    if ((monster.stunTimer || 0) > 0 || (monster.blinkCooldown || 0) > 0) return false;
+    const stats = spellStats('blink', 1);
+    if (!stats) return false;
+
+    const fromX = monster.x;
+    const fromY = monster.y;
+    const aimDx = target.x - monster.x;
+    const aimDy = target.y - monster.y;
+    const aimLen = Math.hypot(aimDx, aimDy);
+    // Já está em cima do alvo — não gasta o blink.
+    if (aimLen < 48) return false;
+    const dirX = aimDx / (aimLen || 1);
+    const dirY = aimDy / (aimLen || 1);
+    // Distância até o alvo (teto = range): pousa em cima quando está no alcance.
+    const distBlink = Math.min(stats.range, aimLen);
+
+    monster.x = monster.x + dirX * distBlink;
+    monster.y = monster.y + dirY * distBlink;
+    monster.vx = 0;
+    monster.vy = 0;
+    this.clampMonsterToArena(monster);
+    monster.blinkCooldown = stats.cooldown;
+    this.effects.push({
+      type: 'blink',
+      phase: 'out',
+      x: fromX,
+      y: fromY,
+      x2: monster.x,
+      y2: monster.y,
+      life: 0.5,
+      maxLife: 0.5,
+      color: stats.color,
+      radius: Math.max(36, (monster.radius || 14) + 12),
+    });
+    this.effects.push({
+      type: 'blink',
+      phase: 'in',
+      x: monster.x,
+      y: monster.y,
+      x2: fromX,
+      y2: fromY,
+      life: 0.55,
+      maxLife: 0.55,
+      color: stats.color,
+      radius: Math.max(36, (monster.radius || 14) + 12),
+    });
+    return true;
   }
 
   /**
@@ -2418,10 +2505,102 @@ export class Match {
     });
   }
 
+  /** Raio efetivo de uma magia de área (spell.radius vs novaRadius do mob). */
+  areaSpellReach(monster, spellId, fallback = 110) {
+    const st = spellStats(spellId, 1);
+    return Math.max(monster?.novaRadius || 0, st?.radius || 0, fallback);
+  }
+
+  /**
+   * Escolhe a próxima magia do caster conforme distância/CDs.
+   * Retorna spellId ou null.
+   */
+  pickCasterSpell(monster, nearestD) {
+    if (!monster?.alive || monster.attack !== 'caster') return null;
+    const spells = monster.spells || [];
+    if (!spells.length) return null;
+    const shootRange = monster.range || 180;
+    const novaR = monster.novaRadius || 110;
+    const lightningR = spellStats('arc_lightning')?.range || 160;
+    const breathRange = spellStats('firebreath')?.range || 170;
+    const boltRange = spellStats('electric_bolt')?.range || 240;
+    const canArea = !!(monster.isElite || monster.isBoss);
+    const bossNovaSpells = [
+      'shadow_eclipse',
+      'abyss_nova',
+      'void_collapse',
+      'frost_apocalypse',
+      'plague_burst',
+    ];
+    const bossSingleSpells = [
+      'death_knell',
+      'infernal_judgment',
+      'soul_rend',
+      'blood_pact',
+    ];
+
+    const bossNovaReady =
+      monster.isBoss &&
+      (monster.novaCd || 0) <= 0 &&
+      bossNovaSpells.find(
+        (id) => spells.includes(id) && nearestD <= this.areaSpellReach(monster, id, novaR)
+      );
+    // Singles de boss usam só attackCd — NÃO exigem novaCd.
+    const bossSingleReady =
+      monster.isBoss &&
+      bossSingleSpells.find((id) => {
+        const r = spellStats(id)?.range || shootRange;
+        return spells.includes(id) && nearestD <= r;
+      });
+    const beamReady =
+      monster.isBoss &&
+      canArea &&
+      spells.includes('cataclysm_beam') &&
+      (monster.novaCd || 0) <= 0 &&
+      nearestD <= (spellStats('cataclysm_beam')?.range || 200);
+
+    if (bossNovaReady) return bossNovaReady;
+    if (beamReady) return 'cataclysm_beam';
+    if (bossSingleReady) return bossSingleReady;
+    if (
+      canArea &&
+      spells.includes('electric_storm') &&
+      nearestD <= this.areaSpellReach(monster, 'electric_storm', novaR) &&
+      (monster.novaCd || 0) <= 0
+    ) {
+      return 'electric_storm';
+    }
+    if (
+      canArea &&
+      spells.includes('flame_nova') &&
+      nearestD <= this.areaSpellReach(monster, 'flame_nova', novaR) &&
+      (monster.novaCd || 0) <= 0
+    ) {
+      return 'flame_nova';
+    }
+    if (
+      canArea &&
+      spells.includes('poison_cloud') &&
+      nearestD <= this.areaSpellReach(monster, 'poison_cloud', novaR) &&
+      (monster.novaCd || 0) <= 0
+    ) {
+      return 'poison_cloud';
+    }
+    if (canArea && spells.includes('firebreath') && nearestD <= breathRange) {
+      return 'firebreath';
+    }
+    if (spells.includes('electric_bolt') && nearestD <= boltRange) return 'electric_bolt';
+    if (spells.includes('arc_lightning') && nearestD <= lightningR) return 'arc_lightning';
+    if (canArea && spells.includes('skull_wave') && nearestD <= shootRange) return 'skull_wave';
+    if (spells.includes('ice_shard') && nearestD <= shootRange) return 'ice_shard';
+    if (spells.includes('firebolt') && nearestD <= shootRange) return 'firebolt';
+    return null;
+  }
+
   /** Magias usadas por monstros caster (beholder / dragão / lich / demon). */
   monsterCast(monster, spellId, target) {
     const stats = spellStats(spellId, 1);
-    if (!stats) return;
+    if (!stats) return false;
     const AREA_SPELLS = new Set([
       'flame_nova',
       'poison_cloud',
@@ -2435,12 +2614,12 @@ export class Match {
       'shadow_eclipse',
       'cataclysm_beam',
     ]);
-    if (AREA_SPELLS.has(spellId) && !monster.isElite && !monster.isBoss) return;
+    if (AREA_SPELLS.has(spellId) && !monster.isElite && !monster.isBoss) return false;
 
     switch (spellId) {
       case 'arc_lightning': {
         const range = stats.range || 160;
-        if (!target || dist(monster, target) > range) return;
+        if (!target || dist(monster, target) > range) return false;
         this.damageEntity(target, monster.damage, monster.entityId, true, true);
         this.effects.push({
           type: 'lightning',
@@ -2460,7 +2639,7 @@ export class Match {
       }
       case 'electric_bolt': {
         const range = stats.range || 240;
-        if (!target || dist(monster, target) > range) return;
+        if (!target || dist(monster, target) > range) return false;
         const dmg = Math.round(monster.damage * 1.1);
         this.damageEntity(target, dmg, monster.entityId, true, true);
         this.pushSkyLightning(target.x, target.y, stats.color, {
@@ -2473,7 +2652,7 @@ export class Match {
         break;
       }
       case 'electric_storm': {
-        const radius = monster.novaRadius || stats.radius || 130;
+        const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 130);
         const cx = target ? target.x : monster.x;
         const cy = target ? target.y : monster.y;
         const dmg = Math.round(monster.damage * 0.95);
@@ -2523,7 +2702,7 @@ export class Match {
       }
       case 'firebolt':
       case 'ice_shard': {
-        if (!target) return;
+        if (!target) return false;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
         const len = Math.hypot(dx, dy) || 1;
@@ -2551,7 +2730,7 @@ export class Match {
         break;
       }
       case 'flame_nova': {
-        const radius = monster.novaRadius || stats.radius || 110;
+        const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 110);
         this.applyFlameNova(
           monster,
           monster.entityId,
@@ -2564,12 +2743,12 @@ export class Match {
         break;
       }
       case 'firebreath': {
-        if (!target) return;
+        if (!target) return false;
         const range = stats.range || 170;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
         const len = Math.hypot(dx, dy) || 1;
-        if (len > range * 1.15) return;
+        if (len > range * 1.15) return false;
         const dirX = dx / len;
         const dirY = dy / len;
         const halfAngle = ((stats.coneAngle || 38) * Math.PI) / 180;
@@ -2656,7 +2835,7 @@ export class Match {
         break;
       }
       case 'poison_cloud': {
-        if (!target) return;
+        if (!target) return false;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
         const len = Math.hypot(dx, dy) || 1;
@@ -2664,7 +2843,7 @@ export class Match {
         const cx = monster.x + (dx / len) * dropDist;
         const cy = monster.y + (dy / len) * dropDist;
         const groundLife = Math.max(0.5, Number(stats.duration) || 4);
-        const radius = monster.novaRadius || stats.radius || 90;
+        const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 90);
         this.aoes.push({
           entityId: eid(),
           ownerId: monster.entityId,
@@ -2695,9 +2874,9 @@ export class Match {
       case 'soul_rend':
       case 'death_knell':
       case 'blood_pact': {
-        if (!monster.isBoss || !target) return;
+        if (!monster.isBoss || !target) return false;
         const range = stats.range || 220;
-        if (dist(monster, target) > range) return;
+        if (dist(monster, target) > range) return false;
         const pct = clampBossHpPercent(stats.damagePercentMaxHp);
         const dmg = this.bossPercentDamage(target, stats);
         this.damageEntity(target, dmg, monster.entityId, true, true, {
@@ -2720,9 +2899,9 @@ export class Match {
         break;
       }
       case 'infernal_judgment': {
-        if (!monster.isBoss || !target) return;
+        if (!monster.isBoss || !target) return false;
         const range = stats.range || 260;
-        if (dist(monster, target) > range) return;
+        if (dist(monster, target) > range) return false;
         const pct = clampBossHpPercent(stats.damagePercentMaxHp);
         const dmg = this.bossPercentDamage(target, stats);
         this.damageEntity(target, dmg, monster.entityId, true, true, {
@@ -2753,8 +2932,8 @@ export class Match {
       case 'frost_apocalypse':
       case 'plague_burst':
       case 'shadow_eclipse': {
-        if (!monster.isBoss) return;
-        const radius = monster.novaRadius || stats.radius || 120;
+        if (!monster.isBoss) return false;
+        const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 120);
         const cx = target ? target.x : monster.x;
         const cy = target ? target.y : monster.y;
         const pct = clampBossHpPercent(stats.damagePercentMaxHp);
@@ -2795,12 +2974,12 @@ export class Match {
         break;
       }
       case 'cataclysm_beam': {
-        if (!monster.isBoss || !target) return;
+        if (!monster.isBoss || !target) return false;
         const range = stats.range || 200;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
         const len = Math.hypot(dx, dy) || 1;
-        if (len > range * 1.15) return;
+        if (len > range * 1.15) return false;
         const dirX = dx / len;
         const dirY = dy / len;
         const halfAngle = ((stats.coneAngle || 32) * Math.PI) / 180;
@@ -2838,8 +3017,21 @@ export class Match {
         break;
       }
       default:
-        return;
+        return false;
     }
+
+    // Telegraph visual — mesmo pentagrama dos jogadores
+    const pentagramLife = CONFIG.PENTAGRAM_FADEOUT;
+    this.effects.push({
+      type: 'pentagram',
+      x: monster.x,
+      y: monster.y,
+      radius: Math.max(30, (monster.radius || 14) * 1.15),
+      life: pentagramLife,
+      maxLife: pentagramLife,
+      color: stats.color,
+    });
+    return true;
   }
 
   /** Rastro de fogo deixado pelo bruxo ao se mover. */
@@ -3460,6 +3652,16 @@ export class Match {
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
       m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
+      if (m.isBoss) {
+        m.blinkCooldown = Math.max(0, (m.blinkCooldown || 0) - dt);
+        m.barrierCooldown = Math.max(0, (m.barrierCooldown || 0) - dt);
+        m.shieldTimer = Math.max(0, (m.shieldTimer || 0) - dt);
+        if (m.shieldTimer <= 0 || (m.shield || 0) <= 0) {
+          m.shield = 0;
+          m.maxShield = 0;
+          m.shieldTimer = 0;
+        }
+      }
       this.tryBossHeal(m, dt);
       if (m.stunTimer > 0) {
         m.vx = 0;
@@ -3497,6 +3699,14 @@ export class Match {
         }
       }
 
+      // Inatas de boss: escudo + blink em cima do jogador/bot mais próximo
+      if (m.isBoss) {
+        this.tryBossBarrier(m);
+        if (nearest && this.tryBossBlink(m, nearest)) {
+          nearestD = dist(m, nearest);
+        }
+      }
+
       const mRadius = m.radius || CONFIG.MONSTER_RADIUS;
       const fromCenter = dist(m, { x: CONFIG.ARENA_CENTER_X, y: CONFIG.ARENA_CENTER_Y });
       const maxR = Math.max(0, this.arenaRadius - mRadius);
@@ -3509,12 +3719,20 @@ export class Match {
       let targetVx = 0;
       let targetVy = 0;
       if (outsidePlatform) {
-        // Prioridade: voltar para a plataforma
+        // Prioridade: voltar para a plataforma — mas ainda pode castar/atirar
         const dx = CONFIG.ARENA_CENTER_X - m.x;
         const dy = CONFIG.ARENA_CENTER_Y - m.y;
         const len = Math.hypot(dx, dy) || 1;
         targetVx = (dx / len) * m.speed;
         targetVy = (dy / len) * m.speed;
+        if (nearest && m.attackCd <= 0) {
+          if (m.attack === 'caster') {
+            const spell = this.pickCasterSpell(m, nearestD);
+            if (spell) this.monsterCast(m, spell, nearest);
+          } else if (m.attack === 'ranged' && nearestD <= (m.range || 180)) {
+            this.monsterShoot(m, nearest);
+          }
+        }
       } else if (nearest) {
         const dx = nearest.x - m.x;
         const dy = nearest.y - m.y;
@@ -3544,7 +3762,6 @@ export class Match {
         } else if (m.attack === 'caster') {
           const spells = m.spells || [];
           const shootRange = m.range || 180;
-          const prefer = m.preferRange || shootRange * 0.7;
           const novaR = m.novaRadius || 110;
           const lightningR = spellStats('arc_lightning')?.range || 160;
           const breathRange = spellStats('firebreath')?.range || 170;
@@ -3553,11 +3770,21 @@ export class Match {
           const hasLongFiller = spells.some((id) =>
             ['firebolt', 'ice_shard', 'electric_bolt', 'skull_wave'].includes(id)
           );
+          // Mantém preferência dentro do alcance real das magias (evita idle no mid-range).
+          const castReach = Math.max(
+            shootRange,
+            boltRange,
+            lightningR,
+            breathRange,
+            ...spells.map((id) => spellStats(id)?.range || 0),
+            ...spells.map((id) => this.areaSpellReach(m, id, novaR))
+          );
+          const prefer = Math.min(m.preferRange || shootRange * 0.7, castReach * 0.85);
           const sideX = -dy / len;
           const sideY = dx / len;
           const strafe = ((Number(m.entityId) || 0) % 2 === 0 ? 1 : -1) * m.speed * 0.4;
 
-          if (nearestD > shootRange) {
+          if (nearestD > castReach) {
             targetVx = (dx / len) * m.speed;
             targetVy = (dy / len) * m.speed;
           } else if (!hasLongFiller && nearestD > Math.min(breathRange, lightningR) * 0.9) {
@@ -3591,83 +3818,7 @@ export class Match {
           }
 
           if (m.attackCd <= 0) {
-            let spell = null;
-            const stormR = m.novaRadius || spellStats('electric_storm')?.radius || novaR;
-            const bossNovaSpells = [
-              'shadow_eclipse',
-              'abyss_nova',
-              'void_collapse',
-              'frost_apocalypse',
-              'plague_burst',
-            ];
-            const bossSingleSpells = [
-              'death_knell',
-              'infernal_judgment',
-              'soul_rend',
-              'blood_pact',
-            ];
-            const bossNovaReady =
-              m.isBoss &&
-              (m.novaCd || 0) <= 0 &&
-              bossNovaSpells.find(
-                (id) =>
-                  spells.includes(id) &&
-                  nearestD <= (m.novaRadius || spellStats(id)?.radius || novaR)
-              );
-            // Singles de boss usam attackCd (já checado) — NÃO exigem novaCd.
-            const bossSingleReady =
-              m.isBoss &&
-              bossSingleSpells.find((id) => {
-                const r = spellStats(id)?.range || shootRange;
-                return spells.includes(id) && nearestD <= r;
-              });
-            const beamReady =
-              m.isBoss &&
-              canArea &&
-              spells.includes('cataclysm_beam') &&
-              (m.novaCd || 0) <= 0 &&
-              nearestD <= (spellStats('cataclysm_beam')?.range || 200);
-
-            if (bossNovaReady) {
-              spell = bossNovaReady;
-            } else if (beamReady) {
-              spell = 'cataclysm_beam';
-            } else if (bossSingleReady) {
-              spell = bossSingleReady;
-            } else if (
-              canArea &&
-              spells.includes('electric_storm') &&
-              nearestD <= stormR &&
-              (m.novaCd || 0) <= 0
-            ) {
-              spell = 'electric_storm';
-            } else if (
-              canArea &&
-              spells.includes('flame_nova') &&
-              nearestD <= novaR &&
-              (m.novaCd || 0) <= 0
-            ) {
-              spell = 'flame_nova';
-            } else if (
-              canArea &&
-              spells.includes('poison_cloud') &&
-              nearestD <= (m.novaRadius || 100) &&
-              (m.novaCd || 0) <= 0
-            ) {
-              spell = 'poison_cloud';
-            } else if (canArea && spells.includes('firebreath') && nearestD <= breathRange) {
-              spell = 'firebreath';
-            } else if (spells.includes('electric_bolt') && nearestD <= boltRange) {
-              spell = 'electric_bolt';
-            } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
-              spell = 'arc_lightning';
-            } else if (canArea && spells.includes('skull_wave') && nearestD <= shootRange) {
-              spell = 'skull_wave';
-            } else if (spells.includes('ice_shard') && nearestD <= shootRange) {
-              spell = 'ice_shard';
-            } else if (spells.includes('firebolt') && nearestD <= shootRange) {
-              spell = 'firebolt';
-            }
+            const spell = this.pickCasterSpell(m, nearestD);
             if (spell) this.monsterCast(m, spell, nearest);
           }
         } else if (nearestD > meleeRange) {
@@ -3982,6 +4133,8 @@ export class Match {
         isBoss: !!m.isBoss,
         isElite: !!m.isElite,
         difficulty: m.difficulty || null,
+        shield: m.shield || 0,
+        maxShield: m.maxShield || 0,
       })),
       projectiles: this.projectiles.map((p) => ({
         entityId: p.entityId,

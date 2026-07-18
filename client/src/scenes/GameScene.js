@@ -2751,7 +2751,8 @@ export class GameScene extends Phaser.Scene {
       if (Math.abs(m.vx || 0) > 10) s.setFlipX(m.vx < 0);
 
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
-      const tagY = m.y - 26 * scale;
+      const hasShield = (m.shield || 0) > 0;
+      const tagY = m.y - (hasShield ? 34 : 26) * scale;
       const tier =
         m.isBoss ? '★ ' : m.isElite ? '◆ ' : '';
       s.nameTag.setText(`${tier}${this.monsterLabel(m.type)} Lv${m.level || 1}`);
@@ -2761,6 +2762,45 @@ export class GameScene extends Phaser.Scene {
       s.hpFg.setPosition(m.x - 16 + 16 * ratio, tagY + 8);
       s.hpFg.width = 32 * ratio;
       s.hpFg.setFillStyle(m.isBoss ? 0xc0392b : m.isElite ? 0x8e44ad : 0xe67e22);
+
+      if (hasShield) {
+        const maxShield = m.maxShield > 0 ? m.maxShield : m.shield;
+        const sRatio = Math.min(1, m.shield / maxShield);
+        const shieldY = tagY + 14;
+        if (!s.shieldBg) {
+          s.shieldBg = this.add.rectangle(0, 0, 32, 3, 0x0a1830, 0.75).setDepth(21);
+          s.shieldFg = this.add.rectangle(0, 0, 32, 3, 0x4a90ff).setDepth(22);
+        }
+        s.shieldBg.setPosition(m.x, shieldY).setVisible(true);
+        s.shieldFg.setPosition(m.x - 16 + 16 * sRatio, shieldY).setVisible(true);
+        s.shieldFg.width = 32 * sRatio;
+
+        const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 140);
+        const ringR = Math.max(22, (m.radius || 14) + 8);
+        if (!s.shieldRing) {
+          s.shieldRing = this.add
+            .circle(m.x, m.y, ringR, 0x88aaff, 0.15)
+            .setStrokeStyle(2, 0x88aaff, 0.85)
+            .setDepth(14);
+        }
+        if (!s.shieldRingOuter) {
+          s.shieldRingOuter = this.add
+            .circle(m.x, m.y, ringR + 6, 0x88aaff, 0)
+            .setStrokeStyle(1.5, 0xaaccff, 0.55)
+            .setDepth(13);
+        }
+        s.shieldRing.setPosition(m.x, m.y).setVisible(true);
+        s.shieldRing.setScale(0.95 + 0.12 * pulse);
+        s.shieldRing.setAlpha(0.35 + 0.25 * pulse);
+        s.shieldRingOuter.setPosition(m.x, m.y).setVisible(true);
+        s.shieldRingOuter.setScale(1 + 0.08 * pulse);
+        s.shieldRingOuter.setAlpha(0.35 + 0.3 * pulse);
+      } else {
+        if (s.shieldBg) s.shieldBg.setVisible(false);
+        if (s.shieldFg) s.shieldFg.setVisible(false);
+        if (s.shieldRing) s.shieldRing.setVisible(false);
+        if (s.shieldRingOuter) s.shieldRingOuter.setVisible(false);
+      }
     }
     for (const [id, s] of this.monsterSprites) {
       if (!seen.has(id)) {
@@ -2770,6 +2810,10 @@ export class GameScene extends Phaser.Scene {
         s.nameTag.destroy();
         s.hpBg.destroy();
         s.hpFg.destroy();
+        s.shieldBg?.destroy();
+        s.shieldFg?.destroy();
+        s.shieldRing?.destroy();
+        s.shieldRingOuter?.destroy();
         this.monsterSprites.delete(id);
       }
     }
