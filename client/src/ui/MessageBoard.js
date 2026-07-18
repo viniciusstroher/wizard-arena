@@ -36,10 +36,12 @@ export class MessageBoard {
     this.y = scene.scale.height - 275;
     this.lineH = 14;
     this.maxLog = 80;
+    this.textMaxW = this.boardW - 20;
 
     this.bounds = { x: this.x, y: this.y, w: this.boardW, h: this.boardH };
     this.tabLabels = [];
     this.lines = [];
+    this.measureText = null;
 
     this._build();
     this._refreshTabs();
@@ -103,6 +105,15 @@ export class MessageBoard {
     this.linesTop = y + 24;
     this.maxVisibleEvents = 10;
     this.maxVisibleChat = 8;
+
+    this.measureText = this.scene.add
+      .text(0, 0, '', {
+        fontFamily: font,
+        fontSize: '12px',
+        wordWrap: { width: this.textMaxW, useAdvancedWrap: true },
+      })
+      .setVisible(false)
+      .setActive(false);
 
     const maxLines = Math.max(this.maxVisibleEvents, this.maxVisibleChat);
     for (let i = 0; i < maxLines; i++) {
@@ -228,6 +239,50 @@ export class MessageBoard {
     return `[${dd}/${mm}/${yyyy} ${hh}:${mi}:${ss}]`;
   }
 
+  /** Quebra uma mensagem em linhas que cabem na largura da box. */
+  _wrapMessage(text) {
+    if (!text) return [''];
+    if (!this.measureText) return [text];
+    this.measureText.setWordWrapWidth(this.textMaxW, true);
+    this.measureText.setText(text);
+    const wrapped = this.measureText.getWrappedText();
+    if (!wrapped?.length) return [text];
+    // Palavras longas sem espaço: força quebra por caractere
+    const out = [];
+    for (const row of wrapped) {
+      if (!row) {
+        out.push('');
+        continue;
+      }
+      this.measureText.setWordWrapWidth(0);
+      this.measureText.setText(row);
+      if (this.measureText.width <= this.textMaxW) {
+        out.push(row);
+        continue;
+      }
+      let chunk = '';
+      for (const ch of row) {
+        this.measureText.setText(chunk + ch);
+        if (chunk && this.measureText.width > this.textMaxW) {
+          out.push(chunk);
+          chunk = ch;
+        } else {
+          chunk += ch;
+        }
+      }
+      if (chunk) out.push(chunk);
+    }
+    return out.length ? out : [text];
+  }
+
+  _displayLines(log = this._activeLog()) {
+    const lines = [];
+    for (const msg of log) {
+      lines.push(...this._wrapMessage(msg));
+    }
+    return lines;
+  }
+
   pushEvent(message) {
     if (!message || this.destroyed) return;
     this.eventLog.push(`${this._formatStamp()} ${message}`);
@@ -251,9 +306,9 @@ export class MessageBoard {
   /** @returns {boolean} true se o scroll foi consumido */
   onWheel(dy) {
     if (this.destroyed) return false;
-    const log = this._activeLog();
+    const display = this._displayLines();
     const maxVisible = this._maxVisible();
-    if (log.length <= maxVisible) return false;
+    if (display.length <= maxVisible) return false;
 
     const pointer = this.scene.input.activePointer;
     const b = this.bounds;
@@ -263,7 +318,7 @@ export class MessageBoard {
     }
 
     const scrollKey = this._activeScrollKey();
-    const maxScroll = log.length - maxVisible;
+    const maxScroll = display.length - maxVisible;
     if (dy > 0) this[scrollKey] = Math.min(maxScroll, this[scrollKey] + 1);
     else if (dy < 0) this[scrollKey] = Math.max(0, this[scrollKey] - 1);
     this._refreshLines();
@@ -272,17 +327,17 @@ export class MessageBoard {
 
   _refreshLines() {
     if (!this.lines?.length) return;
-    const log = this._activeLog();
+    const display = this._displayLines();
     const max = this._maxVisible();
     const scrollKey = this._activeScrollKey();
-    const total = log.length;
+    const total = display.length;
     const overflow = total > max;
     const maxScroll = overflow ? total - max : 0;
     this[scrollKey] = Phaser.Math.Clamp(this[scrollKey], 0, maxScroll);
 
     const end = total - this[scrollKey];
     const start = Math.max(0, end - max);
-    const slice = log.slice(start, end);
+    const slice = display.slice(start, end);
 
     for (let i = 0; i < this.lines.length; i++) {
       const visible = i < max;
@@ -322,6 +377,7 @@ export class MessageBoard {
     this.bg?.destroy();
     this.hint?.destroy();
     this.chatInput?.destroy();
+    this.measureText?.destroy();
     for (const { text } of this.tabLabels) text.destroy();
     for (const line of this.lines) line.destroy();
 
@@ -331,5 +387,6 @@ export class MessageBoard {
     this.hint = null;
     this.chatInput = null;
     this.inputEl = null;
+    this.measureText = null;
   }
 }
