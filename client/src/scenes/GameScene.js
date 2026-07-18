@@ -50,8 +50,7 @@ export class GameScene extends Phaser.Scene {
     this.selectedSpellSlot = 0;
     this.moveDust = null;
     this.lavaBurn = null;
-    this.arenaFireWall = null;
-    this.arenaFireEmbers = null;
+    this.arenaFireSprites = [];
     this.fireballFx = null;
     this.iceFx = null;
     this.healFx = null;
@@ -165,6 +164,8 @@ export class GameScene extends Phaser.Scene {
       this.clearAimCursor();
       this.messageBoard?.destroy();
       this.messageBoard = null;
+      for (const s of this.arenaFireSprites) s.destroy();
+      this.arenaFireSprites = [];
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
@@ -1655,35 +1656,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   createArenaFireWall() {
-    this.arenaFireWall = this.add
-      .particles(0, 0, 'particle', {
-        tint: [0xff1a00, 0xff4400, 0xff7700, 0xffaa22, 0xffdd55],
-        speed: { min: 35, max: 85 },
-        angle: { min: 250, max: 290 },
-        scale: { start: 2.1, end: 0 },
-        alpha: { start: 0.95, end: 0 },
-        lifespan: { min: 320, max: 620 },
-        gravityY: -110,
-        frequency: -1,
-        emitting: false,
-        blendMode: 'ADD',
-      })
-      .setDepth(2);
-
-    this.arenaFireEmbers = this.add
-      .particles(0, 0, 'particle', {
-        tint: [0xff6600, 0xff9900, 0xffcc44, 0xffeebb],
-        speed: { min: 15, max: 55 },
-        angle: { min: 220, max: 320 },
-        scale: { start: 1.1, end: 0 },
-        alpha: { start: 0.85, end: 0 },
-        lifespan: { min: 400, max: 900 },
-        gravityY: -40,
-        frequency: -1,
-        emitting: false,
-        blendMode: 'ADD',
-      })
-      .setDepth(2.5);
+    this.arenaFireSprites = [];
+    if (!this.anims.exists('arena_fire_board') && this.textures.exists('fire_board')) {
+      this.anims.create({
+        key: 'arena_fire_board',
+        frames: this.anims.generateFrameNumbers('fire_board', { start: 0, end: 7 }),
+        frameRate: 10,
+        repeat: -1,
+        yoyo: true,
+      });
+    }
   }
 
   createSpellParticleFx() {
@@ -2522,59 +2504,56 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawArenaFireWall(a) {
-    const t = this.time.now;
-    const pulse = 0.55 + 0.45 * Math.sin(t / 110);
-    const flicker = 0.65 + 0.35 * Math.sin(t / 65 + 1.3);
+    if (!this.textures.exists('fire_board')) return;
 
-    // Base glow — parede de calor na borda
-    this.arenaGraphics.lineStyle(22, 0xff2200, 0.18 * flicker);
-    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 2);
-    this.arenaGraphics.lineStyle(14, 0xff5500, 0.32 * pulse);
+    // Anel escuro sob as chamas — define a borda da plataforma com contraste
+    this.arenaGraphics.lineStyle(12, 0x050200, 0.8);
+    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 3);
+    this.arenaGraphics.lineStyle(5, 0x140600, 0.95);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius);
-    this.arenaGraphics.lineStyle(8, 0xff8800, 0.5 * flicker);
+    this.arenaGraphics.lineStyle(2, 0xff7a22, 0.65);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius - 1);
-    this.arenaGraphics.lineStyle(3, 0xffdd66, 0.75 * pulse);
-    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius - 2);
 
-    // Línguas de fogo radiais (parede)
-    const tongues = Math.max(40, Math.floor(a.radius * 0.7));
-    for (let i = 0; i < tongues; i++) {
-      const ang = (i / tongues) * Math.PI * 2;
-      const wobble = 0.55 + 0.45 * Math.sin(t * 0.014 + i * 2.1);
-      const height = (12 + (i % 6) * 2.8 + 8 * Math.sin(t * 0.01 + i * 1.4)) * wobble;
-      const baseR = a.radius - 1;
-      const tipR = a.radius + height;
-      const x0 = a.x + Math.cos(ang) * baseR;
-      const y0 = a.y + Math.sin(ang) * baseR;
-      const x1 = a.x + Math.cos(ang) * tipR;
-      const y1 = a.y + Math.sin(ang) * tipR;
-      const midR = (baseR + tipR) * 0.55;
-      const xM = a.x + Math.cos(ang) * midR;
-      const yM = a.y + Math.sin(ang) * midR;
+    // Frame 352×611; largura alvo ~36px na borda
+    const frameW = 352;
+    const baseScale = 0.105;
+    const spacing = frameW * baseScale * 0.68;
+    const count = Math.max(18, Math.floor((Math.PI * 2 * a.radius) / spacing));
 
-      this.arenaGraphics.lineStyle(5.5, 0xff3300, 0.35 * wobble);
-      this.arenaGraphics.lineBetween(x0, y0, x1, y1);
-      this.arenaGraphics.lineStyle(3.2, 0xff8800, 0.55 * wobble);
-      this.arenaGraphics.lineBetween(x0, y0, xM, yM);
-      this.arenaGraphics.lineStyle(1.6, 0xffee88, 0.8 * wobble);
-      this.arenaGraphics.lineBetween(x0, y0, a.x + Math.cos(ang) * (baseR + height * 0.35), a.y + Math.sin(ang) * (baseR + height * 0.35));
+    while (this.arenaFireSprites.length < count) {
+      const idx = this.arenaFireSprites.length;
+      const startFrame = idx % 8;
+      const outline = this.add
+        .sprite(0, 0, 'fire_board', startFrame)
+        .setOrigin(0.5, 1)
+        .setTint(0x060200)
+        .setAlpha(0.92);
+      const flame = this.add.sprite(0, 0, 'fire_board', startFrame).setOrigin(0.5, 1);
+      if (this.anims.exists('arena_fire_board')) {
+        outline.play({ key: 'arena_fire_board', startFrame });
+        flame.play({ key: 'arena_fire_board', startFrame });
+      }
+      const container = this.add.container(0, 0, [outline, flame]).setDepth(2).setVisible(false);
+      container.fireOutline = outline;
+      container.fireFlame = flame;
+      this.arenaFireSprites.push(container);
     }
 
-    // Partículas subindo ao longo de toda a circunferência
-    if (!this.arenaFireWall) return;
-    const steps = Math.max(24, Math.floor((Math.PI * 2 * a.radius) / 22));
-    const frame = Math.floor(t / 33);
-    for (let i = 0; i < steps; i++) {
-      if ((i + frame) % 3 !== 0) continue;
-      const ang = (i / steps) * Math.PI * 2 + t * 0.0004;
-      const jitter = Math.sin(t * 0.02 + i * 0.7) * 3;
-      const r = a.radius + jitter;
-      const x = a.x + Math.cos(ang) * r;
-      const y = a.y + Math.sin(ang) * r;
-      this.arenaFireWall.emitParticleAt(x, y, 1);
-      if (this.arenaFireEmbers && (i + frame) % 6 === 0) {
-        this.arenaFireEmbers.emitParticleAt(x, y, 1);
+    for (let i = 0; i < this.arenaFireSprites.length; i++) {
+      const container = this.arenaFireSprites[i];
+      if (i >= count) {
+        container.setVisible(false);
+        continue;
       }
+
+      const ang = (i / count) * Math.PI * 2;
+      const scale = baseScale * (0.9 + (i % 5) * 0.055);
+      container.setVisible(true);
+      container.setPosition(a.x + Math.cos(ang) * a.radius, a.y + Math.sin(ang) * a.radius);
+      // Sprite aponta para cima; gira para a chama sair radialmente da plataforma
+      container.setRotation(ang + Math.PI / 2);
+      container.fireOutline.setScale(scale * 1.14);
+      container.fireFlame.setScale(scale);
     }
   }
 

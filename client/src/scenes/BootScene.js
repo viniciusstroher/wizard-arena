@@ -85,6 +85,10 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     this.load.image('lava_tile', '/assets/lava.png');
+    this.load.spritesheet('fire_board', '/assets/fire-board-sheet.png', {
+      frameWidth: 352,
+      frameHeight: 611,
+    });
     this.load.audio('player_death', '/assets/death-bong.mp3');
     this.load.audio('round_end', '/assets/death-bong.mp3');
     this.load.audio('round_start', '/assets/death-bong.mp3');
@@ -160,7 +164,19 @@ export class BootScene extends Phaser.Scene {
     this.createLootBagSprite();
     this.createCoinSprite();
     this.createSpellIcons();
+    this.createArenaFireBoardAnim();
     this.scene.start('Lobby');
+  }
+
+  createArenaFireBoardAnim() {
+    if (this.anims.exists('arena_fire_board') || !this.textures.exists('fire_board')) return;
+    this.anims.create({
+      key: 'arena_fire_board',
+      frames: this.anims.generateFrameNumbers('fire_board', { start: 0, end: 7 }),
+      frameRate: 10,
+      repeat: -1,
+      yoyo: true,
+    });
   }
 
   createProjectileSprites() {
