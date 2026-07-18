@@ -306,9 +306,11 @@ export const CONFIG = {
   PENTAGRAM_FADEOUT: envNumber('PENTAGRAM_FADEOUT', 1.76),
 
   /**
-   * Empurrão ao ser atingido por magia projétil (px/s).
-   * 0 = desligado. Magias em área (nova, AoE) não empurram.
+   * Empurrão ao ser atingido por magia projétil.
+   * false = desligado. Magias em área (nova, AoE) não empurram.
    */
+  PROJECTILE_KNOCKBACK_ENABLED: envBool('PROJECTILE_KNOCKBACK_ENABLED', false),
+  /** Empurrão em px/s (só se PROJECTILE_KNOCKBACK_ENABLED). */
   PROJECTILE_KNOCKBACK_SPEED: envNumber('PROJECTILE_KNOCKBACK_SPEED', 280),
   /** Duração do empurrão em segundos. */
   PROJECTILE_KNOCKBACK_DURATION: envNumber('PROJECTILE_KNOCKBACK_DURATION', 0.12),

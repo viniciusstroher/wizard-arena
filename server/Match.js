@@ -3079,6 +3079,7 @@ export class Match {
 
   /** Empurra o alvo na direção da trajetória do projétil (magias em área não usam isto). */
   applyProjectileKnockback(target, proj) {
+    if (!CONFIG.PROJECTILE_KNOCKBACK_ENABLED) return;
     const speed = CONFIG.PROJECTILE_KNOCKBACK_SPEED;
     const duration = CONFIG.PROJECTILE_KNOCKBACK_DURATION;
     if (speed <= 0 || duration <= 0) return;
