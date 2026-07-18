@@ -145,6 +145,7 @@ export class BootScene extends Phaser.Scene {
     this.createArenaVolcanoTexture();
     this.createArenaRuinsTexture();
     this.createArenaCrystalTexture();
+    this.createIronBlockTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createFurnitureSprites();
@@ -2299,6 +2300,40 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('arena_brick', tw, th);
     g.destroy();
     this.textures.get('arena_brick').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createIronBlockTexture() {
+    // Bloco de ferro 16×16 — chanfro, rebites e placa metálica
+    makePixelTexture(
+      this,
+      'iron_block',
+      [
+        '................',
+        '.HHHHHHHHHHHHHH.',
+        '.HMMMMMMMMMMMMD.',
+        '.HMCCCCCCCCCCMD.',
+        '.HMCMMMMMMMMCMD.',
+        '.HMCMRRMMRRMCMD.',
+        '.HMCMMMMMMMMCMD.',
+        '.HMCMMMMMMMMCMD.',
+        '.HMCMMMMMMMMCMD.',
+        '.HMCMMMMMMMMCMD.',
+        '.HMCMRRMMRRMCMD.',
+        '.HMCMMMMMMMMCMD.',
+        '.HMCCCCCCCCCCMD.',
+        '.HMMMMMMMMMMMMD.',
+        '.HDDDDDDDDDDDDD.',
+        '................',
+      ],
+      {
+        H: 0xd0d4dc, // highlight
+        M: 0x8a909c, // metal
+        C: 0x6a707c, // placa
+        R: 0x3a3e48, // rebite
+        D: 0x2e323a, // sombra
+      },
+      2
+    );
   }
 
   createArenaGrassTexture() {

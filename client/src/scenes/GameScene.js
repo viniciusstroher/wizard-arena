@@ -55,6 +55,7 @@ export class GameScene extends Phaser.Scene {
     this.lavaBurn = null;
     this.arenaFireWall = null;
     this.arenaFireEmbers = null;
+    this.arenaIronSprites = [];
     this.fireballFx = null;
     this.iceFx = null;
     this.healFx = null;
@@ -172,6 +173,8 @@ export class GameScene extends Phaser.Scene {
       this.arenaFireEmbers?.destroy();
       this.arenaFireWall = null;
       this.arenaFireEmbers = null;
+      for (const s of this.arenaIronSprites) s.destroy();
+      this.arenaIronSprites = [];
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
@@ -2527,7 +2530,43 @@ export class GameScene extends Phaser.Scene {
     this.arenaMaskGfx.fillCircle(a.x, a.y, a.radius);
 
     this.arenaGraphics.clear();
+    this.drawArenaIronRim(a);
     this.drawArenaFireWall(a);
+  }
+
+  /** Margem de blocos de ferro no perímetro da plataforma. */
+  drawArenaIronRim(a) {
+    if (!this.textures.exists('iron_block')) return;
+
+    const blockPx = 32; // textura 16×16 × scale 2
+    const rimInset = 10; // centro do bloco um pouco para dentro da borda
+    const scale = 0.72;
+    const spacing = blockPx * scale * 0.92;
+    const r = Math.max(8, a.radius - rimInset);
+    const count = Math.max(12, Math.floor((Math.PI * 2 * r) / spacing));
+
+    while (this.arenaIronSprites.length < count) {
+      const sprite = this.add
+        .image(0, 0, 'iron_block')
+        .setDepth(1)
+        .setOrigin(0.5, 0.5)
+        .setVisible(false);
+      this.arenaIronSprites.push(sprite);
+    }
+
+    for (let i = 0; i < this.arenaIronSprites.length; i++) {
+      const sprite = this.arenaIronSprites[i];
+      if (i >= count) {
+        sprite.setVisible(false);
+        continue;
+      }
+      const ang = (i / count) * Math.PI * 2;
+      sprite.setVisible(true);
+      sprite.setPosition(a.x + Math.cos(ang) * r, a.y + Math.sin(ang) * r);
+      // Face externa alinhada à circunferência
+      sprite.setRotation(ang + Math.PI / 2);
+      sprite.setScale(scale);
+    }
   }
 
   drawArenaFireWall(a) {
