@@ -1,0 +1,324 @@
+import Phaser from 'phaser';
+
+/**
+ * Painel inferior-esquerdo de Eventos / Chat (HUD Phaser + input DOM).
+ * Lobby: só aba Chat. Batalha: abas Eventos + Chat.
+ */
+export class MessageBoard {
+  /**
+   * @param {Phaser.Scene} scene
+   * @param {{
+   *   tabs?: Array<'events'|'chat'>,
+   *   initialTab?: 'events'|'chat',
+   *   onSendChat?: (text: string) => void,
+   *   depth?: number,
+   * }} [options]
+   */
+  constructor(scene, options = {}) {
+    this.scene = scene;
+    this.tabs = options.tabs?.length ? [...options.tabs] : ['events', 'chat'];
+    this.activeTab = options.initialTab && this.tabs.includes(options.initialTab)
+      ? options.initialTab
+      : this.tabs[0];
+    this.onSendChat = options.onSendChat || null;
+    this.depth = options.depth ?? 100;
+
+    this.eventLog = [];
+    this.chatLog = [];
+    this.eventScroll = 0;
+    this.chatScroll = 0;
+    this.chatEnabled = true;
+    this.destroyed = false;
+
+    this.boardW = 300;
+    this.boardH = 168;
+    this.x = 16;
+    this.y = scene.scale.height - 275;
+    this.lineH = 14;
+    this.maxLog = 80;
+
+    this.bounds = { x: this.x, y: this.y, w: this.boardW, h: this.boardH };
+    this.tabLabels = [];
+    this.lines = [];
+
+    this._build();
+    this._refreshTabs();
+    this._refreshLines();
+    this._syncInputVisibility();
+  }
+
+  _build() {
+    const { x, y, boardW, boardH, depth } = this;
+    const font = 'Trebuchet MS, sans-serif';
+
+    this.bg = this.scene.add
+      .rectangle(x, y, boardW, boardH, 0x0e0a1a, 0.82)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x6b5cff, 0.45)
+      .setScrollFactor(0)
+      .setDepth(depth);
+
+    const showTabs = this.tabs.length > 1;
+    let tabX = x + 8;
+    if (showTabs) {
+      for (const tab of this.tabs) {
+        const label = tab === 'events' ? 'Eventos' : 'Chat';
+        const t = this.scene.add
+          .text(tabX, y + 5, label, {
+            fontFamily: font,
+            fontSize: '12px',
+            color: '#7a6e96',
+          })
+          .setScrollFactor(0)
+          .setDepth(depth + 1)
+          .setInteractive({ useHandCursor: true });
+        t.on('pointerup', () => this.setTab(tab));
+        this.tabLabels.push({ tab, text: t });
+        tabX += t.width + 14;
+      }
+    } else {
+      const only = this.tabs[0];
+      const label = only === 'events' ? 'Eventos' : 'Chat';
+      const t = this.scene.add
+        .text(x + 10, y + 5, label, {
+          fontFamily: font,
+          fontSize: '12px',
+          color: '#a99bc8',
+        })
+        .setScrollFactor(0)
+        .setDepth(depth + 1);
+      this.tabLabels.push({ tab: only, text: t });
+    }
+
+    this.hint = this.scene.add
+      .text(x + boardW - 10, y + 5, '', {
+        fontFamily: font,
+        fontSize: '11px',
+        color: '#7a6e96',
+      })
+      .setOrigin(1, 0)
+      .setScrollFactor(0)
+      .setDepth(depth + 1);
+
+    this.linesTop = y + 24;
+    this.maxVisibleEvents = 10;
+    this.maxVisibleChat = 8;
+
+    const maxLines = Math.max(this.maxVisibleEvents, this.maxVisibleChat);
+    for (let i = 0; i < maxLines; i++) {
+      const line = this.scene.add
+        .text(x + 10, this.linesTop + i * this.lineH, '', {
+          fontFamily: font,
+          fontSize: '12px',
+          color: '#e8dfff',
+        })
+        .setScrollFactor(0)
+        .setDepth(depth + 1);
+      this.lines.push(line);
+    }
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.maxLength = 100;
+    inputEl.autocomplete = 'off';
+    inputEl.spellcheck = false;
+    inputEl.placeholder = 'Digite e Enter…';
+    inputEl.style.cssText = [
+      'width: 280px',
+      'height: 26px',
+      'padding: 0 8px',
+      'box-sizing: border-box',
+      'font-size: 12px',
+      'font-family: Trebuchet MS, sans-serif',
+      'border-radius: 4px',
+      'border: 1px solid #4a3f78',
+      'background: #160f28',
+      'color: #f0e8ff',
+      'outline: none',
+    ].join(';');
+
+    this.inputEl = inputEl;
+    this.chatInput = this.scene.add
+      .dom(x + boardW / 2, y + boardH - 16, inputEl)
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(depth + 2);
+
+    this._onInputKeyDown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        this._submitChat();
+      }
+      if (event.key === 'Escape') {
+        inputEl.blur();
+      }
+    };
+    this._onFocus = () => {
+      if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = false;
+    };
+    this._onBlur = () => {
+      if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = true;
+    };
+
+    inputEl.addEventListener('keydown', this._onInputKeyDown);
+    inputEl.addEventListener('focus', this._onFocus);
+    inputEl.addEventListener('blur', this._onBlur);
+  }
+
+  _submitChat() {
+    if (!this.chatEnabled || !this.onSendChat) return;
+    const text = (this.inputEl.value || '').trim().slice(0, 100);
+    if (!text) return;
+    this.inputEl.value = '';
+    this.onSendChat(text);
+  }
+
+  setChatEnabled(enabled) {
+    this.chatEnabled = !!enabled;
+    if (this.inputEl) {
+      this.inputEl.disabled = !this.chatEnabled;
+      this.inputEl.placeholder = this.chatEnabled
+        ? 'Digite e Enter…'
+        : 'Entre no lobby para conversar…';
+      this.inputEl.style.opacity = this.chatEnabled ? '1' : '0.55';
+    }
+  }
+
+  setTab(tab) {
+    if (!this.tabs.includes(tab) || this.activeTab === tab) {
+      this._refreshTabs();
+      return;
+    }
+    this.activeTab = tab;
+    this._refreshTabs();
+    this._refreshLines();
+    this._syncInputVisibility();
+  }
+
+  _refreshTabs() {
+    const multi = this.tabs.length > 1;
+    for (const { tab, text } of this.tabLabels) {
+      const active = tab === this.activeTab;
+      text.setColor(active ? '#e8dfff' : '#7a6e96');
+      if (multi) text.setAlpha(active ? 1 : 0.75);
+    }
+  }
+
+  _activeLog() {
+    return this.activeTab === 'chat' ? this.chatLog : this.eventLog;
+  }
+
+  _activeScrollKey() {
+    return this.activeTab === 'chat' ? 'chatScroll' : 'eventScroll';
+  }
+
+  _maxVisible() {
+    return this.activeTab === 'chat' ? this.maxVisibleChat : this.maxVisibleEvents;
+  }
+
+  pushEvent(message) {
+    if (!message || this.destroyed) return;
+    this.eventLog.push(message);
+    if (this.eventLog.length > this.maxLog) {
+      this.eventLog.splice(0, this.eventLog.length - this.maxLog);
+    }
+    this.eventScroll = 0;
+    if (this.activeTab === 'events') this._refreshLines();
+  }
+
+  pushChat(message) {
+    if (!message || this.destroyed) return;
+    this.chatLog.push(message);
+    if (this.chatLog.length > this.maxLog) {
+      this.chatLog.splice(0, this.chatLog.length - this.maxLog);
+    }
+    this.chatScroll = 0;
+    if (this.activeTab === 'chat') this._refreshLines();
+  }
+
+  /** @returns {boolean} true se o scroll foi consumido */
+  onWheel(dy) {
+    if (this.destroyed) return false;
+    const log = this._activeLog();
+    const maxVisible = this._maxVisible();
+    if (log.length <= maxVisible) return false;
+
+    const pointer = this.scene.input.activePointer;
+    const b = this.bounds;
+    if (!b || !pointer) return false;
+    if (pointer.x < b.x || pointer.x > b.x + b.w || pointer.y < b.y || pointer.y > b.y + b.h) {
+      return false;
+    }
+
+    const scrollKey = this._activeScrollKey();
+    const maxScroll = log.length - maxVisible;
+    if (dy > 0) this[scrollKey] = Math.min(maxScroll, this[scrollKey] + 1);
+    else if (dy < 0) this[scrollKey] = Math.max(0, this[scrollKey] - 1);
+    this._refreshLines();
+    return true;
+  }
+
+  _refreshLines() {
+    if (!this.lines?.length) return;
+    const log = this._activeLog();
+    const max = this._maxVisible();
+    const scrollKey = this._activeScrollKey();
+    const total = log.length;
+    const overflow = total > max;
+    const maxScroll = overflow ? total - max : 0;
+    this[scrollKey] = Phaser.Math.Clamp(this[scrollKey], 0, maxScroll);
+
+    const end = total - this[scrollKey];
+    const start = Math.max(0, end - max);
+    const slice = log.slice(start, end);
+
+    for (let i = 0; i < this.lines.length; i++) {
+      const visible = i < max;
+      this.lines[i].setVisible(visible);
+      this.lines[i].setText(visible ? slice[i] || '' : '');
+    }
+
+    if (this.hint) {
+      this.hint.setText(overflow ? `↕ ${total}` : '');
+    }
+  }
+
+  _syncInputVisibility() {
+    const show = this.activeTab === 'chat';
+    if (this.chatInput) this.chatInput.setVisible(show);
+    if (!show && this.inputEl && document.activeElement === this.inputEl) {
+      this.inputEl.blur();
+    }
+  }
+
+  setDomVisible(visible) {
+    if (this.chatInput) {
+      this.chatInput.setVisible(visible && this.activeTab === 'chat');
+    }
+  }
+
+  destroy() {
+    this.destroyed = true;
+    if (this.inputEl) {
+      this.inputEl.removeEventListener('keydown', this._onInputKeyDown);
+      this.inputEl.removeEventListener('focus', this._onFocus);
+      this.inputEl.removeEventListener('blur', this._onBlur);
+      if (document.activeElement === this.inputEl) this.inputEl.blur();
+    }
+    if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = true;
+
+    this.bg?.destroy();
+    this.hint?.destroy();
+    this.chatInput?.destroy();
+    for (const { text } of this.tabLabels) text.destroy();
+    for (const line of this.lines) line.destroy();
+
+    this.tabLabels = [];
+    this.lines = [];
+    this.bg = null;
+    this.hint = null;
+    this.chatInput = null;
+    this.inputEl = null;
+  }
+}

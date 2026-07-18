@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
+import { MessageBoard } from '../ui/MessageBoard.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -32,8 +33,7 @@ export class GameScene extends Phaser.Scene {
     this.levelUpHint = null;
     this.levelUpCountdown = null;
     this.levelUpPointsText = null;
-    this.eventLog = [];
-    this.eventScroll = 0;
+    this.messageBoard = null;
     this.disconnectConfirmOpen = false;
     this.leaving = false;
     this.matchEndOpen = false;
@@ -131,7 +131,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ENTER', this.onDisconnectEnterKey, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
-      if (this.onEventBoardWheel(dy)) return;
+      if (this.messageBoard?.onWheel(dy)) return;
       this.onSpellSlotWheel(dy);
     });
 
@@ -143,12 +143,17 @@ export class GameScene extends Phaser.Scene {
         const nextRound = (this.state?.round ?? 0) + 1;
         this.bannerText.setText(`Round ${nextRound}\nComeça em ${ev.seconds}`);
         this.bannerText.setAlpha(1);
+      } else if (ev.type === 'chat') {
+        const name = ev.name || 'Jogador';
+        this.messageBoard?.pushChat(`${name}: ${ev.text}`);
       }
     });
 
     this.events.on('shutdown', () => {
       this.stopBattleMusic();
       this.clearAimCursor();
+      this.messageBoard?.destroy();
+      this.messageBoard = null;
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
@@ -650,56 +655,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   createEventBoard() {
-    const boardW = 300;
-    const boardH = 168;
-    const x = 16;
-    // Acima dos slots de magia (y ≈ height - 70)
-    const y = this.scale.height - 275;
-
-    this.eventBoardMaxVisible = 10;
-    this.eventBoardLineH = 14;
-    this.eventBoardBounds = { x, y, w: boardW, h: boardH };
-
-    this.eventBoardBg = this.add
-      .rectangle(x, y, boardW, boardH, 0x0e0a1a, 0.82)
-      .setOrigin(0, 0)
-      .setStrokeStyle(1, 0x6b5cff, 0.45)
-      .setScrollFactor(0)
-      .setDepth(100);
-
-    this.eventBoardTitle = this.add
-      .text(x + 10, y + 6, 'Eventos', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '12px',
-        color: '#a99bc8',
-      })
-      .setScrollFactor(0)
-      .setDepth(101);
-
-    this.eventBoardHint = this.add
-      .text(x + boardW - 10, y + 6, '', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '11px',
-        color: '#7a6e96',
-      })
-      .setOrigin(1, 0)
-      .setScrollFactor(0)
-      .setDepth(101);
-
-    this.eventBoardLines = [];
-    for (let i = 0; i < this.eventBoardMaxVisible; i++) {
-      const line = this.add
-        .text(x + 10, y + 24 + i * this.eventBoardLineH, '', {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '12px',
-          color: '#e8dfff',
-        })
-        .setScrollFactor(0)
-        .setDepth(101);
-      this.eventBoardLines.push(line);
-    }
-
-    this.pushBoardEvent('Partida iniciada');
+    this.messageBoard = new MessageBoard(this, {
+      tabs: ['events', 'chat'],
+      initialTab: 'events',
+      onSendChat: (text) => this.socket.emit('chat_message', { text }),
+    });
+    this.messageBoard.pushEvent('Partida iniciada');
   }
 
   createDisconnectUi() {
@@ -740,6 +701,7 @@ export class GameScene extends Phaser.Scene {
   openDisconnectConfirm() {
     if (this.disconnectConfirmOpen || this.leaving || this.matchEndOpen) return;
     this.disconnectConfirmOpen = true;
+    this.messageBoard?.setDomVisible(false);
 
     const { width, height } = this.scale;
     this.disconnectModal.removeAll(true);
@@ -795,6 +757,7 @@ export class GameScene extends Phaser.Scene {
     this.disconnectConfirmOpen = false;
     this.disconnectModal.removeAll(true);
     this.disconnectModal.setVisible(false);
+    if (!this.matchEndOpen) this.messageBoard?.setDomVisible(true);
   }
 
   confirmDisconnect() {
@@ -816,6 +779,7 @@ export class GameScene extends Phaser.Scene {
     if (this.matchEndOpen || this.leaving) return;
     this.matchEndOpen = true;
     this.closeDisconnectConfirm();
+    this.messageBoard?.setDomVisible(false);
 
     const { width, height } = this.scale;
     this.matchEndModal.removeAll(true);
@@ -925,29 +889,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   pushBoardEvent(message) {
-    if (!message) return;
-    this.eventLog.push(message);
-    if (this.eventLog.length > 80) {
-      this.eventLog.splice(0, this.eventLog.length - 80);
-    }
-    this.eventScroll = 0;
-    this.refreshEventBoard();
-  }
-
-  /** @returns {boolean} true se o scroll foi consumido pelo painel de eventos */
-  onEventBoardWheel(dy) {
-    if (this.eventLog.length <= this.eventBoardMaxVisible) return false;
-    const pointer = this.input.activePointer;
-    const b = this.eventBoardBounds;
-    if (!b) return false;
-    if (pointer.x < b.x || pointer.x > b.x + b.w || pointer.y < b.y || pointer.y > b.y + b.h) {
-      return false;
-    }
-    const maxScroll = this.eventLog.length - this.eventBoardMaxVisible;
-    if (dy > 0) this.eventScroll = Math.min(maxScroll, this.eventScroll + 1);
-    else if (dy < 0) this.eventScroll = Math.max(0, this.eventScroll - 1);
-    this.refreshEventBoard();
-    return true;
+    this.messageBoard?.pushEvent(message);
   }
 
   onSpellSlotWheel(dy) {
@@ -955,27 +897,6 @@ export class GameScene extends Phaser.Scene {
     if (this.leaving || this.disconnectConfirmOpen || this.matchEndOpen) return;
     // Scroll para baixo = próxima magia; para cima = anterior
     this.cycleSpellSlot(dy > 0 ? 1 : -1);
-  }
-
-  refreshEventBoard() {
-    if (!this.eventBoardLines) return;
-    const max = this.eventBoardMaxVisible;
-    const total = this.eventLog.length;
-    const overflow = total > max;
-    const maxScroll = overflow ? total - max : 0;
-    this.eventScroll = Phaser.Math.Clamp(this.eventScroll, 0, maxScroll);
-
-    const end = total - this.eventScroll;
-    const start = Math.max(0, end - max);
-    const slice = this.eventLog.slice(start, end);
-
-    for (let i = 0; i < max; i++) {
-      this.eventBoardLines[i].setText(slice[i] || '');
-    }
-
-    if (this.eventBoardHint) {
-      this.eventBoardHint.setText(overflow ? `↕ ${total}` : '');
-    }
   }
 
   playerName(id) {

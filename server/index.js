@@ -120,6 +120,29 @@ io.on('connection', (socket) => {
     match.chooseSpell(socket.id, payload);
   });
 
+  socket.on('chat_message', (payload = {}) => {
+    const match = findMatchBySocket(socket.id);
+    if (!match) return;
+    const player = match.players.get(socket.id);
+    if (!player || player.isBot) return;
+
+    const now = Date.now();
+    if (player.lastChatAt && now - player.lastChatAt < 400) return;
+    const text = String(payload.text ?? '')
+      .replace(/[\u0000-\u001f\u007f]/g, '')
+      .trim()
+      .slice(0, 100);
+    if (!text) return;
+
+    player.lastChatAt = now;
+    match.broadcast({
+      type: 'chat',
+      playerId: socket.id,
+      name: player.name,
+      text,
+    });
+  });
+
   socket.on('leave_lobby', () => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
+import { MessageBoard } from '../ui/MessageBoard.js';
 
 export class LobbyScene extends Phaser.Scene {
   constructor() {
@@ -25,12 +26,15 @@ export class LobbyScene extends Phaser.Scene {
     this.drawBackground();
     this.createAmbientCreatures();
     this.buildUI();
+    this.createChatBoard();
     this.bindSocket();
     this.startLobbyMusic();
 
     this.events.once('shutdown', () => {
       this.closeSettingsModal();
       this.closeAdminModal();
+      this.messageBoard?.destroy();
+      this.messageBoard = null;
       this.stopLobbyMusic();
       this.destroyAmbientCreatures();
     });
@@ -699,9 +703,26 @@ export class LobbyScene extends Phaser.Scene {
       .setDepth(uiDepth);
   }
 
+  createChatBoard() {
+    this.messageBoard = new MessageBoard(this, {
+      tabs: ['chat'],
+      initialTab: 'chat',
+      onSendChat: (text) => {
+        if (!this.joined) return;
+        this.socket.emit('chat_message', { text });
+      },
+    });
+    this.messageBoard.setChatEnabled(false);
+    this.messageBoard.pushChat('Entre no lobby para conversar.');
+    this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
+      this.messageBoard?.onWheel(dy);
+    });
+  }
+
   setLobbyDomVisible(visible) {
     if (this.nameInput) this.nameInput.setVisible(visible);
     if (this.playersListDom) this.playersListDom.setVisible(visible);
+    this.messageBoard?.setDomVisible(visible);
   }
 
   openSettingsModal() {
@@ -1133,6 +1154,7 @@ export class LobbyScene extends Phaser.Scene {
       this.setButtonEnabled(this.botsBtn, true);
       this.setButtonEnabled(this.adminBtn, true);
       this.refreshRemoveBotsBtn();
+      this.messageBoard?.setChatEnabled(true);
       this.statusText.setText('No lobby. Marque Ready quando estiver preparado.');
     });
 
@@ -1144,6 +1166,9 @@ export class LobbyScene extends Phaser.Scene {
       if (ev.type === 'countdown') {
         this.statusText.setText(`Partida iniciando em ${ev.seconds}...`);
         this.enterGame();
+      } else if (ev.type === 'chat') {
+        const name = ev.name || 'Jogador';
+        this.messageBoard?.pushChat(`${name}: ${ev.text}`);
       }
     });
 
