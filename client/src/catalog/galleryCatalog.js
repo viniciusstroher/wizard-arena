@@ -2,7 +2,7 @@ import { createMonsterTypeDefs } from '../../../server/monsterTypes.js';
 import { SPELLS, ULTIMATES } from '../../../server/spells.js';
 import { monsterLabel } from './monsterLabels.js';
 
-const DIFFICULTY_LABEL = {
+const TIER_LABEL = {
   normal: 'Normal',
   elite: 'Elite',
   boss: 'Boss',
@@ -24,19 +24,24 @@ export function getMonsterEntries() {
 
   const order = { normal: 0, elite: 1, boss: 2 };
   return Object.entries(defs)
-    .map(([id, def]) => ({
-      id,
-      name: monsterLabel(id),
-      difficulty: def.difficulty || 'normal',
-      difficultyLabel: DIFFICULTY_LABEL[def.difficulty] || def.difficulty || 'Normal',
-      attack: def.attack || 'melee',
-      attackLabel: ATTACK_LABEL[def.attack] || def.attack || 'Corpo a corpo',
-      projectile: def.projectile || null,
-      spells: Array.isArray(def.spells) ? [...def.spells] : [],
-      color: def.color ?? 0xffffff,
-    }))
+    .map(([id, def]) => {
+      const tier = def.isBoss ? 'boss' : def.isElite ? 'elite' : 'normal';
+      const spells = Array.isArray(def.spells) ? [...def.spells] : [];
+      return {
+        id,
+        name: monsterLabel(id),
+        tier,
+        tierLabel: TIER_LABEL[tier],
+        attack: def.attack || 'melee',
+        attackLabel: ATTACK_LABEL[def.attack] || def.attack || 'Corpo a corpo',
+        projectile: def.projectile || null,
+        spells,
+        spellNames: spells.map((s) => spellDisplayName(s)),
+        color: def.color ?? 0xffffff,
+      };
+    })
     .sort((a, b) => {
-      const d = (order[a.difficulty] ?? 9) - (order[b.difficulty] ?? 9);
+      const d = (order[a.tier] ?? 9) - (order[b.tier] ?? 9);
       if (d !== 0) return d;
       return a.name.localeCompare(b.name, 'pt');
     });
@@ -44,51 +49,58 @@ export function getMonsterEntries() {
 
 /** Catálogo de magias (básicas + ultimates). */
 export function getSpellEntries() {
-  const basics = Object.values(SPELLS).map((s) => ({
-    id: s.id,
-    name: s.name,
-    description: s.description || '',
-    type: s.type || 'basic',
-    typeLabel: spellTypeLabel(s),
-    color: s.color ?? 0xffffff,
-    playerUsable: s.playerUsable !== false,
-    bossOnly: !!s.bossOnly,
-    innate: !!s.innate,
-  }));
+  const basics = Object.values(SPELLS).map((s) => spellEntryFromDef(s));
+  const ultimates = Object.values(ULTIMATES).map((s) =>
+    spellEntryFromDef({ ...s, type: 'ultimate' })
+  );
 
-  const ultimates = Object.values(ULTIMATES).map((s) => ({
-    id: s.id,
-    name: s.name,
-    description: s.description || '',
-    type: 'ultimate',
-    typeLabel: 'Ultimate',
-    color: s.color ?? 0xffffff,
-    playerUsable: s.playerUsable !== false,
-    bossOnly: false,
-    innate: false,
-  }));
-
+  const order = { basic: 0, innate: 1, monster: 2, ultimate: 3, boss: 4 };
   return [...basics, ...ultimates].sort((a, b) => {
-    const rank = (e) => {
-      if (e.type === 'ultimate') return 2;
-      if (e.bossOnly) return 3;
-      if (e.playerUsable === false) return 1;
-      return 0;
-    };
-    const r = rank(a) - rank(b);
+    const r = (order[a.category] ?? 9) - (order[b.category] ?? 9);
     if (r !== 0) return r;
     return a.name.localeCompare(b.name, 'pt');
   });
 }
 
+function spellCategory(s) {
+  if (s.type === 'ultimate') return 'ultimate';
+  if (s.bossOnly) return 'boss';
+  if (s.innate) return 'innate';
+  if (s.playerUsable === false) return 'monster';
+  return 'basic';
+}
+
 function spellTypeLabel(s) {
-  if (s.type === 'ultimate') return 'Ultimate';
-  if (s.bossOnly) return 'Boss';
-  if (s.innate) return 'Inata';
-  if (s.playerUsable === false) return 'Monstro';
-  return 'Básica';
+  const labels = {
+    ultimate: 'Ultimate',
+    boss: 'Boss',
+    innate: 'Inata',
+    monster: 'Monstro',
+    basic: 'Básica',
+  };
+  return labels[spellCategory(s)] || 'Básica';
+}
+
+function spellEntryFromDef(s) {
+  const category = spellCategory(s);
+  return {
+    id: s.id,
+    name: s.name,
+    description: s.description || '',
+    type: s.type || 'basic',
+    category,
+    typeLabel: spellTypeLabel(s),
+    color: s.color ?? 0xffffff,
+    playerUsable: s.playerUsable !== false,
+    bossOnly: !!s.bossOnly,
+    innate: !!s.innate,
+  };
 }
 
 export function spellDisplayName(id) {
   return SPELLS[id]?.name || ULTIMATES[id]?.name || id;
+}
+
+export function spellColor(id) {
+  return SPELLS[id]?.color ?? ULTIMATES[id]?.color ?? 0xffffff;
 }

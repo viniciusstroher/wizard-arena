@@ -2,6 +2,13 @@ import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
 import { monsterLabel as monsterLabelOf } from '../catalog/monsterLabels.js';
+import {
+  getCombatStatusEffect,
+  getFloorStatusEffect,
+  getGaleStatusEffect,
+  getLavaStatusEffect,
+  PLAYER_RADIUS,
+} from '../catalog/statusEffects.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -356,12 +363,13 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
 
-    // Status recebidos (slow, etc.) — abaixo de Lv/XP
+    // Status recebidos (slow, terreno, etc.) — abaixo do mapa
     this.statusSlots = [];
-    for (let i = 0; i < 4; i++) {
+    this.statusTooltipEffect = null;
+    for (let i = 0; i < 8; i++) {
       const slot = this.add.container(28 + i * 36, 96).setScrollFactor(0).setDepth(102).setVisible(false);
       const bg = this.add.rectangle(0, 0, 30, 30, 0x1a1430, 0.95).setStrokeStyle(1, 0x6b5cff);
-      const icon = this.add.image(0, -3, 'spell_ice_shard').setScale(0.95);
+      const icon = this.add.image(0, -3, 'spell_ice_shard').setDisplaySize(18, 18);
       const cd = this.add
         .text(0, 12, '', {
           fontFamily: 'Trebuchet MS, sans-serif',
@@ -369,9 +377,36 @@ export class GameScene extends Phaser.Scene {
           color: '#dcecff',
         })
         .setOrigin(0.5, 0);
+      bg.setInteractive({ useHandCursor: true });
+      bg.on('pointerover', () => this.showStatusTooltip(i));
+      bg.on('pointerout', () => this.hideStatusTooltip(i));
       slot.add([bg, icon, cd]);
-      this.statusSlots.push({ container: slot, bg, icon, cd });
+      this.statusSlots.push({ container: slot, bg, icon, cd, effect: null });
     }
+
+    this.statusTooltip = this.add.container(0, 0).setScrollFactor(0).setDepth(220).setVisible(false);
+    this.statusTooltipBg = this.add
+      .rectangle(0, 0, 200, 56, 0x120e22, 0.96)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x8b7cff);
+    this.statusTooltipTitle = this.add
+      .text(8, 6, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        fontStyle: 'bold',
+        color: '#f4e8ff',
+        wordWrap: { width: 184 },
+      })
+      .setOrigin(0, 0);
+    this.statusTooltipBody = this.add
+      .text(8, 24, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#c8bdd8',
+        wordWrap: { width: 184 },
+      })
+      .setOrigin(0, 0);
+    this.statusTooltip.add([this.statusTooltipBg, this.statusTooltipTitle, this.statusTooltipBody]);
 
     this.timerText = this.add
       .text(width / 2, 16, '5:00', {
@@ -2284,6 +2319,78 @@ export class GameScene extends Phaser.Scene {
       crystal: 'Cristal',
     };
     return names[floorType] || 'Arena';
+  }
+
+  showStatusTooltip(index) {
+    const slot = this.statusSlots?.[index];
+    const eff = slot?.effect;
+    if (!eff || !this.statusTooltip) return;
+    this.statusTooltipEffect = index;
+    this.statusTooltipTitle.setText(eff.name || 'Efeito');
+    this.statusTooltipBody.setText(eff.description || '');
+    const pad = 8;
+    const titleH = this.statusTooltipTitle.height;
+    const bodyH = this.statusTooltipBody.height;
+    const w = Math.max(
+      160,
+      Math.min(220, Math.max(this.statusTooltipTitle.width, this.statusTooltipBody.width) + pad * 2)
+    );
+    this.statusTooltipTitle.setWordWrapWidth(w - pad * 2);
+    this.statusTooltipBody.setWordWrapWidth(w - pad * 2);
+    this.statusTooltipBody.setY(6 + titleH + 4);
+    const h = 6 + this.statusTooltipTitle.height + 4 + this.statusTooltipBody.height + 8;
+    this.statusTooltipBg.setSize(w, h);
+    this.statusTooltipBg.setStrokeStyle(1, eff.color ?? 0x8b7cff);
+    const { width, height } = this.scale;
+    let x = slot.container.x + 18;
+    let y = slot.container.y + 18;
+    if (x + w > width - 8) x = Math.max(8, slot.container.x - w - 4);
+    if (y + h > height - 8) y = Math.max(8, slot.container.y - h - 4);
+    this.statusTooltip.setPosition(x, y).setVisible(true);
+  }
+
+  hideStatusTooltip(index) {
+    if (this.statusTooltipEffect !== index && this.statusTooltipEffect != null) return;
+    this.statusTooltipEffect = null;
+    this.statusTooltip?.setVisible(false);
+  }
+
+  refreshStatusTooltip() {
+    if (this.statusTooltipEffect == null) return;
+    const slot = this.statusSlots?.[this.statusTooltipEffect];
+    if (!slot?.effect) {
+      this.hideStatusTooltip(this.statusTooltipEffect);
+      return;
+    }
+    const eff = slot.effect;
+    const sameText =
+      this.statusTooltipTitle.text === (eff.name || 'Efeito') &&
+      this.statusTooltipBody.text === (eff.description || '');
+    if (sameText && this.statusTooltip.visible) {
+      const { width, height } = this.scale;
+      const w = this.statusTooltipBg.width;
+      const h = this.statusTooltipBg.height;
+      let x = slot.container.x + 18;
+      let y = slot.container.y + 18;
+      if (x + w > width - 8) x = Math.max(8, slot.container.x - w - 4);
+      if (y + h > height - 8) y = Math.max(8, slot.container.y - h - 4);
+      this.statusTooltip.setPosition(x, y);
+      return;
+    }
+    this.showStatusTooltip(this.statusTooltipEffect);
+  }
+
+  /** Ventania ativa cobrindo o jogador local. */
+  activeGaleOnMe(me) {
+    if (!me?.alive) return null;
+    for (const e of this.state?.effects || []) {
+      if (e.type !== 'gale_strike') continue;
+      const r = Number(e.radius) || 0;
+      if (Math.hypot((e.x || 0) - me.x, (e.y || 0) - me.y) <= r + PLAYER_RADIUS) {
+        return e;
+      }
+    }
+    return null;
   }
 
   renderArena() {
@@ -4502,48 +4609,50 @@ export class GameScene extends Phaser.Scene {
     this.mapText.setText(`Mapa ${this.arenaMapName(this.state?.arena?.floorType)}`);
     y += 18;
 
-    // Status recebidos (abaixo de Lv/XP)
+    // Status recebidos + terreno (abaixo do mapa)
     const effects = [];
-    if (me.alive && (me.slow || 0) > 0 && (me.slowTimer || 0) > 0) {
-      effects.push({
-        icon: 'spell_ice_shard',
-        color: 0x66ccff,
-        timer: me.slowTimer,
-      });
-    }
-    if (me.alive && Number(me.poisonTimer) > 0) {
-      effects.push({
-        icon: 'spell_poison_cloud',
-        color: 0x88ff44,
-        timer: Number(me.poisonTimer),
-      });
-    }
-    if (me.alive && Number(me.burnTimer) > 0) {
-      effects.push({
-        icon: 'spell_flame_nova',
-        color: 0xff8844,
-        timer: Number(me.burnTimer),
-      });
+    if (me.alive) {
+      const floorEff = getFloorStatusEffect(this.state?.arena?.floorType);
+      if (floorEff) effects.push(floorEff);
+
+      const gale = this.activeGaleOnMe(me);
+      if (gale) effects.push(getGaleStatusEffect(gale.life));
+
+      if (this.isOnLava(me.x, me.y)) effects.push(getLavaStatusEffect());
+
+      if ((me.slow || 0) > 0 && (me.slowTimer || 0) > 0) {
+        effects.push(getCombatStatusEffect('slow', me.slowTimer, me.slow));
+      }
+      if (Number(me.poisonTimer) > 0) {
+        effects.push(getCombatStatusEffect('poison', Number(me.poisonTimer)));
+      }
+      if (Number(me.burnTimer) > 0) {
+        effects.push(getCombatStatusEffect('burn', Number(me.burnTimer)));
+      }
     }
     for (let i = 0; i < this.statusSlots.length; i++) {
       const slot = this.statusSlots[i];
       const eff = effects[i];
       if (!eff) {
+        slot.effect = null;
         slot.container.setVisible(false);
+        if (this.statusTooltipEffect === i) this.hideStatusTooltip(i);
         continue;
       }
+      slot.effect = eff;
       slot.container.setVisible(true);
       slot.container.setDepth(110);
       slot.container.setPosition(PAD_X + 14 + i * 36, y + 14);
       if (this.textures.exists(eff.icon)) {
-        slot.icon.setTexture(eff.icon).setVisible(true);
+        slot.icon.setTexture(eff.icon).setVisible(true).setDisplaySize(18, 18);
       } else {
         slot.icon.setVisible(false);
       }
       slot.bg.setStrokeStyle(2, eff.color);
-      slot.cd.setText(eff.timer.toFixed(1));
+      slot.cd.setText(eff.timer != null && Number.isFinite(eff.timer) ? Number(eff.timer).toFixed(1) : '');
     }
     if (effects.length > 0) y += 34;
+    this.refreshStatusTooltip();
 
     const contentRight = Math.max(
       PAD_X + BAR_W,

@@ -3,8 +3,8 @@
 export const SPELLS = {
   firebolt: {
     id: 'firebolt',
-    name: 'Firebolt',
-    description: 'Projétil de fogo que causa dano a distância.',
+    name: 'Seta de Fogo',
+    description: 'Projétil de fogo com disparo automático. Causa dano a distância.',
     type: 'basic',
     playerUsable: true,
     /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
@@ -19,8 +19,8 @@ export const SPELLS = {
   },
   ice_shard: {
     id: 'ice_shard',
-    name: 'Ice Shard',
-    description: 'Fragmento de gelo que causa dano e reduz velocidade por 5s.',
+    name: 'Fragmento de Gelo',
+    description: 'Fragmento de gelo com disparo automático. Causa dano e reduz velocidade por 5s.',
     type: 'basic',
     playerUsable: true,
     /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
@@ -37,8 +37,8 @@ export const SPELLS = {
   },
   arc_lightning: {
     id: 'arc_lightning',
-    name: 'Arc Lightning',
-    description: 'Raio elétrico no inimigo mais próximo.',
+    name: 'Raio em Arco',
+    description: 'Raio elétrico que atinge o inimigo mais próximo.',
     type: 'basic',
     playerUsable: true,
     cooldown: 1.4,
@@ -49,8 +49,8 @@ export const SPELLS = {
   },
   flame_nova: {
     id: 'flame_nova',
-    name: 'Flame Nova',
-    description: 'Explosão de fogo no chão. Quem for atingido queima (3 dmg/s por 10s).',
+    name: 'Nova Flamejante',
+    description: 'Explosão de fogo no chão. Quem for atingido queima (3 de dano/s por 10s).',
     type: 'basic',
     playerUsable: true,
     cooldown: 2.5,
@@ -70,7 +70,7 @@ export const SPELLS = {
   },
   mend: {
     id: 'mend',
-    name: 'Mend',
+    name: 'Cura',
     description: 'Cura rápida. Habilidade inata (H), liberada no nível 3.',
     type: 'basic',
     playerUsable: true,
@@ -85,7 +85,7 @@ export const SPELLS = {
   },
   poison_cloud: {
     id: 'poison_cloud',
-    name: 'Poison Cloud',
+    name: 'Nuvem Venenosa',
     description: 'Nuvem tóxica: ao pisar, aplica veneno (3 de dano/s por 5s). Reentrar renova o efeito.',
     type: 'basic',
     playerUsable: true,
@@ -104,7 +104,7 @@ export const SPELLS = {
   },
   blink: {
     id: 'blink',
-    name: 'Blink',
+    name: 'Teleporte',
     description: 'Teleporte curto na direção do cursor. Habilidade inata (B), liberada no nível 5.',
     type: 'basic',
     playerUsable: true,
@@ -119,7 +119,7 @@ export const SPELLS = {
   },
   barrier: {
     id: 'barrier',
-    name: 'Barrier',
+    name: 'Barreira',
     description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E), liberada no nível 2.',
     type: 'basic',
     playerUsable: true,
@@ -135,8 +135,8 @@ export const SPELLS = {
   },
   skull_bolt: {
     id: 'skull_bolt',
-    name: 'Skull Bolt',
-    description: 'Caveira amaldiçoada com raios negros.',
+    name: 'Raio Craniano',
+    description: 'Caveira amaldiçoada com raios negros. Disparo automático.',
     type: 'basic',
     playerUsable: true,
     /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
@@ -152,7 +152,7 @@ export const SPELLS = {
   /** Exclusiva do grim_reaper — onda radial de caveiras. */
   skull_wave: {
     id: 'skull_wave',
-    name: 'Skull Wave',
+    name: 'Onda de Caveiras',
     description: 'Onda radial de caveiras amaldiçoadas. Uso exclusivo do Ceifador.',
     type: 'basic',
     playerUsable: false,
@@ -169,7 +169,7 @@ export const SPELLS = {
   /** Exclusiva de dragon / fire_elemental / bruxo — não entra no pool de jogadores. */
   firebreath: {
     id: 'firebreath',
-    name: 'Firebreath',
+    name: 'Sopro de Fogo',
     description: 'Sopro de fogo em cone à frente. Uso exclusivo de certos monstros.',
     type: 'basic',
     playerUsable: false,
@@ -184,7 +184,7 @@ export const SPELLS = {
   /** Exclusiva de demon — raio do céu no alvo. */
   electric_bolt: {
     id: 'electric_bolt',
-    name: 'Electric Bolt',
+    name: 'Raio Celeste',
     description: 'Raio que cai do céu no alvo. Uso exclusivo de demônios.',
     type: 'basic',
     playerUsable: false,
@@ -197,7 +197,7 @@ export const SPELLS = {
   /** Exclusiva de demon — tempestade com vários raios caindo. */
   electric_storm: {
     id: 'electric_storm',
-    name: 'Electric Storm',
+    name: 'Tempestade Elétrica',
     description: 'Tempestade elétrica: vários raios caem na área. Uso exclusivo de demônios.',
     type: 'basic',
     playerUsable: false,
@@ -214,7 +214,7 @@ export const SPELLS = {
   // ─── Magias exclusivas de boss (% da vida máxima, teto 85%) ───
   soul_rend: {
     id: 'soul_rend',
-    name: 'Soul Rend',
+    name: 'Rasgar Alma',
     description: 'Rasga a alma do alvo. Exclusiva de bosses. Até 55% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -227,7 +227,7 @@ export const SPELLS = {
   },
   void_collapse: {
     id: 'void_collapse',
-    name: 'Void Collapse',
+    name: 'Colapso do Vazio',
     description: 'Colapso do vazio em área. Exclusiva de bosses. Até 45% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -241,7 +241,7 @@ export const SPELLS = {
   },
   death_knell: {
     id: 'death_knell',
-    name: 'Death Knell',
+    name: 'Sino da Morte',
     description: 'Sino da morte no alvo. Exclusiva de bosses. Até 70% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -254,7 +254,7 @@ export const SPELLS = {
   },
   cataclysm_beam: {
     id: 'cataclysm_beam',
-    name: 'Cataclysm Beam',
+    name: 'Feixe Cataclísmico',
     description: 'Feixe cataclísmico em cone. Exclusiva de bosses. Até 60% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -268,7 +268,7 @@ export const SPELLS = {
   },
   blood_pact: {
     id: 'blood_pact',
-    name: 'Blood Pact',
+    name: 'Pacto de Sangue',
     description: 'Pacto de sangue no alvo. Exclusiva de bosses. Até 50% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -281,7 +281,7 @@ export const SPELLS = {
   },
   abyss_nova: {
     id: 'abyss_nova',
-    name: 'Abyss Nova',
+    name: 'Nova Abissal',
     description: 'Explosão abissal em área. Exclusiva de bosses. Até 65% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -295,8 +295,8 @@ export const SPELLS = {
   },
   frost_apocalypse: {
     id: 'frost_apocalypse',
-    name: 'Frost Apocalypse',
-    description: 'Apocalipse gélido em área + slow. Exclusiva de bosses. Até 55% da vida máxima.',
+    name: 'Apocalipse Gélido',
+    description: 'Apocalipse gélido em área + lentidão. Exclusiva de bosses. Até 55% da vida máxima.',
     type: 'basic',
     playerUsable: false,
     bossOnly: true,
@@ -311,7 +311,7 @@ export const SPELLS = {
   },
   plague_burst: {
     id: 'plague_burst',
-    name: 'Plague Burst',
+    name: 'Estouro de Praga',
     description: 'Estouro de praga em área + veneno. Exclusiva de bosses. Até 40% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -328,7 +328,7 @@ export const SPELLS = {
   },
   infernal_judgment: {
     id: 'infernal_judgment',
-    name: 'Infernal Judgment',
+    name: 'Julgamento Infernal',
     description: 'Julgamento infernal do céu. Exclusiva de bosses. Até 75% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -341,7 +341,7 @@ export const SPELLS = {
   },
   shadow_eclipse: {
     id: 'shadow_eclipse',
-    name: 'Shadow Eclipse',
+    name: 'Eclipse Sombrio',
     description: 'Eclipse sombrio em grande área. Exclusiva de bosses. Até 85% da vida máxima.',
     type: 'basic',
     playerUsable: false,
@@ -358,8 +358,8 @@ export const SPELLS = {
 export const ULTIMATES = {
   apocalypse: {
     id: 'apocalypse',
-    name: 'Apocalypse',
-    description: 'Chuva de meteoros em grande área. 1x por round.',
+    name: 'Apocalipse',
+    description: 'Chuva de meteoros em grande área. Ultimate — 1x por round.',
     type: 'ultimate',
     playerUsable: true,
     cooldown: 9999,
@@ -370,8 +370,8 @@ export const ULTIMATES = {
   },
   time_freeze: {
     id: 'time_freeze',
-    name: 'Time Freeze',
-    description: 'Congela inimigos próximos. 1x por round.',
+    name: 'Congelamento Temporal',
+    description: 'Congela inimigos próximos. Ultimate — 1x por round.',
     type: 'ultimate',
     playerUsable: true,
     cooldown: 9999,
@@ -382,8 +382,8 @@ export const ULTIMATES = {
   },
   storm_call: {
     id: 'storm_call',
-    name: 'Storm Call',
-    description: 'Cadeia de raios em todos os inimigos próximos. 1x por round.',
+    name: 'Chamado da Tempestade',
+    description: 'Cadeia de raios em todos os inimigos próximos. Ultimate — 1x por round.',
     type: 'ultimate',
     playerUsable: true,
     cooldown: 9999,
