@@ -1,5 +1,6 @@
 import { CONFIG } from './config.js';
 import { BotController } from './Bot.js';
+import { createMonsterTypeDefs } from './monsterTypes.js';
 import {
   applySpellChoice,
   createSpellInstance,
@@ -9,6 +10,15 @@ import {
   rollSpellChoices,
   spellStats,
 } from './spells.js';
+
+/** Dano percentual da vida máxima (teto 85%) — magias de boss. */
+const MAX_BOSS_HP_PERCENT = 0.85;
+
+function clampBossHpPercent(pct) {
+  const n = Number(pct) || 0;
+  if (n <= 0) return 0;
+  return Math.min(MAX_BOSS_HP_PERCENT, Math.max(0, n));
+}
 
 function stripInnateSpells(spells) {
   return (spells || []).filter((s) => !isInnateSpell(s.id));
@@ -1692,13 +1702,14 @@ export class Match {
   }
 
   /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
-  damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false) {
+  damageEntity(target, amount, sourcePlayerId = null, isPlayer = true, fromHit = false, opts = null) {
     if (!target.alive) return false;
     if (isPlayer && !this.playerCanHarmPlayers(sourcePlayerId)) return false;
 
+    const options = opts && typeof opts === 'object' ? opts : null;
     let crit = false;
     let dmg = amount;
-    if (sourcePlayerId != null && amount > 0) {
+    if (!options?.skipCrit && sourcePlayerId != null && amount > 0) {
       const attacker =
         this.players.get(sourcePlayerId) || this.findMonster(sourcePlayerId);
       if (attacker) {
@@ -1709,6 +1720,14 @@ export class Match {
           dmg = Math.max(1, Math.round(amount * mult));
         }
       }
+    }
+    // Magias de boss %HP: nunca ultrapassar o teto da vida máxima.
+    if (options?.maxHpPercent != null && target.maxHp > 0) {
+      const cap = Math.max(
+        1,
+        Math.round(target.maxHp * clampBossHpPercent(options.maxHpPercent))
+      );
+      dmg = Math.min(dmg, cap);
     }
 
     let absorbed = 0;
@@ -1901,290 +1920,7 @@ export class Match {
   }
 
   monsterTypeDefs() {
-    const common = CONFIG.MONSTER_WEIGHT_COMMON;
-    const boss = CONFIG.MONSTER_WEIGHT_BOSS;
-    return {
-      // Ranged: fireballs
-      imp: {
-        hpMul: 1,
-        speedMul: 1.2,
-        dmgMul: 1,
-        radius: 14,
-        color: 0xff4422,
-        attack: 'ranged',
-        projectile: 'fireball',
-        range: 190,
-        preferRange: 130,
-        projectileSpeed: 220,
-        projectileRadius: 7,
-        projectileColor: 0xff6622,
-        attackCooldown: 1.45,
-        weight: common,
-      },
-      slime: {
-        hpMul: 1.5,
-        speedMul: 0.8,
-        dmgMul: 1,
-        radius: 16,
-        color: 0x44ff66,
-        attack: 'melee',
-        weight: common,
-      },
-      wraith: {
-        hpMul: 1.3,
-        speedMul: 1.1,
-        dmgMul: 1,
-        radius: 14,
-        color: 0x8866ff,
-        attack: 'melee',
-        weight: common,
-      },
-      // Fast skirmisher — arrows
-      goblin: {
-        hpMul: 0.7,
-        speedMul: 1.35,
-        dmgMul: 0.85,
-        radius: 12,
-        color: 0xa8c734,
-        attack: 'ranged',
-        projectile: 'arrow',
-        range: 210,
-        preferRange: 140,
-        projectileSpeed: 340,
-        projectileRadius: 4,
-        projectileColor: 0xd4c4a0,
-        attackCooldown: 1.15,
-        weight: common,
-      },
-      // Slow bruiser — heavier arrows
-      orc: {
-        hpMul: 2.2,
-        speedMul: 0.65,
-        dmgMul: 1.6,
-        radius: 20,
-        color: 0x3d8b4a,
-        attack: 'ranged',
-        projectile: 'arrow',
-        range: 175,
-        preferRange: 110,
-        projectileSpeed: 260,
-        projectileRadius: 5,
-        projectileColor: 0xb8956a,
-        attackCooldown: 1.7,
-        weight: common,
-      },
-      // Melee undead
-      skeleton: {
-        hpMul: 1.1,
-        speedMul: 1.05,
-        dmgMul: 1.15,
-        radius: 14,
-        color: 0xe8e0d0,
-        attack: 'melee',
-        attackCooldown: 0.9,
-        weight: common,
-      },
-      // Ranged-only undead archer
-      skeleton_archer: {
-        hpMul: 0.85,
-        speedMul: 0.95,
-        dmgMul: 1.05,
-        radius: 13,
-        color: 0xd8d0c0,
-        attack: 'ranged',
-        projectile: 'arrow',
-        range: 230,
-        preferRange: 160,
-        projectileSpeed: 360,
-        projectileRadius: 4,
-        projectileColor: 0xc8b8a0,
-        attackCooldown: 1.35,
-        weight: common,
-      },
-      // Fast melee pack hunter
-      wolf: {
-        hpMul: 0.95,
-        speedMul: 1.45,
-        dmgMul: 1.2,
-        radius: 14,
-        color: 0x8b7355,
-        attack: 'melee',
-        attackCooldown: 0.75,
-        weight: common,
-      },
-      // Bulky melee arachnid
-      giant_spider: {
-        hpMul: 1.7,
-        speedMul: 0.85,
-        dmgMul: 1.35,
-        radius: 18,
-        color: 0x2d1b2e,
-        attack: 'melee',
-        attackCooldown: 1.1,
-        weight: common,
-      },
-      // Fragile flying skirmisher
-      bat: {
-        hpMul: 0.5,
-        speedMul: 1.65,
-        dmgMul: 0.8,
-        radius: 11,
-        color: 0x4a3728,
-        attack: 'melee',
-        attackCooldown: 0.65,
-        weight: common,
-      },
-      // Nimble forest archer
-      elf: {
-        hpMul: 0.9,
-        speedMul: 1.25,
-        dmgMul: 1.1,
-        radius: 13,
-        color: 0x6bbf59,
-        attack: 'ranged',
-        projectile: 'arrow',
-        range: 240,
-        preferRange: 170,
-        projectileSpeed: 380,
-        projectileRadius: 4,
-        projectileColor: 0xc8e6a0,
-        attackCooldown: 1.05,
-        weight: common,
-      },
-      // Beholder — olho arcano que lança Arc Lightning
-      beholder: {
-        hpMul: 2.4,
-        speedMul: 0.55,
-        dmgMul: 1.25,
-        radius: 30, // +50% vs base visual
-        color: 0x9b59b6,
-        attack: 'caster',
-        spells: ['arc_lightning'],
-        range: 170,
-        preferRange: 130,
-        attackCooldown: 1.35,
-        weight: boss,
-        isBoss: true,
-      },
-      // Dragão — Firebreath / Firebolt + Flame Nova de perto
-      dragon: {
-        hpMul: 3.8,
-        speedMul: 0.5,
-        dmgMul: 1.55,
-        radius: 42, // +50%
-        color: 0xe74c3c,
-        attack: 'caster',
-        spells: ['firebreath', 'firebolt', 'flame_nova'],
-        range: 300,
-        preferRange: 170,
-        projectileSpeed: 480,
-        projectileRadius: 10,
-        projectileColor: 0xff5533,
-        attackCooldown: 1.1,
-        novaRadius: 120,
-        novaCooldown: 4.2,
-        weight: boss,
-        isBoss: true,
-      },
-      // Lich — morto-vivo arcano que lança Ice Shard
-      lich: {
-        hpMul: 2.1,
-        speedMul: 0.6,
-        dmgMul: 1.15,
-        radius: 24, // +50%
-        color: 0x66ccff,
-        attack: 'caster',
-        spells: ['ice_shard'],
-        range: 280,
-        preferRange: 160,
-        projectileSpeed: 460,
-        projectileRadius: 9,
-        projectileColor: 0x66ccff,
-        attackCooldown: 1.25,
-        weight: boss,
-        isBoss: true,
-      },
-      // Elemental de fogo — chama viva: Firebreath / Firebolt + Flame Nova
-      fire_elemental: {
-        hpMul: 1.8,
-        speedMul: 1.1,
-        dmgMul: 1.3,
-        radius: 16,
-        color: 0xff6622,
-        attack: 'caster',
-        spells: ['firebreath', 'firebolt', 'flame_nova'],
-        range: 250,
-        preferRange: 145,
-        projectileSpeed: 440,
-        projectileRadius: 9,
-        projectileColor: 0xff5533,
-        attackCooldown: 1.15,
-        novaRadius: 105,
-        novaCooldown: 4.0,
-        weight: common,
-      },
-      // Demônio — Electric Bolt + Electric Storm (raios do céu)
-      demon: {
-        hpMul: 2.2,
-        speedMul: 0.85,
-        dmgMul: 1.4,
-        radius: 42, // +50%
-        color: 0x8b1a2b,
-        attack: 'caster',
-        spells: ['electric_bolt', 'electric_storm'],
-        range: 260,
-        preferRange: 150,
-        attackCooldown: 1.2,
-        /** Reusa novaRadius/novaCooldown para a tempestade elétrica. */
-        novaRadius: 130,
-        novaCooldown: 4.5,
-        weight: boss,
-        isBoss: true,
-      },
-      // Ceifador — onda radial de caveiras
-      grim_reaper: {
-        hpMul: 2.6,
-        speedMul: 0.7,
-        dmgMul: 1.35,
-        radius: 27, // +50%
-        color: 0x2a0044,
-        attack: 'caster',
-        spells: ['skull_wave'],
-        range: 220,
-        preferRange: 140,
-        projectileSpeed: 300,
-        projectileRadius: 11,
-        projectileColor: 0x4a0080,
-        attackCooldown: 2.4,
-        skullCount: 10,
-        weight: boss,
-        isBoss: true,
-      },
-      // Bruxo — bolas de fogo, firebreath e rastro de fogo no chão
-      bruxo: {
-        hpMul: 1.9,
-        speedMul: 1.05,
-        dmgMul: 1.25,
-        radius: 15,
-        color: 0xff5522,
-        attack: 'caster',
-        spells: ['firebreath', 'firebolt'],
-        range: 260,
-        preferRange: 150,
-        projectileSpeed: 450,
-        projectileRadius: 9,
-        projectileColor: 0xff5533,
-        attackCooldown: 1.2,
-        fireTrail: true,
-        fireTrailInterval: 0.32,
-        fireTrailRadius: 34,
-        fireTrailLife: 2.6,
-        fireTrailBurnDamage: 2,
-        fireTrailBurnTick: 1,
-        fireTrailBurnDuration: 3,
-        weight: common,
-      },
-    };
+    return createMonsterTypeDefs(CONFIG);
   }
 
   /** Sorteia tipo com pesos + diversidade (evita repetir tipos já vivos / último spawn). */
@@ -2277,6 +2013,13 @@ export class Match {
       if (!this.isBlockedByRock(x, y, def.radius)) break;
     }
 
+    const isBoss = !!def.isBoss;
+    const isElite = !!def.isElite && !isBoss;
+    const bossHpMul = isBoss ? CONFIG.DIFFICULTY_BOSS_HP_MUL || 1 : 1;
+    const bossDmgMul = isBoss ? CONFIG.DIFFICULTY_BOSS_DMG_MUL || 1 : 1;
+    const hp = Math.round(CONFIG.MONSTER_HP * def.hpMul * bossHpMul);
+    const damage = Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul * bossDmgMul);
+
     return {
       entityId: eid(),
       type,
@@ -2284,14 +2027,14 @@ export class Match {
       y,
       vx: 0,
       vy: 0,
-      hp: Math.round(CONFIG.MONSTER_HP * def.hpMul),
-      maxHp: Math.round(CONFIG.MONSTER_HP * def.hpMul),
+      hp,
+      maxHp: hp,
       alive: true,
       level: 1,
       xp: 0,
       xpToNext: xpForLevel(2) - xpForLevel(1),
       speed: CONFIG.MONSTER_SPEED * def.speedMul,
-      damage: Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul),
+      damage,
       critChance: CONFIG.MONSTER_CRIT_CHANCE,
       critMult: CONFIG.MONSTER_CRIT_MULT,
       attackCd: 0,
@@ -2318,7 +2061,9 @@ export class Match {
       trailAcc: 0,
       radius: def.radius,
       color: def.color,
-      isBoss: !!def.isBoss,
+      isBoss,
+      isElite,
+      difficulty: def.difficulty || (isBoss ? 'boss' : isElite ? 'hard' : 'normal'),
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
@@ -2333,6 +2078,23 @@ export class Match {
       burnTickAcc: 0,
       burnOwnerId: null,
     };
+  }
+
+  /** Dano de magia de boss: % da vida máxima do alvo (máx. 85%), sem crítico além do teto. */
+  bossPercentDamage(target, stats) {
+    const pct = clampBossHpPercent(stats?.damagePercentMaxHp);
+    if (pct <= 0 || !target?.maxHp) return 0;
+    return Math.max(1, Math.round(target.maxHp * pct));
+  }
+
+  /** Aplica slow em jogador (usado por magias de boss). */
+  applyMonsterSlow(target, slow, duration) {
+    if (!target?.alive || !this.isPlayerEntity(target)) return;
+    const amount = Math.max(0, Math.min(0.85, Number(slow) || 0));
+    const dur = Math.max(0.1, Number(duration) || 2);
+    if (amount <= 0) return;
+    target.slow = Math.max(target.slow || 0, amount);
+    target.slowTimer = Math.max(target.slowTimer || 0, dur);
   }
 
   spawnMonster() {
@@ -2759,6 +2521,189 @@ export class Match {
           });
         }
         monster.attackCd = monster.attackCooldown || stats.cooldown || 2.4;
+        break;
+      }
+      case 'poison_cloud': {
+        if (!target) return;
+        const dx = target.x - monster.x;
+        const dy = target.y - monster.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const dropDist = Math.min(90, len * 0.55);
+        const cx = monster.x + (dx / len) * dropDist;
+        const cy = monster.y + (dy / len) * dropDist;
+        const groundLife = Math.max(0.5, Number(stats.duration) || 4);
+        const radius = monster.novaRadius || stats.radius || 90;
+        this.aoes.push({
+          entityId: eid(),
+          ownerId: monster.entityId,
+          x: cx,
+          y: cy,
+          radius,
+          damage: Math.max(1, Math.round(Number(stats.damage) || 3)),
+          tick: Math.max(0.05, Number(stats.tick) || 1),
+          poisonDuration: Math.max(0.5, Number(stats.poisonDuration) || 5),
+          life: groundLife,
+          maxLife: groundLife,
+          color: stats.color,
+          spellId: 'poison_cloud',
+        });
+        this.effects.push({
+          type: 'poison_burst',
+          x: cx,
+          y: cy,
+          radius,
+          life: 0.45,
+          maxLife: 0.45,
+          color: stats.color,
+        });
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 3;
+        monster.novaCd = monster.novaCooldown || 3.8;
+        break;
+      }
+      case 'soul_rend':
+      case 'death_knell':
+      case 'blood_pact': {
+        if (!monster.isBoss || !target) return;
+        const range = stats.range || 220;
+        if (dist(monster, target) > range) return;
+        const pct = clampBossHpPercent(stats.damagePercentMaxHp);
+        const dmg = this.bossPercentDamage(target, stats);
+        this.damageEntity(target, dmg, monster.entityId, true, true, {
+          skipCrit: true,
+          maxHpPercent: pct,
+        });
+        this.effects.push({
+          type: 'boss_strike',
+          spellId,
+          x: target.x,
+          y: target.y,
+          radius: 36,
+          life: 0.55,
+          maxLife: 0.55,
+          color: stats.color,
+        });
+        this.spawnSpellImpact(target.x, target.y, spellId, stats.color, 34);
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 5.5;
+        monster.novaCd = Math.max(monster.novaCd || 0, (monster.novaCooldown || 5) * 0.85);
+        break;
+      }
+      case 'infernal_judgment': {
+        if (!monster.isBoss || !target) return;
+        const range = stats.range || 260;
+        if (dist(monster, target) > range) return;
+        const pct = clampBossHpPercent(stats.damagePercentMaxHp);
+        const dmg = this.bossPercentDamage(target, stats);
+        this.damageEntity(target, dmg, monster.entityId, true, true, {
+          skipCrit: true,
+          maxHpPercent: pct,
+        });
+        this.pushSkyLightning(target.x, target.y, stats.color, {
+          spellId: 'infernal_judgment',
+          branches: 6,
+          skyHeight: 340 + Math.random() * 40,
+        });
+        this.effects.push({
+          type: 'boss_strike',
+          spellId,
+          x: target.x,
+          y: target.y,
+          radius: 42,
+          life: 0.65,
+          maxLife: 0.65,
+          color: stats.color,
+        });
+        this.spawnSpellImpact(target.x, target.y, spellId, stats.color, 40);
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 7;
+        monster.novaCd = Math.max(monster.novaCd || 0, (monster.novaCooldown || 5) * 0.9);
+        break;
+      }
+      case 'void_collapse':
+      case 'abyss_nova':
+      case 'frost_apocalypse':
+      case 'plague_burst':
+      case 'shadow_eclipse': {
+        if (!monster.isBoss) return;
+        const radius = monster.novaRadius || stats.radius || 120;
+        const cx = target ? target.x : monster.x;
+        const cy = target ? target.y : monster.y;
+        const pct = clampBossHpPercent(stats.damagePercentMaxHp);
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          if (dist(p, { x: cx, y: cy }) > radius) continue;
+          const dmg = this.bossPercentDamage(p, stats);
+          this.damageEntity(p, dmg, monster.entityId, true, true, {
+            skipCrit: true,
+            maxHpPercent: pct,
+          });
+          if (spellId === 'frost_apocalypse') {
+            this.applyMonsterSlow(p, stats.slow || 0.5, stats.slowDuration || 3.5);
+          }
+          if (spellId === 'plague_burst') {
+            this.applyPoison(
+              p,
+              monster.entityId,
+              stats.poisonDamage || 4,
+              stats.poisonTick || 1,
+              stats.poisonDuration || 5
+            );
+          }
+        }
+        this.effects.push({
+          type: 'boss_nova',
+          spellId,
+          x: cx,
+          y: cy,
+          radius,
+          life: 0.85,
+          maxLife: 0.85,
+          color: stats.color,
+        });
+        this.spawnSpellImpact(cx, cy, spellId, stats.color, 44);
+        monster.attackCd = (monster.attackCooldown || 1.2) * 1.3;
+        monster.novaCd = monster.novaCooldown || stats.cooldown || 6;
+        break;
+      }
+      case 'cataclysm_beam': {
+        if (!monster.isBoss || !target) return;
+        const range = stats.range || 200;
+        const dx = target.x - monster.x;
+        const dy = target.y - monster.y;
+        const len = Math.hypot(dx, dy) || 1;
+        if (len > range * 1.15) return;
+        const dirX = dx / len;
+        const dirY = dy / len;
+        const halfAngle = ((stats.coneAngle || 32) * Math.PI) / 180;
+        const cosMin = Math.cos(halfAngle);
+        const pct = clampBossHpPercent(stats.damagePercentMaxHp);
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          const pdx = p.x - monster.x;
+          const pdy = p.y - monster.y;
+          const pd = Math.hypot(pdx, pdy);
+          if (pd > range) continue;
+          if (pd < 0.001 || (pdx / pd) * dirX + (pdy / pd) * dirY >= cosMin) {
+            const dmg = this.bossPercentDamage(p, stats);
+            this.damageEntity(p, dmg, monster.entityId, true, true, {
+              skipCrit: true,
+              maxHpPercent: pct,
+            });
+          }
+        }
+        this.effects.push({
+          type: 'firebreath',
+          spellId: 'cataclysm_beam',
+          x: monster.x,
+          y: monster.y,
+          dirX,
+          dirY,
+          range,
+          coneAngle: stats.coneAngle || 32,
+          life: 0.6,
+          maxLife: 0.6,
+          color: stats.color,
+        });
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 6.5;
+        monster.novaCd = Math.max(monster.novaCd || 0, (monster.novaCooldown || 5) * 0.9);
         break;
       }
       default:
@@ -3468,7 +3413,14 @@ export class Match {
             targetVx = (dx / len) * m.speed;
             targetVy = (dy / len) * m.speed;
           } else if (
-            (spells.includes('flame_nova') || spells.includes('electric_storm')) &&
+            (spells.includes('flame_nova') ||
+              spells.includes('electric_storm') ||
+              spells.includes('abyss_nova') ||
+              spells.includes('void_collapse') ||
+              spells.includes('shadow_eclipse') ||
+              spells.includes('frost_apocalypse') ||
+              spells.includes('plague_burst') ||
+              spells.includes('poison_cloud')) &&
             nearestD < novaR * 0.45 &&
             (m.novaCd || 0) > 0
           ) {
@@ -3485,7 +3437,43 @@ export class Match {
             const breathRange = spellStats('firebreath')?.range || 170;
             const boltRange = spellStats('electric_bolt')?.range || 240;
             const stormR = m.novaRadius || spellStats('electric_storm')?.radius || novaR;
-            if (
+            const bossNovaSpells = [
+              'shadow_eclipse',
+              'abyss_nova',
+              'void_collapse',
+              'frost_apocalypse',
+              'plague_burst',
+            ];
+            const bossSingleSpells = [
+              'death_knell',
+              'infernal_judgment',
+              'soul_rend',
+              'blood_pact',
+            ];
+            const bossNovaReady =
+              m.isBoss &&
+              (m.novaCd || 0) <= 0 &&
+              bossNovaSpells.find((id) => spells.includes(id) && nearestD <= (m.novaRadius || spellStats(id)?.radius || novaR));
+            const bossSingleReady =
+              m.isBoss &&
+              (m.novaCd || 0) <= 0 &&
+              bossSingleSpells.find((id) => {
+                const r = spellStats(id)?.range || shootRange;
+                return spells.includes(id) && nearestD <= r;
+              });
+            const beamReady =
+              m.isBoss &&
+              spells.includes('cataclysm_beam') &&
+              (m.novaCd || 0) <= 0 &&
+              nearestD <= (spellStats('cataclysm_beam')?.range || 200);
+
+            if (bossNovaReady) {
+              spell = bossNovaReady;
+            } else if (beamReady) {
+              spell = 'cataclysm_beam';
+            } else if (bossSingleReady) {
+              spell = bossSingleReady;
+            } else if (
               spells.includes('electric_storm') &&
               nearestD <= stormR &&
               (m.novaCd || 0) <= 0
@@ -3497,6 +3485,12 @@ export class Match {
               (m.novaCd || 0) <= 0
             ) {
               spell = 'flame_nova';
+            } else if (
+              spells.includes('poison_cloud') &&
+              nearestD <= (m.novaRadius || 100) &&
+              (m.novaCd || 0) <= 0
+            ) {
+              spell = 'poison_cloud';
             } else if (spells.includes('firebreath') && nearestD <= breathRange) {
               spell = 'firebreath';
             } else if (spells.includes('electric_bolt') && nearestD <= boltRange) {
@@ -3820,6 +3814,8 @@ export class Match {
         radius: m.radius,
         color: m.color,
         isBoss: !!m.isBoss,
+        isElite: !!m.isElite,
+        difficulty: m.difficulty || null,
       })),
       projectiles: this.projectiles.map((p) => ({
         entityId: p.entityId,

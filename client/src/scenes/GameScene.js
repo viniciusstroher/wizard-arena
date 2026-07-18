@@ -1864,6 +1864,28 @@ export class GameScene extends Phaser.Scene {
     } else if (spell === 'skull_bolt') {
       this.necroFx?.emitParticleAt(x, y, 16);
       this.sparkFx?.emitParticleAt(x, y, 6);
+    } else if (
+      e.type === 'boss_nova' ||
+      e.type === 'boss_strike' ||
+      spell === 'soul_rend' ||
+      spell === 'void_collapse' ||
+      spell === 'death_knell' ||
+      spell === 'cataclysm_beam' ||
+      spell === 'blood_pact' ||
+      spell === 'abyss_nova' ||
+      spell === 'frost_apocalypse' ||
+      spell === 'plague_burst' ||
+      spell === 'infernal_judgment' ||
+      spell === 'shadow_eclipse'
+    ) {
+      this.necroFx?.emitParticleAt(x, y, 20);
+      this.sparkFx?.emitParticleAt(x, y, 14);
+      this.magicFx?.emitParticleAt(x, y, 10);
+      if (spell === 'frost_apocalypse') this.iceFx?.emitParticleAt(x, y, 16);
+      if (spell === 'infernal_judgment' || spell === 'blood_pact') {
+        this.fireballFx?.emitParticleAt(x, y, 16);
+      }
+      if (spell === 'plague_burst') this.poisonFx?.emitParticleAt?.(x, y, 14);
     } else if (e.type === 'heal' || e.type === 'mass_heal_strike' || spell === 'mend') {
       this.healFx?.emitParticleAt(x, y, e.type === 'mass_heal_strike' ? 22 : 12);
       if (e.type === 'mass_heal_strike') {
@@ -2595,6 +2617,11 @@ export class GameScene extends Phaser.Scene {
 
   monsterLabel(type) {
     const labels = {
+      imp: 'imp',
+      slime: 'slime',
+      wraith: 'espectro',
+      goblin: 'goblin',
+      orc: 'orc',
       skeleton: 'esqueleto',
       skeleton_archer: 'esqueleto arqueiro',
       wolf: 'lobo',
@@ -2608,6 +2635,70 @@ export class GameScene extends Phaser.Scene {
       demon: 'demônio',
       grim_reaper: 'ceifador',
       bruxo: 'bruxo',
+      cyclops: 'ciclope',
+      minotaur: 'minotauro',
+      harpy: 'harpía',
+      kobold: 'kobold',
+      zombie: 'zumbi',
+      mummy: 'múmia',
+      ghoul: 'carniçal',
+      ratman: 'homem-rato',
+      scorpion: 'escorpião',
+      venom_snake: 'serpente venenosa',
+      cultist: 'cultista',
+      gargoyle: 'gárgula',
+      pixie: 'pixie',
+      dwarf_guard: 'anão guardião',
+      bandit: 'bandido',
+      pirate: 'pirata',
+      giant_toad: 'sapo gigante',
+      wasp: 'vespa',
+      crab: 'caranguejo',
+      yeti_cub: 'yeti jovem',
+      shadow_wolf: 'lobo sombrio',
+      cave_troll: 'troll das cavernas',
+      swamp_slug: 'lesma do pântano',
+      desert_scavenger: 'necrófago do deserto',
+      gnoll: 'gnoll',
+      ice_imp: 'imp de gelo',
+      ancient_scarab: 'escaravelho antigo',
+      death_knight: 'cavaleiro da morte',
+      frost_mage: 'mago do gelo',
+      venom_hydra: 'hidra venenosa',
+      stone_golem: 'golem de pedra',
+      blood_succubus: 'súcubo de sangue',
+      nightmare_steed: 'corcel do pesadelo',
+      bone_whelp: 'filhote ósseo',
+      abyss_watcher: 'vigia do abismo',
+      crystal_elemental: 'elemental de cristal',
+      plague_doctor: 'médico da praga',
+      war_troll: 'troll de guerra',
+      shadow_assassin: 'assassino sombrio',
+      storm_elemental: 'elemental da tempestade',
+      magma_golem: 'golem de magma',
+      forest_guardian: 'guardião da floresta',
+      void_stalker: 'caçador do vazio',
+      ice_wyrm: 'serpe de gelo',
+      necromancer: 'necromante',
+      frost_dragon: 'dragão de gelo',
+      bone_dragon: 'dragão ósseo',
+      kraken: 'kraken',
+      hydra_boss: 'hidra ancestral',
+      medusa: 'medusa',
+      phoenix: 'fênix',
+      titan: 'titã',
+      void_lord: 'senhor do vazio',
+      ancient_treant: 'treant ancestral',
+      sand_worm: 'verme das areias',
+      flame_lord: 'senhor das chamas',
+      frost_lich: 'lich glacial',
+      plague_queen: 'rainha da praga',
+      storm_giant: 'gigante da tempestade',
+      cerberus: 'cérbero',
+      basilisk: 'basilisco',
+      djinn: 'djinn',
+      archdemon: 'arquidemônio',
+      world_serpent: 'serpente do mundo',
     };
     return labels[type] || type;
   }
@@ -2643,13 +2734,15 @@ export class GameScene extends Phaser.Scene {
 
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
       const tagY = m.y - 26 * scale;
-      s.nameTag.setText(`${this.monsterLabel(m.type)} Lv${m.level || 1}`);
+      const tier =
+        m.isBoss ? '★ ' : m.isElite ? '◆ ' : '';
+      s.nameTag.setText(`${tier}${this.monsterLabel(m.type)} Lv${m.level || 1}`);
       s.nameTag.setPosition(m.x, tagY);
       s.hpBg.setPosition(m.x, tagY + 8);
       const ratio = m.maxHp ? m.hp / m.maxHp : 0;
       s.hpFg.setPosition(m.x - 16 + 16 * ratio, tagY + 8);
       s.hpFg.width = 32 * ratio;
-      s.hpFg.setFillStyle(0xe67e22);
+      s.hpFg.setFillStyle(m.isBoss ? 0xc0392b : m.isElite ? 0x8e44ad : 0xe67e22);
     }
     for (const [id, s] of this.monsterSprites) {
       if (!seen.has(id)) {
@@ -3464,6 +3557,52 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  drawBossNova(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x4a0080;
+    const r = (e.radius || 130) * (0.35 + 0.65 * Math.min(1, p * 1.4));
+
+    g.fillStyle(0x0a0014, 0.35 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(color, 0.22 * fade);
+    g.fillCircle(e.x, e.y, r * 0.78);
+    g.fillStyle(0xffffff, 0.12 * fade);
+    g.fillCircle(e.x, e.y, r * 0.28);
+    for (let i = 0; i < 4; i++) {
+      const t = (p * 1.6 + i * 0.22) % 1;
+      g.lineStyle(2.5, color, (0.55 - t * 0.4) * fade);
+      g.strokeCircle(e.x, e.y, r * (0.2 + t * 0.8));
+    }
+  }
+
+  drawBossStrike(e) {
+    const g = this.effectGraphics;
+    const fade = this.effectFade(e);
+    const p = this.effectProgress(e);
+    const color = e.color || 0x6c3483;
+    const r = (e.radius || 36) * (0.5 + 0.7 * Math.min(1, p * 1.5));
+
+    g.fillStyle(color, 0.35 * fade);
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0xffffff, 0.2 * fade);
+    g.fillCircle(e.x, e.y, r * 0.4);
+    g.lineStyle(2, color, 0.7 * fade);
+    g.strokeCircle(e.x, e.y, r * 1.05);
+    const rays = 8;
+    for (let i = 0; i < rays; i++) {
+      const a = (i / rays) * Math.PI * 2 + p * 3;
+      g.lineStyle(2, color, 0.55 * fade);
+      g.lineBetween(
+        e.x + Math.cos(a) * r * 0.3,
+        e.y + Math.sin(a) * r * 0.3,
+        e.x + Math.cos(a) * r * 1.35,
+        e.y + Math.sin(a) * r * 1.35
+      );
+    }
+  }
+
   /** Círculo de atenção + meteoro descendo do céu. */
   drawMeteorWarn(e) {
     const g = this.effectGraphics;
@@ -4146,6 +4285,8 @@ export class GameScene extends Phaser.Scene {
         e.type === 'storm' ||
         e.type === 'electric_storm' ||
         e.type === 'poison_burst' ||
+        e.type === 'boss_nova' ||
+        e.type === 'boss_strike' ||
         e.type === 'lightning' ||
         e.type === 'sky_lightning' ||
         e.type === 'meteor_strike' ||
@@ -4216,6 +4357,10 @@ export class GameScene extends Phaser.Scene {
         this.drawElectricStorm(e);
       } else if (e.type === 'poison_burst') {
         this.drawPoisonBurst(e);
+      } else if (e.type === 'boss_nova') {
+        this.drawBossNova(e);
+      } else if (e.type === 'boss_strike') {
+        this.drawBossStrike(e);
       }
     }
 

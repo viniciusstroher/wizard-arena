@@ -39,7 +39,84 @@ const ARENA_SHRINK_AMOUNT = (ARENA_START_RADIUS - ARENA_MIN_RADIUS) / ARENA_SHRI
 const MAX_ROUNDS = envInt('MAX_ROUNDS', 5);
 const ROUND_DURATION = envInt('ROUND_DURATION', 60);
 
+/** Níveis de dificuldade da partida (afeta mobs / spawn / bosses). */
+const DIFFICULTY_PRESETS = {
+  easy: {
+    hp: 0.75,
+    dmg: 0.7,
+    spawnInterval: 1.35,
+    spawnCount: 0.7,
+    eliteWeight: 0.55,
+    bossHp: 0.85,
+    bossDmg: 0.8,
+    maxMonsters: 0.85,
+  },
+  normal: {
+    hp: 1,
+    dmg: 1,
+    spawnInterval: 1,
+    spawnCount: 1,
+    eliteWeight: 1,
+    bossHp: 1,
+    bossDmg: 1,
+    maxMonsters: 1,
+  },
+  hard: {
+    hp: 1.35,
+    dmg: 1.25,
+    spawnInterval: 0.85,
+    spawnCount: 1.25,
+    eliteWeight: 1.45,
+    bossHp: 1.25,
+    bossDmg: 1.2,
+    maxMonsters: 1.15,
+  },
+  nightmare: {
+    hp: 1.75,
+    dmg: 1.55,
+    spawnInterval: 0.7,
+    spawnCount: 1.5,
+    eliteWeight: 1.85,
+    bossHp: 1.5,
+    bossDmg: 1.4,
+    maxMonsters: 1.3,
+  },
+  apocalypse: {
+    hp: 2.2,
+    dmg: 1.9,
+    spawnInterval: 0.55,
+    spawnCount: 2,
+    eliteWeight: 2.3,
+    bossHp: 1.85,
+    bossDmg: 1.65,
+    maxMonsters: 1.5,
+  },
+};
+
+function resolveDifficulty() {
+  const raw = String(process.env.DIFFICULTY || 'normal')
+    .trim()
+    .toLowerCase();
+  return DIFFICULTY_PRESETS[raw] ? raw : 'normal';
+}
+
+const DIFFICULTY = resolveDifficulty();
+const DIFF = DIFFICULTY_PRESETS[DIFFICULTY];
+
+const BASE_MONSTER_HP = envNumber('MONSTER_HP', 40);
+const BASE_MONSTER_DAMAGE = envNumber('MONSTER_DAMAGE', 8);
+const BASE_SPAWN_INTERVAL = envNumber('MONSTER_SPAWN_INTERVAL', 4);
+const BASE_SPAWN_COUNT = envInt('MONSTER_SPAWN_COUNT', 1);
+const BASE_MONSTER_MAX = envInt('MONSTER_MAX', 18, 1);
+const BASE_ELITE_WEIGHT = envNumber('MONSTER_WEIGHT_ELITE', 5);
+
 export const CONFIG = {
+  /** easy | normal | hard | nightmare | apocalypse */
+  DIFFICULTY,
+  DIFFICULTY_HP_MUL: DIFF.hp,
+  DIFFICULTY_DMG_MUL: DIFF.dmg,
+  DIFFICULTY_BOSS_HP_MUL: DIFF.bossHp,
+  DIFFICULTY_BOSS_DMG_MUL: DIFF.bossDmg,
   TICK_RATE: 20,
   MAX_PLAYERS: 8,
   MIN_PLAYERS: 1,
@@ -108,13 +185,13 @@ export const CONFIG = {
 
   /** Se false, não gera novos monstros durante a partida. */
   MONSTER_SPAWN_ENABLED: envBool('MONSTER_SPAWN_ENABLED', true),
-  /** Intervalo (segundos) entre spawns de monstros. */
-  MONSTER_SPAWN_INTERVAL: envNumber('MONSTER_SPAWN_INTERVAL', 4),
-  /** Quantidade de monstros spawnados a cada intervalo. */
-  MONSTER_SPAWN_COUNT: envInt('MONSTER_SPAWN_COUNT', 1),
-  MONSTER_MAX: 18,
-  MONSTER_HP: 40,
-  MONSTER_DAMAGE: 8,
+  /** Intervalo (segundos) entre spawns de monstros (escala com DIFFICULTY). */
+  MONSTER_SPAWN_INTERVAL: Math.max(0.5, +(BASE_SPAWN_INTERVAL * DIFF.spawnInterval).toFixed(2)),
+  /** Quantidade de monstros spawnados a cada intervalo (escala com DIFFICULTY). */
+  MONSTER_SPAWN_COUNT: Math.max(1, Math.round(BASE_SPAWN_COUNT * DIFF.spawnCount)),
+  MONSTER_MAX: Math.max(4, Math.round(BASE_MONSTER_MAX * DIFF.maxMonsters)),
+  MONSTER_HP: Math.max(1, Math.round(BASE_MONSTER_HP * DIFF.hp)),
+  MONSTER_DAMAGE: Math.max(1, Math.round(BASE_MONSTER_DAMAGE * DIFF.dmg)),
   /** Velocidade base dos mobs (px/s); tipos aplicam speedMul em cima. */
   MONSTER_SPEED: envNumber('MONSTER_SPEED', 95),
   /** Chance de crítico de monstros (0–1). */
@@ -138,6 +215,8 @@ export const CONFIG = {
   MONSTER_AGGRO_RANGE: 220,
   /** Peso base dos monstros comuns no sorteio de spawn. */
   MONSTER_WEIGHT_COMMON: envNumber('MONSTER_WEIGHT_COMMON', 10),
+  /** Peso dos elites (mais fortes) no spawn contínuo. */
+  MONSTER_WEIGHT_ELITE: Math.max(0.5, +(BASE_ELITE_WEIGHT * DIFF.eliteWeight).toFixed(2)),
   /** Peso relativo entre bosses ao sortear qual aparece no round de boss. */
   MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
   /**
