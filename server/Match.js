@@ -4,12 +4,19 @@ import { createMonsterTypeDefs } from './monsterTypes.js';
 import {
   applySpellChoice,
   createSpellInstance,
+  getSpellDef,
   innateUnlockLevel,
   isInnateSpell,
   isPlayerUsableSpell,
   rollSpellChoices,
   spellStats,
 } from './spells.js';
+
+/** Magias com `speed` viram projétil — não mostram nome flutuante. */
+function isProjectileSpell(spellId) {
+  const def = getSpellDef(spellId);
+  return !!(def && Number.isFinite(def.speed));
+}
 
 /** Dano percentual da vida máxima (teto 85%) — magias de boss. */
 const MAX_BOSS_HP_PERCENT = 0.85;
@@ -3051,6 +3058,7 @@ export class Match {
       maxLife: pentagramLife,
       color: stats.color,
     });
+    this.announceNonProjectileCast(monster, spellId, false);
     return true;
   }
 
@@ -3329,9 +3337,25 @@ export class Match {
       maxLife: pentagramLife,
       color: stats.color,
     });
+    this.announceNonProjectileCast(player, spellInst.id, true);
 
     spellInst.cooldownLeft = stats.cooldown;
     player.input.castSlot = -1;
+  }
+
+  /** Nome da magia acima do caster (só não-projéteis). */
+  announceNonProjectileCast(caster, spellId, isPlayer) {
+    if (!caster || !spellId || isProjectileSpell(spellId)) return;
+    const stats = spellStats(spellId, 1);
+    this.pushEvent({
+      type: 'spell_cast',
+      spellId,
+      casterId: isPlayer ? caster.id : caster.entityId,
+      isPlayer: !!isPlayer,
+      x: +caster.x.toFixed(1),
+      y: +caster.y.toFixed(1),
+      color: stats?.color ?? 0xffffff,
+    });
   }
 
   listHostiles(player) {

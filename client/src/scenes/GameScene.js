@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
 import { monsterLabel as monsterLabelOf } from '../catalog/monsterLabels.js';
+import { spellDisplayName } from '../catalog/galleryCatalog.js';
 import {
   getCombatStatusEffect,
   getFloorStatusEffect,
@@ -78,6 +79,8 @@ export class GameScene extends Phaser.Scene {
     /** Timestamp até quando o ping de spawn (círculo vermelho) fica ativo. */
     this.spawnPingUntil = 0;
     this.spawnPingGraphics = null;
+    /** Labels de magia não-projétil acima de jogadores/bots/mobs. */
+    this.spellCastLabels = [];
   }
 
   create() {
@@ -1145,6 +1148,82 @@ export class GameScene extends Phaser.Scene {
     this.healFx?.emitParticleAt(x, y - 10, 8);
   }
 
+  /** Nome da magia acima do caster por 2s (não-projéteis). */
+  spawnSpellCastLabel(ev) {
+    if (!ev?.spellId || ev.casterId == null) return;
+    const name = spellDisplayName(ev.spellId);
+    if (!name) return;
+
+    // Substitui label anterior do mesmo caster
+    for (let i = this.spellCastLabels.length - 1; i >= 0; i--) {
+      const item = this.spellCastLabels[i];
+      if (item.casterId === ev.casterId && item.isPlayer === !!ev.isPlayer) {
+        item.label.destroy();
+        this.spellCastLabels.splice(i, 1);
+      }
+    }
+
+    const colorNum = (Number(ev.color) || 0xffffff) >>> 0;
+    const colorHex = `#${colorNum.toString(16).padStart(6, '0')}`;
+    const x = Number.isFinite(ev.x) ? ev.x : 0;
+    const y = Number.isFinite(ev.y) ? ev.y - 48 : 0;
+    const label = this.add
+      .text(x, y, name, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: colorHex,
+        stroke: '#12080a',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(58)
+      .setAlpha(1);
+
+    this.spellCastLabels.push({
+      label,
+      casterId: ev.casterId,
+      isPlayer: !!ev.isPlayer,
+      expiresAt: this.time.now + 2000,
+    });
+  }
+
+  updateSpellCastLabels() {
+    if (!this.spellCastLabels?.length) return;
+    const now = this.time.now;
+    const players = this.state?.players || [];
+    const monsters = this.state?.monsters || [];
+
+    for (let i = this.spellCastLabels.length - 1; i >= 0; i--) {
+      const item = this.spellCastLabels[i];
+      const left = item.expiresAt - now;
+      if (left <= 0) {
+        item.label.destroy();
+        this.spellCastLabels.splice(i, 1);
+        continue;
+      }
+
+      let x = item.label.x;
+      let y = item.label.y;
+      if (item.isPlayer) {
+        const p = players.find((pl) => pl.id === item.casterId);
+        if (p) {
+          x = p.x;
+          y = p.y - (p.shield > 0 ? 50 : 42);
+        }
+      } else {
+        const m = monsters.find((mon) => mon.entityId === item.casterId);
+        if (m) {
+          const scale = Math.max(0.85, (m.radius || 14) / 14);
+          x = m.x;
+          y = m.y - (m.shield > 0 ? 48 : 40) * scale;
+        }
+      }
+
+      const alpha = left < 400 ? left / 400 : 1;
+      item.label.setPosition(x, y).setAlpha(alpha);
+    }
+  }
+
   playDeathSound() {
     if (!this.cache.audio.exists('player_death')) return;
     this.sound.play('player_death', { volume: 0.85 });
@@ -1220,6 +1299,9 @@ export class GameScene extends Phaser.Scene {
           }
         }
         this.spawnLevelUpPopup(x, y, ev.level);
+      }
+      if (ev.type === 'spell_cast') {
+        this.spawnSpellCastLabel(ev);
       }
       // Fallback: ossos de monstro pelo evento (caso o effect do servidor atrase)
       if (ev.type === 'monster_kill' && Number.isFinite(ev.x) && Number.isFinite(ev.y)) {
@@ -1358,6 +1440,7 @@ export class GameScene extends Phaser.Scene {
     this.renderLootBags();
     this.renderCoins();
     this.renderSpawnPing();
+    this.updateSpellCastLabels();
     this.updateHud();
     this.updateLevelUpUi();
     this.handleBanners();
