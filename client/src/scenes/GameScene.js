@@ -11,6 +11,9 @@ import {
   PLAYER_RADIUS,
 } from '../catalog/statusEffects.js';
 
+/** Parede mágica circular na borda da arena (só visual). */
+const ARENA_BORDER_FX_ENABLED = false;
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
@@ -1659,6 +1662,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   createArenaFireWall() {
+    if (!ARENA_BORDER_FX_ENABLED) return;
     // Parede circular de energia mágica — partículas ao longo da borda
     this.arenaFireWall = this.add
       .particles(0, 0, 'particle', {
@@ -2527,6 +2531,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   drawArenaFireWall(a) {
+    if (!ARENA_BORDER_FX_ENABLED) return;
     const t = this.time.now;
     const pulse = 0.55 + 0.45 * Math.sin(t / 140);
     const flicker = 0.7 + 0.3 * Math.sin(t / 80 + 1.1);
