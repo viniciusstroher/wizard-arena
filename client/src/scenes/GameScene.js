@@ -985,6 +985,7 @@ export class GameScene extends Phaser.Scene {
       case 'match_end': {
         if (ev.result === 'success') return 'SUCCESS — todos os níveis concluídos!';
         if (ev.reason === 'boss_wipe') return 'FAIL — o time caiu no boss fight';
+        if (ev.reason === 'wipe') return 'FAIL — todos morreram no round';
         return 'FAIL — partida encerrada';
       }
       case 'player_left':

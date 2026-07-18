@@ -1876,13 +1876,11 @@ export class Match {
     if (this.phase === 'ended') return;
     const alive = [...this.players.values()].filter((p) => p.alive);
     if (alive.length > 0) return;
-    // Wipe em boss fight: partida acaba na hora (fail) e mostra resultados.
-    if (this.bossRound) {
-      this.endMatch(this.leadingPlayer(), { result: 'fail', reason: 'boss_wipe' });
-      return;
-    }
-    // Round normal: wipe só encerra o round (revive na intermissão).
-    this.finishRound(null);
+    // Wipe: todos mortos no round → partida termina com fail.
+    this.endMatch(this.leadingPlayer(), {
+      result: 'fail',
+      reason: this.bossRound ? 'boss_wipe' : 'wipe',
+    });
   }
 
   finishRound(winner) {
@@ -3465,7 +3463,7 @@ export class Match {
         const soleLead = alive[0].hp > alive[1].hp ? alive[0] : null;
         this.finishRound(soleLead);
       } else {
-        this.finishRound(null);
+        this.endMatch(this.leadingPlayer(), { result: 'fail', reason: 'wipe' });
       }
       return;
     }
