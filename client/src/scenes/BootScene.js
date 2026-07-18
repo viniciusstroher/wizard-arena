@@ -2283,6 +2283,130 @@ export class BootScene extends Phaser.Scene {
     this.textures.get('arena_wood').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
+  createArenaSeaTexture() {
+    // Tile 64×64 seamless — areia submarina com ondulações e pedrinhas
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x3a6a78, // areia azulada escura
+      0x4a8490, // areia média
+      0x68a8b0, // areia clara
+      0x2a4858, // sombra / fossa
+      0x88c8c8, // brilho / água rasa
+      0x5a9098, // ondulação
+      0xc8b898, // areia bege
+      0xa8d0c8, // highlight água
+      0x487888, // fundo médio
+      0xd8c8a8, // grão claro
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+
+    const wrap = (v, m) => ((v % m) + m) % m;
+
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 19, tw), wrap(y + 11, th));
+        const n3 = valueAt(wrap(x + 37, tw), wrap(y + 23, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.22) tone = tones[3];
+        else if (n1 < 0.4) tone = tones[0];
+        else if (n1 < 0.58) tone = tones[8];
+        else if (n1 < 0.74) tone = tones[1];
+        else if (n1 < 0.88) tone = tones[2];
+        else tone = tones[4];
+
+        if (n2 > 0.84) tone = tones[4];
+        if (n2 < 0.16) tone = tones[3];
+
+        // Faixas de areia bege
+        if (n3 > 0.82 && n1 > 0.35 && n1 < 0.75) tone = tones[6];
+        if (n3 > 0.9) tone = tones[9];
+
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+
+        // Ondulações de luz na água
+        const ripple =
+          Math.abs(n3 - n1) < 0.035 && (hash(wrap(x + y, tw), wrap(y * 3, th)) & 3) !== 0;
+        if (ripple && n1 > 0.3 && n1 < 0.8) tone = tones[5];
+
+        // Grãos / pedrinhas
+        if ((h & 127) === 21) tone = tones[6];
+        if ((h & 127) === 42) tone = tones[7];
+        if (n2 > 0.9 && (h & 7) === 3) tone = tones[9];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 10, y: 14, r: 7, c: 0x4a8490 },
+      { x: 42, y: 22, r: 6, c: 0x2a4858 },
+      { x: 24, y: 46, r: 8, c: 0x68a8b0 },
+      { x: 50, y: 48, r: 5, c: 0xc8b898 },
+      { x: 56, y: 10, r: 4, c: 0x3a6a78 },
+      { x: 14, y: 54, r: 5, c: 0xa8d0c8 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    const pebbles = [
+      [10, 18], [11, 19], [28, 8], [45, 30], [46, 31], [33, 52],
+      [60, 40], [3, 35], [18, 38], [50, 12], [7, 48], [38, 42],
+    ];
+    for (const [px, py] of pebbles) {
+      g.fillStyle(0xc8b898, 1);
+      g.fillRect(px, py, 2, 1);
+      g.fillStyle(0xe8d8b8, 1);
+      g.fillRect(px, py, 1, 1);
+    }
+
+    g.generateTexture('arena_sea', tw, th);
+    g.destroy();
+    this.textures.get('arena_sea').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
   /** Title decoration: blue mana potion flask. */
   createManaPotionSprite() {
     makePixelTexture(

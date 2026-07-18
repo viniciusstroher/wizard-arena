@@ -2047,6 +2047,9 @@ export class GameScene extends Phaser.Scene {
       crate: ['furn_crate_0', 'furn_crate_1', 'furn_crate_2'],
       table: ['furn_table_0', 'furn_table_1', 'furn_table_2'],
       cabinet: ['furn_cabinet_0', 'furn_cabinet_1', 'furn_cabinet_2'],
+      shell: ['shell_shell_0', 'shell_shell_1', 'shell_shell_2'],
+      conch: ['shell_conch_0', 'shell_conch_1', 'shell_conch_2'],
+      clam: ['shell_clam_0', 'shell_clam_1', 'shell_clam_2'],
     };
 
     const hashId = (id) => {
@@ -2066,9 +2069,15 @@ export class GameScene extends Phaser.Scene {
         if (!this.textures.exists(key)) continue;
         const isFurniture = ['chair', 'crate', 'table', 'cabinet'].includes(rock.type);
         const isBoulder =
-          rock.type === 'boulder' || rock.type === 'ice_boulder' || rock.type === 'cabinet';
+          rock.type === 'boulder' ||
+          rock.type === 'ice_boulder' ||
+          rock.type === 'cabinet' ||
+          rock.type === 'clam';
         const isRock =
-          rock.type === 'rock' || rock.type === 'ice_rock' || rock.type === 'table';
+          rock.type === 'rock' ||
+          rock.type === 'ice_rock' ||
+          rock.type === 'table' ||
+          rock.type === 'conch';
         const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : rock.type === 'crate' ? 1.04 : 1;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
         const rot = isFurniture
@@ -2169,7 +2178,9 @@ export class GameScene extends Phaser.Scene {
           ? 'arena_ice'
           : a.floorType === 'wood'
             ? 'arena_wood'
-            : 'arena_brick';
+            : a.floorType === 'sea'
+              ? 'arena_sea'
+              : 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }
