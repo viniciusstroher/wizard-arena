@@ -116,7 +116,7 @@ export class Match {
     this.bots = [];
     this.rocks = [];
     this.trees = [];
-    /** 'dirt' | 'grass' | 'ice' | 'wood' — escolhido ao regenerar a arena. */
+    /** 'dirt' | 'grass' | 'ice' | 'wood' | 'sea' — escolhido ao regenerar a arena. */
     this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
@@ -190,10 +190,10 @@ export class Match {
     }
   }
 
-  /** Pedras / móveis apenas dentro do círculo da arena. */
+  /** Pedras / móveis / conchas apenas dentro do círculo da arena. */
   generateRocks() {
-    // Quartos iguais: grama / terra / gelo / madeira.
-    const floors = ['grass', 'dirt', 'ice', 'wood'];
+    // Chance igual entre os tipos de chão.
+    const floors = ['grass', 'dirt', 'ice', 'wood', 'sea'];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
     const dirtTypes = [
@@ -212,12 +212,19 @@ export class Match {
       { type: 'table', radius: 18 },
       { type: 'cabinet', radius: 26 },
     ];
+    const seaTypes = [
+      { type: 'shell', radius: 12 },
+      { type: 'conch', radius: 18 },
+      { type: 'clam', radius: 26 },
+    ];
     const types =
       this.floorType === 'ice'
         ? iceTypes
         : this.floorType === 'wood'
           ? woodTypes
-          : dirtTypes;
+          : this.floorType === 'sea'
+            ? seaTypes
+            : dirtTypes;
     const count =
       CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
     const rocks = [];
@@ -2951,8 +2958,10 @@ export class Match {
           my /= len;
         }
         const floorMul = (CONFIG.FLOOR_SPEED_MUL && CONFIG.FLOOR_SPEED_MUL[this.floorType]) || 1;
+        const inertiaMul =
+          (CONFIG.FLOOR_INERTIA_MUL && CONFIG.FLOOR_INERTIA_MUL[this.floorType]) || 1;
         const speed = CONFIG.PLAYER_SPEED * floorMul * (1 - p.slow);
-        applyInertia(p, mx * speed, my * speed, CONFIG.PLAYER_INERTIA, dt);
+        applyInertia(p, mx * speed, my * speed, CONFIG.PLAYER_INERTIA * inertiaMul, dt);
         p.x += p.vx * dt;
         this.resolveRockCollision(p, CONFIG.PLAYER_RADIUS);
         p.y += p.vy * dt;

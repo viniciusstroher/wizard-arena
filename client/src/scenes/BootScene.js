@@ -138,9 +138,11 @@ export class BootScene extends Phaser.Scene {
     this.createArenaGrassTexture();
     this.createArenaIceTexture();
     this.createArenaWoodTexture();
+    this.createArenaSeaTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createFurnitureSprites();
+    this.createShellSprites();
     this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
@@ -1241,6 +1243,182 @@ export class BootScene extends Phaser.Scene {
         '................',
       ],
       pine,
+      3
+    );
+  }
+
+  createShellSprites() {
+    // D=sombra, L=base, M=meio, H=highlight, C=abertura/detalhe, P=pérola
+    const pink = { D: 0x5a3048, L: 0xc87898, M: 0xe8a0b8, H: 0xffd0e0, C: 0x8a4868, P: 0xfff0f8 };
+    const cream = { D: 0x5a4830, L: 0xd4b888, M: 0xf0d8a8, H: 0xfff4d8, C: 0x8a7048, P: 0xfffaf0 };
+    const coral = { D: 0x6a2830, L: 0xd86860, M: 0xf09080, H: 0xffc8b8, C: 0x943840, P: 0xffe8e0 };
+    const teal = { D: 0x284858, L: 0x68a0b0, M: 0x90c8d4, H: 0xd0eef4, C: 0x3a6878, P: 0xf0fcff };
+
+    // Concha pequena
+    makePixelTexture(
+      this,
+      'shell_shell_0',
+      [
+        '..........',
+        '....HH....',
+        '...HMMH...',
+        '..HMCMH...',
+        '.HLMMMMLH.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      pink,
+      3
+    );
+    makePixelTexture(
+      this,
+      'shell_shell_1',
+      [
+        '..........',
+        '...HHH....',
+        '..HMMMH...',
+        '.HLMCMLH..',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+        '..........',
+      ],
+      cream,
+      3
+    );
+    makePixelTexture(
+      this,
+      'shell_shell_2',
+      [
+        '..........',
+        '....HH....',
+        '...HMH....',
+        '..HMCMH...',
+        '.HLMMMML..',
+        '..DLMPD...',
+        '...DDD....',
+        '..........',
+      ],
+      coral,
+      3
+    );
+
+    // Caramujo / búzio
+    makePixelTexture(
+      this,
+      'shell_conch_0',
+      [
+        '..............',
+        '......HH......',
+        '.....HMMH.....',
+        '....HMCMH.....',
+        '...HLMMMMLH...',
+        '..HLMMMMMML...',
+        '..DLMHMMMCD...',
+        '...DLMMMD.....',
+        '....DDDDD.....',
+        '..............',
+      ],
+      cream,
+      3
+    );
+    makePixelTexture(
+      this,
+      'shell_conch_1',
+      [
+        '..............',
+        '.....HH.......',
+        '....HMMH......',
+        '...HMCMH......',
+        '..HLMMMMLH....',
+        '.HLMMMMMMH....',
+        '.DLMHMMMPD....',
+        '..DLMMMD......',
+        '...DDDDD......',
+        '..............',
+      ],
+      pink,
+      3
+    );
+    makePixelTexture(
+      this,
+      'shell_conch_2',
+      [
+        '..............',
+        '......HHH.....',
+        '.....HMMMH....',
+        '....HMCMMH....',
+        '...HLMMMMML...',
+        '..HLMMMMMML...',
+        '..DLMHMMMCD...',
+        '...DLMMMD.....',
+        '....DDDD......',
+        '..............',
+      ],
+      teal,
+      3
+    );
+
+    // Vieira / ostra grande
+    makePixelTexture(
+      this,
+      'shell_clam_0',
+      [
+        '................',
+        '.....HHHHH......',
+        '...HHMMMMMHH....',
+        '..HLMMMMMMMLH...',
+        '.HLMMHCCHMMMLH..',
+        '.HLMMMMMMMMMLH..',
+        '..DLMHMMMMMLD...',
+        '...DLMMMMMLD....',
+        '....DDDDDDD.....',
+        '................',
+        '................',
+        '................',
+      ],
+      coral,
+      3
+    );
+    makePixelTexture(
+      this,
+      'shell_clam_1',
+      [
+        '................',
+        '....HHHHHH......',
+        '...HMMMHMMH.....',
+        '..HLMMMMMMMLH...',
+        '.HLMMHCCHMMML...',
+        '.HLMMMMMPMMMLH..',
+        '..DLMHMMMMMLD...',
+        '...DLMMMMMLD....',
+        '....DDDDDD......',
+        '................',
+        '................',
+        '................',
+      ],
+      cream,
+      3
+    );
+    makePixelTexture(
+      this,
+      'shell_clam_2',
+      [
+        '................',
+        '.....HHHH.......',
+        '...HHMMMMHH.....',
+        '..HLMMMMMMMLH...',
+        '.HLMMHCCHMMMH...',
+        '.HLMMMMMMMMMLH..',
+        '..DLMHMMMMMLD...',
+        '...DLMMMMMLD....',
+        '....DDDDDD......',
+        '................',
+        '................',
+        '................',
+      ],
+      teal,
       3
     );
   }
