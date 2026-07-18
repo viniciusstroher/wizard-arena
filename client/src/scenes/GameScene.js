@@ -802,6 +802,10 @@ export class GameScene extends Phaser.Scene {
     );
     const winner = ranking.find((p) => p.id === state.winnerId) || ranking[0] || null;
     const me = ranking.find((p) => p.id === this.playerId) || null;
+    const success = state.matchResult === 'success';
+    const resultLabel = success ? 'SUCCESS' : 'FAIL';
+    const resultColor = success ? '#6dffb0' : '#ff6b6b';
+    const resultStroke = success ? 0x6dffb0 : 0xff6b6b;
     const header = 'Jogador          K/M   Mob  Loot  Gold   Dano   Pts';
     const rows = ranking
       .map((p, i) => {
@@ -818,24 +822,31 @@ export class GameScene extends Phaser.Scene {
       .join('\n');
 
     const panelW = 620;
-    const panelH = Math.min(460, 250 + ranking.length * 22);
+    const panelH = Math.min(480, 270 + ranking.length * 22);
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
     const panel = this.add
       .rectangle(width / 2, height / 2, panelW, panelH, 0x161228, 0.98)
-      .setStrokeStyle(2, 0xf1c40f);
+      .setStrokeStyle(2, resultStroke);
     const title = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 36, winner ? `${winner.name} venceu!` : 'Partida encerrada', {
+      .text(width / 2, height / 2 - panelH / 2 + 36, resultLabel, {
         fontFamily: 'Georgia, serif',
-        fontSize: '28px',
-        color: '#f1c40f',
+        fontSize: '34px',
+        color: resultColor,
       })
       .setOrigin(0.5);
     const subtitle = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 68, 'Placar final', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#a99bc8',
-      })
+      .text(
+        width / 2,
+        height / 2 - panelH / 2 + 68,
+        success
+          ? 'Todos os níveis concluídos'
+          : 'Partida encerrada — níveis incompletos',
+        {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '14px',
+          color: '#a99bc8',
+        }
+      )
       .setOrigin(0.5);
     const goldGained = me?.gold || 0;
     const goldLine = this.add
@@ -972,8 +983,9 @@ export class GameScene extends Phaser.Scene {
       case 'heal':
         return null;
       case 'match_end': {
-        const winner = this.state?.players?.find((p) => p.id === ev.winnerId);
-        return winner ? `${winner.name} venceu a partida!` : 'Partida encerrada';
+        if (ev.result === 'success') return 'SUCCESS — todos os níveis concluídos!';
+        if (ev.reason === 'boss_wipe') return 'FAIL — o time caiu no boss fight';
+        return 'FAIL — partida encerrada';
       }
       case 'player_left':
         if (ev.playerId === this.playerId) return null;
@@ -4879,7 +4891,11 @@ export class GameScene extends Phaser.Scene {
       this.me() &&
       !this.me().alive
     ) {
-      this.bannerText.setText('Você morreu\nRevive no próximo round');
+      this.bannerText.setText(
+        this.state.bossRound
+          ? 'Você morreu\nSe todos caírem, a partida acaba'
+          : 'Você morreu\nRevive no próximo round'
+      );
       this.bannerText.setAlpha(1);
     } else if (this.state.phase === 'playing' && this.bannerText.alpha > 0 && !this.levelUpOpen) {
       this.bannerText.setAlpha(Math.max(0, this.bannerText.alpha - 0.02));

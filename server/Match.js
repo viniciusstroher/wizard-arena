@@ -123,6 +123,8 @@ export class Match {
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
+    /** Resultado da partida: null | 'success' | 'fail' */
+    this.matchResult = null;
     /** Após level-up no fim do round: null | { type: 'intermission' } | { type: 'endMatch', winner } */
     this.afterLevelUp = null;
     this.events = [];
@@ -1545,7 +1547,9 @@ export class Match {
       return;
     }
     if (next?.type === 'endMatch') {
-      this.endMatch(next.winner || this.leadingPlayer());
+      this.endMatch(next.winner || this.leadingPlayer(), {
+        result: next.result || 'success',
+      });
       return;
     }
     this.phase = 'playing';
@@ -1869,14 +1873,22 @@ export class Match {
   checkRoundEnd() {
     if (this.afterLevelUp) return; // round já encerrado, aguardando distribuição de habilidades
     if (this.phase !== 'playing' && this.phase !== 'levelup') return;
+    if (this.phase === 'ended') return;
     const alive = [...this.players.values()].filter((p) => p.alive);
-    // Round segue até o timer (tick) ou wipe total — não encerra por last standing.
-    if (alive.length === 0) this.finishRound(null);
+    if (alive.length > 0) return;
+    // Wipe em boss fight: partida acaba na hora (fail) e mostra resultados.
+    if (this.bossRound) {
+      this.endMatch(this.leadingPlayer(), { result: 'fail', reason: 'boss_wipe' });
+      return;
+    }
+    // Round normal: wipe só encerra o round (revive na intermissão).
+    this.finishRound(null);
   }
 
   finishRound(winner) {
     if (this.afterLevelUp || this.phase === 'intermission' || this.phase === 'ended') return;
 
+    const wasBossRound = this.bossRound;
     this.bossRound = false;
     this.meteors = [];
     this.meteorTimer = 0;
@@ -1904,7 +1916,12 @@ export class Match {
     // Escolhas pendentes não pausam o fim do round — ficam para o próximo / auto-timeout.
 
     if (this.round >= CONFIG.MAX_ROUNDS) {
-      this.endMatch(this.leadingPlayer() || winner);
+      const cleared = [...this.players.values()].some((p) => p.alive);
+      // Passou todos os níveis = success; wipe no último nível = fail.
+      this.endMatch(this.leadingPlayer() || winner, {
+        result: cleared ? 'success' : 'fail',
+        reason: cleared ? (wasBossRound ? 'boss_cleared' : 'all_rounds') : 'wipe',
+      });
       return;
     }
 
@@ -1922,12 +1939,17 @@ export class Match {
     );
   }
 
-  endMatch(winner) {
+  endMatch(winner, { result = 'fail', reason = null } = {}) {
+    if (this.phase === 'ended') return;
     this.phase = 'ended';
+    this.bossRound = false;
     this.winnerId = winner?.id || null;
+    this.matchResult = result === 'success' ? 'success' : 'fail';
     this.pushEvent({
       type: 'match_end',
       winnerId: this.winnerId,
+      result: this.matchResult,
+      reason,
       scores: [...this.players.values()]
         .map((p) => ({
           id: p.id,
@@ -1956,7 +1978,7 @@ export class Match {
         this.pushEvent({ type: 'player_death', playerId: p.id, reason: 'time' });
       }
     }
-    this.endMatch(null);
+    this.endMatch(null, { result: 'fail', reason: 'wipe' });
   }
 
   monsterTypeDefs() {
@@ -3398,7 +3420,7 @@ export class Match {
       this.resolveLevelUpTimeouts();
       if (this.intermissionTimer <= 0) {
         if (this.round >= CONFIG.MAX_ROUNDS) {
-          this.endMatch(this.leadingPlayer());
+          this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
         } else {
           this.startCountdown();
         }
@@ -4180,6 +4202,7 @@ export class Match {
       })),
       events: this.events,
       winnerId: this.winnerId,
+      matchResult: this.matchResult,
       intermissionTimer: this.intermissionTimer,
     };
   }
