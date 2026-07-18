@@ -315,6 +315,13 @@ export const CONFIG = {
   /** Duração do empurrão em segundos. */
   PROJECTILE_KNOCKBACK_DURATION: envNumber('PROJECTILE_KNOCKBACK_DURATION', 0.12),
 
+  /**
+   * Cooldown global entre eventos de arena (meteoro, mass heal, névoa, ventania).
+   * Após um evento começar, nenhum outro pode iniciar até este tempo (segundos).
+   * 0 = desliga o bloqueio global.
+   */
+  ARENA_EVENT_COOLDOWN: Math.max(0, envNumber('ARENA_EVENT_COOLDOWN', 30)),
+
   /** Intervalo mínimo/máximo entre meteoros aleatórios (segundos). */
   METEOR_EVENT_MIN_INTERVAL: envNumber('METEOR_EVENT_MIN_INTERVAL', 12),
   METEOR_EVENT_MAX_INTERVAL: envNumber('METEOR_EVENT_MAX_INTERVAL', 24),

@@ -147,3 +147,21 @@ export function getLavaStatusEffect() {
     timer: null,
   };
 }
+
+/** Cooldown global entre eventos de arena (meteoro / heal / névoa / ventania). */
+export function getArenaEventCooldownStatusEffect(remaining, maxCd) {
+  const t = Number(remaining) || 0;
+  if (t <= 0) return null;
+  const max = Number(maxCd) || 0;
+  return {
+    id: 'arena_event_cooldown',
+    icon: 'spell_time_freeze',
+    color: 0xc39bd3,
+    name: 'Eventos em espera',
+    description:
+      max > 0
+        ? `Próximo evento de arena só após o cooldown (${max}s).`
+        : 'Próximo evento de arena só após o cooldown.',
+    timer: t,
+  };
+}

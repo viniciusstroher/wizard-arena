@@ -5,6 +5,7 @@ import { monsterLabel as monsterLabelOf } from '../catalog/monsterLabels.js';
 import { spellDisplayName } from '../catalog/galleryCatalog.js';
 import {
   getCombatStatusEffect,
+  getArenaEventCooldownStatusEffect,
   getFloorStatusEffect,
   getGaleStatusEffect,
   getLavaStatusEffect,
@@ -4762,6 +4763,12 @@ export class GameScene extends Phaser.Scene {
 
     // Status recebidos + terreno (abaixo do mapa)
     const effects = [];
+    const eventCd = getArenaEventCooldownStatusEffect(
+      this.state?.arenaEventCooldown,
+      this.state?.arenaEventCooldownMax
+    );
+    if (eventCd) effects.push(eventCd);
+
     if (me.alive) {
       const floorEff = getFloorStatusEffect(this.state?.arena?.floorType);
       if (floorEff) effects.push(floorEff);

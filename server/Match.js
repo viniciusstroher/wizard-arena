@@ -111,6 +111,8 @@ export class Match {
     this.cooldownMistTimer = 0;
     this.gales = [];
     this.galeTimer = 0;
+    /** Tempo restante do cooldown global entre eventos de arena (s). */
+    this.arenaEventCooldown = 0;
     this.kikoLaughTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
@@ -800,6 +802,22 @@ export class Match {
     this.broadcastState(true);
   }
 
+  /** True se um novo evento de arena (buff/debuff/dano) pode iniciar. */
+  canSpawnArenaEvent() {
+    return (this.arenaEventCooldown || 0) <= 0;
+  }
+
+  /** Marca o início de um evento e arma o cooldown global da partida. */
+  beginArenaEvent() {
+    const cd = CONFIG.ARENA_EVENT_COOLDOWN;
+    if (cd > 0) this.arenaEventCooldown = cd;
+  }
+
+  tickArenaEventCooldown(dt) {
+    if ((this.arenaEventCooldown || 0) <= 0) return;
+    this.arenaEventCooldown = Math.max(0, this.arenaEventCooldown - dt);
+  }
+
   scheduleNextMeteor() {
     const min = CONFIG.METEOR_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.METEOR_EVENT_MAX_INTERVAL);
@@ -894,8 +912,13 @@ export class Match {
   tickMeteors(dt) {
     this.meteorTimer -= dt;
     if (this.meteorTimer <= 0) {
-      this.spawnMeteorEvent();
-      this.scheduleNextMeteor();
+      if (this.canSpawnArenaEvent()) {
+        this.spawnMeteorEvent();
+        this.beginArenaEvent();
+        this.scheduleNextMeteor();
+      } else {
+        this.meteorTimer = 0;
+      }
     }
 
     for (const m of this.meteors) {
@@ -973,8 +996,13 @@ export class Match {
   tickMassHeals(dt) {
     this.massHealTimer -= dt;
     if (this.massHealTimer <= 0) {
-      this.spawnMassHealEvent();
-      this.scheduleNextMassHeal();
+      if (this.canSpawnArenaEvent()) {
+        this.spawnMassHealEvent();
+        this.beginArenaEvent();
+        this.scheduleNextMassHeal();
+      } else {
+        this.massHealTimer = 0;
+      }
     }
 
     for (const h of this.massHeals) {
@@ -1058,8 +1086,13 @@ export class Match {
   tickCooldownMists(dt) {
     this.cooldownMistTimer -= dt;
     if (this.cooldownMistTimer <= 0) {
-      this.spawnCooldownMistEvent();
-      this.scheduleNextCooldownMist();
+      if (this.canSpawnArenaEvent()) {
+        this.spawnCooldownMistEvent();
+        this.beginArenaEvent();
+        this.scheduleNextCooldownMist();
+      } else {
+        this.cooldownMistTimer = 0;
+      }
     }
 
     for (const m of this.cooldownMists) {
@@ -1136,8 +1169,13 @@ export class Match {
   tickGales(dt) {
     this.galeTimer -= dt;
     if (this.galeTimer <= 0) {
-      this.spawnGaleEvent();
-      this.scheduleNextGale();
+      if (this.canSpawnArenaEvent()) {
+        this.spawnGaleEvent();
+        this.beginArenaEvent();
+        this.scheduleNextGale();
+      } else {
+        this.galeTimer = 0;
+      }
     }
 
     for (const g of this.gales) {
@@ -3576,6 +3614,7 @@ export class Match {
     }
 
     // Eventos aleatórios: meteoro, mass heal, névoa de cooldown e ventania
+    this.tickArenaEventCooldown(dt);
     this.tickMeteors(dt);
     this.tickMassHeals(dt);
     this.tickCooldownMists(dt);
@@ -4147,6 +4186,8 @@ export class Match {
           : this.bossRound,
       countdown: this.countdown,
       pvpEnabled: this.pvpEnabled,
+      arenaEventCooldown: +(this.arenaEventCooldown || 0).toFixed(2),
+      arenaEventCooldownMax: CONFIG.ARENA_EVENT_COOLDOWN,
       arena: {
         x: CONFIG.ARENA_CENTER_X,
         y: CONFIG.ARENA_CENTER_Y,
