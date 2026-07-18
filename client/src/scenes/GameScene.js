@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
+import { navigate } from '../router.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
 import { monsterLabel as monsterLabelOf } from '../catalog/monsterLabels.js';
 import { spellDisplayName } from '../catalog/galleryCatalog.js';
@@ -11,6 +12,7 @@ import {
   getLavaStatusEffect,
   PLAYER_RADIUS,
 } from '../catalog/statusEffects.js';
+import { ensureWizardColorTexture } from '../wizardSkin.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = false;
@@ -825,7 +827,7 @@ export class GameScene extends Phaser.Scene {
     this.pushBoardEvent('Você desconectou da partida');
     this.socket.emit('leave_lobby');
     this.time.delayedCall(450, () => {
-      this.scene.start('Lobby');
+      navigate('/matchmaking');
     });
   }
 
@@ -953,7 +955,7 @@ export class GameScene extends Phaser.Scene {
     this.leaving = true;
     this.socket.emit('leave_lobby');
     this.time.delayedCall(300, () => {
-      this.scene.start('Lobby');
+      navigate('/matchmaking');
     });
   }
 
@@ -2676,7 +2678,10 @@ export class GameScene extends Phaser.Scene {
     return sprite;
   }
 
-  wizardTexture(type) {
+  wizardTexture(type, color) {
+    if (color != null && Number.isFinite(Number(color))) {
+      return ensureWizardColorTexture(this, Number(color) >>> 0);
+    }
     const key = `wizard_${type}`;
     return this.textures.exists(key) ? key : 'wizard';
   }
@@ -2713,7 +2718,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const p of this.state.players) {
       seen.add(p.id);
-      const tex = this.wizardTexture(p.wizardType);
+      const tex = this.wizardTexture(p.wizardType, p.color);
       const s = this.ensureActor(this.playerSprites, p.id, tex, 20);
       s.clearTint();
       s.setAlpha(p.alive ? 1 : 0.25);

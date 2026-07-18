@@ -81,6 +81,33 @@ function randomWizard() {
   return WIZARD_TYPES[Math.floor(Math.random() * WIZARD_TYPES.length)];
 }
 
+function nearestWizard(color) {
+  const hex = Number(color) >>> 0;
+  const r = (hex >> 16) & 0xff;
+  const g = (hex >> 8) & 0xff;
+  const b = hex & 0xff;
+  let best = WIZARD_TYPES[0];
+  let bestDist = Infinity;
+  for (const w of WIZARD_TYPES) {
+    const wr = (w.color >> 16) & 0xff;
+    const wg = (w.color >> 8) & 0xff;
+    const wb = w.color & 0xff;
+    const d = (r - wr) ** 2 + (g - wg) ** 2 + (b - wb) ** 2;
+    if (d < bestDist) {
+      bestDist = d;
+      best = w;
+    }
+  }
+  return { type: best.type, color: hex };
+}
+
+function resolveWizard(appearance = {}) {
+  if (appearance.color != null && Number.isFinite(Number(appearance.color))) {
+    return nearestWizard(appearance.color);
+  }
+  return randomWizard();
+}
+
 function startingSpellsFor(wizardType) {
   // if (wizardType === 'necromancer') {
   //   return [
@@ -93,9 +120,14 @@ function startingSpellsFor(wizardType) {
 }
 
 export class Match {
-  constructor(id, io) {
+  constructor(id, io, options = {}) {
     this.id = id;
     this.io = io;
+    const max = Math.floor(Number(options.maxPlayers));
+    this.maxPlayers = Number.isFinite(max)
+      ? Math.min(8, Math.max(1, max))
+      : CONFIG.MAX_PLAYERS;
+    this.password = options.password ? String(options.password) : null;
     this.players = new Map(); // socketId -> player
     this.monsters = [];
     this.projectiles = [];
@@ -497,9 +529,9 @@ export class Match {
     return false;
   }
 
-  createPlayerState(id, name, isBot = false) {
-    const angle = (this.players.size / CONFIG.MAX_PLAYERS) * Math.PI * 2;
-    const wizard = randomWizard();
+  createPlayerState(id, name, isBot = false, appearance = {}) {
+    const angle = (this.players.size / Math.max(1, this.maxPlayers)) * Math.PI * 2;
+    const wizard = isBot ? randomWizard() : resolveWizard(appearance);
     return {
       id,
       entityId: eid(),
@@ -583,11 +615,24 @@ export class Match {
     };
   }
 
-  addPlayer(socket, name) {
-    if (this.phase !== 'lobby') return { ok: false, error: 'Match already started' };
-    if (this.players.size >= CONFIG.MAX_PLAYERS) return { ok: false, error: 'Lobby full' };
+  addPlayer(socket, name, opts = {}) {
+    if (this.phase !== 'lobby') {
+      return { ok: false, error: 'Partida já iniciada', code: 'match_started' };
+    }
+    if (this.players.size >= this.maxPlayers) {
+      return { ok: false, error: 'Lobby cheio', code: 'lobby_full' };
+    }
+    if (this.password) {
+      const provided = opts.password == null ? '' : String(opts.password);
+      // Criador passa password: null explicitamente via opts.skipPassword
+      if (!opts.skipPassword && provided !== this.password) {
+        return { ok: false, error: 'Senha incorreta', code: 'bad_password' };
+      }
+    }
 
-    const player = this.createPlayerState(socket.id, name, false);
+    const player = this.createPlayerState(socket.id, name, false, {
+      color: opts.color,
+    });
     this.players.set(socket.id, player);
     socket.join(this.id);
     this.broadcastLobby();
@@ -599,7 +644,7 @@ export class Match {
     const names = ['Hexa', 'Nyx', 'Orb', 'Rune', 'Ash', 'Vex'];
     let added = 0;
     for (let i = 0; i < count; i++) {
-      if (this.players.size >= CONFIG.MAX_PLAYERS) break;
+      if (this.players.size >= this.maxPlayers) break;
       const botId = `bot_${eid()}`;
       const name = names[this.bots.length % names.length] + ' Bot';
       const player = this.createPlayerState(botId, name, true);
@@ -4079,7 +4124,8 @@ export class Match {
       matchId: this.id,
       phase: this.phase,
       minPlayers: CONFIG.MIN_PLAYERS,
-      maxPlayers: CONFIG.MAX_PLAYERS,
+      maxPlayers: this.maxPlayers,
+      hasPassword: Boolean(this.password),
       botAiEnabled: this.botAiEnabled,
       monsterSpawnEnabled: this.monsterSpawnEnabled,
       botLevelUpChoiceEnabled: this.botLevelUpChoiceEnabled,

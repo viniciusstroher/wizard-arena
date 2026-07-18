@@ -1,4 +1,6 @@
 import Phaser from 'phaser';
+import { ensureCharacter } from '../character.js';
+import { getRoute, goToRoute } from '../router.js';
 
 /** Draw a pixel-art texture from a char grid + palette. `.` = transparent. */
 function makePixelTexture(scene, key, rows, palette, scale = 2) {
@@ -161,7 +163,8 @@ export class BootScene extends Phaser.Scene {
     this.createLootBagSprite();
     this.createCoinSprite();
     this.createSpellIcons();
-    this.scene.start('Lobby');
+    ensureCharacter();
+    goToRoute(this.game, getRoute());
   }
 
   createProjectileSprites() {

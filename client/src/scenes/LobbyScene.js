@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
+import { ensureCharacter } from '../character.js';
 import { getSocket } from '../net/socket.js';
+import { navigate } from '../router.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
 import { GalleryModal } from '../ui/GalleryModal.js';
 import { parseGalleryUrl } from '../ui/galleryUrl.js';
@@ -15,9 +17,15 @@ export class LobbyScene extends Phaser.Scene {
     super('Lobby');
   }
 
+  init(data = {}) {
+    this.matchId = data.matchId || null;
+    this.joinPassword = data.password || null;
+  }
+
   create() {
     this.socket = getSocket();
-    this.playerName = localStorage.getItem('wa_name') || `Mage${Math.floor(Math.random() * 900 + 100)}`;
+    this.character = ensureCharacter();
+    this.playerName = this.character.name;
     this.joined = false;
     this.ready = false;
     this.lobby = null;
@@ -33,6 +41,26 @@ export class LobbyScene extends Phaser.Scene {
     this.adminModal = null;
     this.adminChecksDom = null;
     this.galleryModal = null;
+    this.leavingToMenu = false;
+
+    if (!this.matchId) {
+      navigate('/matchmaking', { replace: true });
+      return;
+    }
+
+    // Senha guardada ao entrar pela listagem
+    try {
+      const raw = sessionStorage.getItem('wa_join_password');
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data?.matchId === this.matchId && data.password) {
+          this.joinPassword = data.password;
+        }
+        sessionStorage.removeItem('wa_join_password');
+      }
+    } catch {
+      sessionStorage.removeItem('wa_join_password');
+    }
 
     this.drawBackground();
     this.createAmbientCreatures();
@@ -40,6 +68,7 @@ export class LobbyScene extends Phaser.Scene {
     this.createChatBoard();
     this.bindSocket();
     this.startLobbyMusic();
+    this.joinLobby();
 
     this.events.once('shutdown', () => {
       this.closeSettingsModal();
@@ -51,6 +80,9 @@ export class LobbyScene extends Phaser.Scene {
       this.messageBoard = null;
       this.stopLobbyMusic();
       this.destroyAmbientCreatures();
+      if (!this.leavingToMenu && this.joined) {
+        this.socket.emit('leave_lobby');
+      }
     });
   }
 
@@ -567,44 +599,16 @@ export class LobbyScene extends Phaser.Scene {
       .setDepth(uiDepth);
 
     this.add
-      .text(panelX, panelY - 168, 'Seu nome', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#9a8bb8',
+      .text(panelX, panelY - 168, this.playerName, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '20px',
+        color: '#f4e8ff',
       })
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
-    const inputEl = document.createElement('input');
-    inputEl.type = 'text';
-    inputEl.maxLength = 16;
-    inputEl.value = this.playerName;
-    inputEl.autocomplete = 'off';
-    inputEl.spellcheck = false;
-    inputEl.placeholder = 'Digite seu nome';
-    inputEl.style.cssText = [
-      'width: 380px',
-      'height: 44px',
-      'padding: 0 14px',
-      'box-sizing: border-box',
-      'font-size: 16px',
-      'font-family: Trebuchet MS, sans-serif',
-      'border-radius: 8px',
-      'border: 1px solid #6b5cff',
-      'background: #0e0a1a',
-      'color: #f0e8ff',
-      'outline: none',
-      'text-align: center',
-    ].join(';');
-
-    this.nameInput = this.add.dom(panelX, panelY - 130, inputEl).setOrigin(0.5).setDepth(uiDepth);
-    this.nameInput.addListener('keydown');
-    this.nameInput.on('keydown', (event) => {
-      if (event.key === 'Enter') this.joinLobby();
-    });
-
     this.statusText = this.add
-      .text(panelX, panelY - 76, 'Digite seu nome e clique em Entrar.', {
+      .text(panelX, panelY - 120, 'Entrando no lobby...', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#c4b5e0',
@@ -634,19 +638,18 @@ export class LobbyScene extends Phaser.Scene {
       'scrollbar-color: #6b5cff #1a1430',
     ].join(';');
     this.playersListEl = listEl;
-    this.playersListDom = this.add.dom(panelX, panelY + 8, listEl).setOrigin(0.5).setDepth(uiDepth);
+    this.playersListDom = this.add.dom(panelX, panelY - 20, listEl).setOrigin(0.5).setDepth(uiDepth);
     listEl.textContent = 'Nenhum jogador ainda';
 
-    const btnStartY = panelY + 90;
+    const btnStartY = panelY + 70;
     const step = btnH + btnGap;
-    this.joinBtn = this.makeButton(panelX, btnStartY, 'Entrar', 0x6b5cff, () => this.joinLobby(), btnW);
-    this.readyBtn = this.makeButton(panelX, btnStartY + step, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
+    this.readyBtn = this.makeButton(panelX, btnStartY, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
     const halfW = (btnW - 12) / 2;
     this.botsBtn = this.makeButton(
       panelX - halfW / 2 - 6,
-      btnStartY + step * 2,
+      btnStartY + step,
       '+ Bot',
       0xff8c42,
       () => this.addBot(),
@@ -654,7 +657,7 @@ export class LobbyScene extends Phaser.Scene {
     );
     this.removeBotsBtn = this.makeButton(
       panelX + halfW / 2 + 6,
-      btnStartY + step * 2,
+      btnStartY + step,
       '− Bot',
       0xc0392b,
       () => this.removeBot(),
@@ -665,7 +668,7 @@ export class LobbyScene extends Phaser.Scene {
 
     this.galleryBtn = this.makeButton(
       panelX - halfW / 2 - 6,
-      btnStartY + step * 3,
+      btnStartY + step * 2,
       'Galeria',
       0x443866,
       () => this.openGalleryModal(),
@@ -673,7 +676,7 @@ export class LobbyScene extends Phaser.Scene {
     );
     this.controlsBtn = this.makeButton(
       panelX + halfW / 2 + 6,
-      btnStartY + step * 3,
+      btnStartY + step * 2,
       'Comandos',
       0x443866,
       () => this.openControlsModal(),
@@ -682,7 +685,7 @@ export class LobbyScene extends Phaser.Scene {
 
     this.settingsBtn = this.makeButton(
       panelX - halfW / 2 - 6,
-      btnStartY + step * 4,
+      btnStartY + step * 3,
       'Config',
       0x443866,
       () => this.openSettingsModal(),
@@ -690,7 +693,7 @@ export class LobbyScene extends Phaser.Scene {
     );
     this.adminBtn = this.makeButton(
       panelX + halfW / 2 + 6,
-      btnStartY + step * 4,
+      btnStartY + step * 3,
       'Admin',
       0x8e44ad,
       () => this.openAdminModal(),
@@ -698,8 +701,16 @@ export class LobbyScene extends Phaser.Scene {
     );
     this.setButtonEnabled(this.adminBtn, false);
 
+    this.leaveBtn = this.makeButton(
+      panelX,
+      btnStartY + step * 4,
+      'Sair da sala',
+      0xc0392b,
+      () => this.leaveToMatchmaking(),
+      btnW
+    );
+
     for (const btn of [
-      this.joinBtn,
       this.readyBtn,
       this.botsBtn,
       this.removeBotsBtn,
@@ -707,6 +718,7 @@ export class LobbyScene extends Phaser.Scene {
       this.controlsBtn,
       this.settingsBtn,
       this.adminBtn,
+      this.leaveBtn,
     ]) {
       btn.setDepth(uiDepth);
     }
@@ -752,7 +764,6 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   setLobbyDomVisible(visible) {
-    if (this.nameInput) this.nameInput.setVisible(visible);
     if (this.playersListDom) this.playersListDom.setVisible(visible);
     this.messageBoard?.setDomVisible(visible);
   }
@@ -1258,7 +1269,17 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     this.socket.on('error_msg', (payload) => {
-      this.statusText.setText(payload.message || 'Erro');
+      const code = payload?.code;
+      const message = payload?.message || 'Erro';
+      if (code === 'lobby_not_found' || code === 'bad_password') {
+        this.leavingToMenu = true;
+        const banner =
+          code === 'lobby_not_found' ? 'Lobby não existe.' : 'Senha incorreta.';
+        sessionStorage.setItem('wa_mm_message', banner);
+        navigate('/matchmaking', { replace: true });
+        return;
+      }
+      this.statusText.setText(message);
     });
 
     this.socket.on('game_event', (ev) => {
@@ -1284,13 +1305,22 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   joinLobby() {
-    const el = this.nameInput.node;
-    const name = (el.value || '').trim().slice(0, 16) || this.playerName;
-    this.playerName = name;
-    localStorage.setItem('wa_name', name);
-    el.value = name;
-    this.socket.emit('join_lobby', { name });
+    if (!this.matchId) return;
+    const payload = {
+      matchId: this.matchId,
+      name: this.character.name,
+      color: this.character.color,
+    };
+    if (this.joinPassword) payload.password = this.joinPassword;
+    this.socket.emit('join_lobby', payload);
     this.statusText.setText('Entrando no lobby...');
+  }
+
+  leaveToMatchmaking() {
+    this.leavingToMenu = true;
+    if (this.joined) this.socket.emit('leave_lobby');
+    this.joined = false;
+    navigate('/matchmaking');
   }
 
   toggleReady() {
