@@ -132,7 +132,7 @@ export class Match {
     this.bots = [];
     this.rocks = [];
     this.trees = [];
-    /** 'dirt' | 'grass' | 'ice' | 'wood' | 'sea' — escolhido ao regenerar a arena. */
+    /** 'dirt' | 'grass' | 'ice' | 'wood' | 'sea' | 'desert' | 'swamp' | 'volcano' | 'ruins' | 'crystal' */
     this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
@@ -206,10 +206,21 @@ export class Match {
     }
   }
 
-  /** Pedras / móveis / conchas / cactos / poças apenas dentro do círculo da arena. */
+  /** Pedras / móveis / conchas / cactos / poças / vulcão / ruínas / cristais — só no círculo. */
   generateRocks() {
-    // Chance igual entre os tipos de chão.
-    const floors = ['grass', 'dirt', 'ice', 'wood', 'sea', 'desert', 'swamp'];
+    // Chance igual (uniforme) entre todos os tipos de chão a cada round.
+    const floors = [
+      'grass',
+      'dirt',
+      'ice',
+      'wood',
+      'sea',
+      'desert',
+      'swamp',
+      'volcano',
+      'ruins',
+      'crystal',
+    ];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
     const dirtTypes = [
@@ -244,18 +255,34 @@ export class Match {
       { type: 'puddle', radius: 20 },
       { type: 'puddle_large', radius: 28 },
     ];
-    const types =
-      this.floorType === 'ice'
-        ? iceTypes
-        : this.floorType === 'wood'
-          ? woodTypes
-          : this.floorType === 'sea'
-            ? seaTypes
-            : this.floorType === 'desert'
-              ? desertTypes
-              : this.floorType === 'swamp'
-                ? swampTypes
-                : dirtTypes;
+    const volcanoTypes = [
+      { type: 'ember_stone', radius: 12 },
+      { type: 'lava_rock', radius: 18 },
+      { type: 'obsidian', radius: 26 },
+    ];
+    const ruinsTypes = [
+      { type: 'rubble', radius: 12 },
+      { type: 'broken_pillar', radius: 18 },
+      { type: 'statue', radius: 26 },
+    ];
+    const crystalTypes = [
+      { type: 'crystal_small', radius: 12 },
+      { type: 'crystal', radius: 18 },
+      { type: 'crystal_large', radius: 26 },
+    ];
+    const typesByFloor = {
+      ice: iceTypes,
+      wood: woodTypes,
+      sea: seaTypes,
+      desert: desertTypes,
+      swamp: swampTypes,
+      volcano: volcanoTypes,
+      ruins: ruinsTypes,
+      crystal: crystalTypes,
+      grass: dirtTypes,
+      dirt: dirtTypes,
+    };
+    const types = typesByFloor[this.floorType] || dirtTypes;
     const count =
       CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
     const rocks = [];

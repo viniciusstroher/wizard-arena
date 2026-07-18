@@ -2176,6 +2176,15 @@ export class GameScene extends Phaser.Scene {
       puddle_small: ['puddle_small_0', 'puddle_small_1', 'puddle_small_2'],
       puddle: ['puddle_med_0', 'puddle_med_1', 'puddle_med_2'],
       puddle_large: ['puddle_large_0', 'puddle_large_1', 'puddle_large_2'],
+      ember_stone: ['volc_ember_0', 'volc_ember_1', 'volc_ember_2'],
+      lava_rock: ['volc_lava_0', 'volc_lava_1', 'volc_lava_2'],
+      obsidian: ['volc_obsidian_0', 'volc_obsidian_1', 'volc_obsidian_2'],
+      rubble: ['ruin_rubble_0', 'ruin_rubble_1', 'ruin_rubble_2'],
+      broken_pillar: ['ruin_pillar_0', 'ruin_pillar_1', 'ruin_pillar_2'],
+      statue: ['ruin_statue_0', 'ruin_statue_1', 'ruin_statue_2'],
+      crystal_small: ['crystal_small_0', 'crystal_small_1', 'crystal_small_2'],
+      crystal: ['crystal_med_0', 'crystal_med_1', 'crystal_med_2'],
+      crystal_large: ['crystal_large_0', 'crystal_large_1', 'crystal_large_2'],
     };
 
     const hashId = (id) => {
@@ -2196,26 +2205,34 @@ export class GameScene extends Phaser.Scene {
         const isFurniture = ['chair', 'crate', 'table', 'cabinet'].includes(rock.type);
         const isCactus = ['cactus_small', 'cactus', 'cactus_tall'].includes(rock.type);
         const isPuddle = ['puddle_small', 'puddle', 'puddle_large'].includes(rock.type);
+        const isPillar = rock.type === 'broken_pillar' || rock.type === 'statue';
+        const isCrystal = ['crystal_small', 'crystal', 'crystal_large'].includes(rock.type);
         const isBoulder =
           rock.type === 'boulder' ||
           rock.type === 'ice_boulder' ||
           rock.type === 'cabinet' ||
           rock.type === 'clam' ||
           rock.type === 'cactus_tall' ||
-          rock.type === 'puddle_large';
+          rock.type === 'puddle_large' ||
+          rock.type === 'obsidian' ||
+          rock.type === 'statue' ||
+          rock.type === 'crystal_large';
         const isRock =
           rock.type === 'rock' ||
           rock.type === 'ice_rock' ||
           rock.type === 'table' ||
           rock.type === 'conch' ||
           rock.type === 'cactus' ||
-          rock.type === 'puddle';
+          rock.type === 'puddle' ||
+          rock.type === 'lava_rock' ||
+          rock.type === 'broken_pillar' ||
+          rock.type === 'crystal';
         const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : rock.type === 'crate' ? 1.04 : 1;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
-        // Poças ficam no chão; cactos retos; móveis quase retos; pedras/conchas giram
+        // Poças no chão; cactos/pilares/cristais retos; móveis quase retos; pedras giram
         const rot = isPuddle
           ? (((h >>> 3) % 9) - 4) * 0.04
-          : isCactus
+          : isCactus || isPillar || isCrystal
             ? (((h >>> 3) % 5) - 2) * 0.012
             : isFurniture
               ? (((h >>> 3) % 5) - 2) * 0.015
@@ -2329,7 +2346,13 @@ export class GameScene extends Phaser.Scene {
                 ? 'arena_desert'
                 : a.floorType === 'swamp'
                   ? 'arena_swamp'
-                  : 'arena_brick';
+                  : a.floorType === 'volcano'
+                    ? 'arena_volcano'
+                    : a.floorType === 'ruins'
+                      ? 'arena_ruins'
+                      : a.floorType === 'crystal'
+                        ? 'arena_crystal'
+                        : 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }

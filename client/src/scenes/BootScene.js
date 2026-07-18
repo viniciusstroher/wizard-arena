@@ -141,12 +141,18 @@ export class BootScene extends Phaser.Scene {
     this.createArenaSeaTexture();
     this.createArenaDesertTexture();
     this.createArenaSwampTexture();
+    this.createArenaVolcanoTexture();
+    this.createArenaRuinsTexture();
+    this.createArenaCrystalTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createFurnitureSprites();
     this.createShellSprites();
     this.createCactusSprites();
     this.createPuddleSprites();
+    this.createVolcanoSprites();
+    this.createRuinsSprites();
+    this.createCrystalSprites();
     this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
@@ -2773,6 +2779,312 @@ export class BootScene extends Phaser.Scene {
     this.textures.get('arena_swamp').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
+  createArenaVolcanoTexture() {
+    // Tile 64×64 seamless — basalto escuro com veios de brasa
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x1a1410, // basalto quase preto
+      0x2a2018, // basalto
+      0x3a2a20, // basalto médio
+      0x12100c, // sombra
+      0x4a3428, // pedra quente
+      0x6a2818, // brasa escura
+      0xa83818, // brasa
+      0xe86820, // lava
+      0xf0a040, // highlight quente
+      0x5a4030, // cinza vulcânica
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+    const wrap = (v, m) => ((v % m) + m) % m;
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 17, tw), wrap(y + 9, th));
+        const n3 = valueAt(wrap(x + 31, tw), wrap(y + 21, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.2) tone = tones[3];
+        else if (n1 < 0.38) tone = tones[0];
+        else if (n1 < 0.55) tone = tones[1];
+        else if (n1 < 0.72) tone = tones[2];
+        else if (n1 < 0.88) tone = tones[4];
+        else tone = tones[9];
+
+        if (n2 > 0.86) tone = tones[5];
+        if (n2 > 0.93) tone = tones[6];
+        if (n3 > 0.9 && n1 > 0.35 && n1 < 0.7) tone = tones[7];
+        if (n3 > 0.95) tone = tones[8];
+
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+        if ((h & 127) === 21) tone = tones[5];
+        if ((h & 127) === 42) tone = tones[9];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 12, y: 16, r: 7, c: 0xa83818 },
+      { x: 40, y: 24, r: 6, c: 0x1a1410 },
+      { x: 26, y: 48, r: 8, c: 0x6a2818 },
+      { x: 52, y: 50, r: 5, c: 0xe86820 },
+      { x: 54, y: 12, r: 4, c: 0x2a2018 },
+      { x: 16, y: 56, r: 5, c: 0xf0a040 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    g.generateTexture('arena_volcano', tw, th);
+    g.destroy();
+    this.textures.get('arena_volcano').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createArenaRuinsTexture() {
+    // Tile 64×64 seamless — pedra antiga rachada e musgo
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x4a4638, // pedra escura
+      0x6a6450, // pedra
+      0x8a8468, // pedra clara
+      0x3a3628, // sombra
+      0xa09a78, // highlight
+      0x3a4a30, // musgo
+      0x5a6a48, // musgo claro
+      0x2e2a20, // rachadura
+      0x706858, // tijolo antigo
+      0x98906e, // pó / areia
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+    const wrap = (v, m) => ((v % m) + m) % m;
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 19, tw), wrap(y + 11, th));
+        const n3 = valueAt(wrap(x + 37, tw), wrap(y + 23, th));
+        const h = hash(x, y);
+
+        // Grade de lajes
+        const tileX = x % 16;
+        const tileY = y % 16;
+        const seam = tileX === 0 || tileY === 0 || tileX === 15 || tileY === 15;
+
+        let tone;
+        if (n1 < 0.22) tone = tones[3];
+        else if (n1 < 0.4) tone = tones[0];
+        else if (n1 < 0.6) tone = tones[1];
+        else if (n1 < 0.78) tone = tones[2];
+        else if (n1 < 0.9) tone = tones[4];
+        else tone = tones[8];
+
+        if (seam) tone = tones[7];
+        if (n2 > 0.84) tone = tones[5];
+        if (n2 > 0.92) tone = tones[6];
+        if (n3 > 0.9) tone = tones[9];
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+        if ((h & 127) === 21) tone = tones[5];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 14, y: 18, r: 6, c: 0x3a4a30 },
+      { x: 42, y: 28, r: 7, c: 0x2e2a20 },
+      { x: 28, y: 50, r: 8, c: 0x8a8468 },
+      { x: 52, y: 48, r: 5, c: 0x5a6a48 },
+      { x: 50, y: 14, r: 5, c: 0x4a4638 },
+      { x: 18, y: 54, r: 6, c: 0xa09a78 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    g.generateTexture('arena_ruins', tw, th);
+    g.destroy();
+    this.textures.get('arena_ruins').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createArenaCrystalTexture() {
+    // Tile 64×64 seamless — caverna escura com brilho violeta/ciano
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x141820, // pedra de caverna
+      0x1e2430, // pedra
+      0x2a3240, // pedra clara
+      0x0c1018, // sombra
+      0x3a4458, // highlight
+      0x3a2860, // violeta
+      0x5a40a0, // cristal
+      0x80c0e8, // brilho ciano
+      0xc090ff, // brilho lilás
+      0x243048, // veia mineral
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+    const wrap = (v, m) => ((v % m) + m) % m;
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 17, tw), wrap(y + 9, th));
+        const n3 = valueAt(wrap(x + 31, tw), wrap(y + 21, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.2) tone = tones[3];
+        else if (n1 < 0.38) tone = tones[0];
+        else if (n1 < 0.55) tone = tones[1];
+        else if (n1 < 0.72) tone = tones[2];
+        else if (n1 < 0.88) tone = tones[4];
+        else tone = tones[9];
+
+        if (n2 > 0.86) tone = tones[5];
+        if (n2 > 0.93) tone = tones[6];
+        if (n3 > 0.9 && n1 > 0.3 && n1 < 0.75) tone = tones[7];
+        if (n3 > 0.95) tone = tones[8];
+
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+        if ((h & 127) === 21) tone = tones[5];
+        if ((h & 127) === 42) tone = tones[7];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 12, y: 16, r: 6, c: 0x5a40a0 },
+      { x: 40, y: 24, r: 5, c: 0x80c0e8 },
+      { x: 26, y: 48, r: 7, c: 0x3a2860 },
+      { x: 52, y: 50, r: 5, c: 0xc090ff },
+      { x: 54, y: 12, r: 4, c: 0x1e2430 },
+      { x: 16, y: 56, r: 5, c: 0x2a3240 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.5 : 0.8);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    g.generateTexture('arena_crystal', tw, th);
+    g.destroy();
+    this.textures.get('arena_crystal').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
   createCactusSprites() {
     // D=sombra, L=verde escuro, M=verde médio, H=highlight, S=areia/base, F=flor
     const green = { D: 0x1a3a18, L: 0x2e6b28, M: 0x4a9a3a, H: 0x7ec85a, S: 0xa88850, F: 0xe878a0 };
@@ -3152,6 +3464,546 @@ export class BootScene extends Phaser.Scene {
         '................',
       ],
       algae,
+      3
+    );
+  }
+
+  createVolcanoSprites() {
+    // D=sombra, L=escuro, M=médio, H=highlight, E=brasa, C=fissura
+    const hot = { D: 0x1a100c, L: 0x2a1a14, M: 0x3a2820, H: 0x5a4030, E: 0xe86820, C: 0xa83818 };
+    const magma = { D: 0x120c08, L: 0x241810, M: 0x3a2418, H: 0x6a4028, E: 0xf0a040, C: 0xc85018 };
+    const black = { D: 0x0a0a0c, L: 0x141418, M: 0x222228, H: 0x3a3a48, E: 0x5a2860, C: 0x1a1a22 };
+
+    makePixelTexture(
+      this,
+      'volc_ember_0',
+      [
+        '..........',
+        '...DDD....',
+        '..DLHMD...',
+        '.DLMEMMLD.',
+        '.DLMMCMLD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      hot,
+      3
+    );
+    makePixelTexture(
+      this,
+      'volc_ember_1',
+      [
+        '..........',
+        '..DDDDDD..',
+        '.DLMHMELD.',
+        '.DLMMMCLD.',
+        '..DDDDDD..',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      magma,
+      3
+    );
+    makePixelTexture(
+      this,
+      'volc_ember_2',
+      [
+        '..........',
+        '....DD....',
+        '...DLHD...',
+        '..DLMEMD..',
+        '.DLMMCMLD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      hot,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'volc_lava_0',
+      [
+        '............',
+        '...DDDDDD...',
+        '..DLMHMMLD..',
+        '.DLMEMMMMLD.',
+        '.DLMMCMMMHD.',
+        '.DHMMMMEMLD.',
+        '..DLMMMMLD..',
+        '...DDDDDD...',
+        '............',
+        '............',
+      ],
+      magma,
+      3
+    );
+    makePixelTexture(
+      this,
+      'volc_lava_1',
+      [
+        '............',
+        '....DDDD....',
+        '...DLHMHD...',
+        '..DLMEMMMLD.',
+        '.DLMMCMMMHD.',
+        '.DHMMMMEMLD.',
+        '..DDLMMMLD..',
+        '...DDDDDD...',
+        '............',
+        '............',
+      ],
+      hot,
+      3
+    );
+    makePixelTexture(
+      this,
+      'volc_lava_2',
+      [
+        '............',
+        '..DDDDDDD...',
+        '.DLMHMMMELD.',
+        '.DLMEMMMMLD.',
+        '.DHMMCMMMHD.',
+        '..DLMMMMLD..',
+        '...DDDDDD...',
+        '............',
+        '............',
+        '............',
+      ],
+      magma,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'volc_obsidian_0',
+      [
+        '................',
+        '.....DDDDD......',
+        '...DDLHMMLD.....',
+        '..DLMHMMMMLD....',
+        '.DLMMMMHCMMMLD..',
+        '.DLMHMMMMMHMLD..',
+        '.DLMMMMMMMMMLD..',
+        '..DLMMMCMMLD....',
+        '...DLMMMMLD.....',
+        '....DDLCLDD.....',
+        '.....DDDD.......',
+        '................',
+        '................',
+        '................',
+      ],
+      black,
+      3
+    );
+    makePixelTexture(
+      this,
+      'volc_obsidian_1',
+      [
+        '................',
+        '...DDDDDDDDD....',
+        '.DDLMHMHMMMLD...',
+        'DLMMMMMMMMMMLD..',
+        'DLMHMMMMMHMMLD..',
+        'DLMMMMHCMMMMLD..',
+        'DDLMHMMMMMMMLD..',
+        '.DLMMMMMMMMLD...',
+        '..DDLCLLLDD.....',
+        '...DDDDDDD......',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      black,
+      3
+    );
+    makePixelTexture(
+      this,
+      'volc_obsidian_2',
+      [
+        '................',
+        '....DDDDDDD.....',
+        '..DDLMHMMMLD....',
+        '.DLMHMMMMMMLD...',
+        '.DLMMMMHCMMMLD..',
+        '.DHMMMMMMMHMLD..',
+        '..DLMMMMMMMLD...',
+        '...DLMMMMLD.....',
+        '....DDLCLDD.....',
+        '.....DDDD.......',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      black,
+      3
+    );
+  }
+
+  createRuinsSprites() {
+    // D=sombra, L=escuro, M=pedra, H=claro, G=musgo, C=rachadura
+    const stone = { D: 0x2a2618, L: 0x4a4638, M: 0x6a6450, H: 0x8a8468, G: 0x3a4a30, C: 0x3a3628 };
+    const mossy = { D: 0x242018, L: 0x3a4a30, M: 0x5a6a48, H: 0x7a8a60, G: 0x2a3a22, C: 0x2e2a20 };
+    const pale = { D: 0x3a3628, L: 0x6a6450, M: 0x8a8468, H: 0xa09a78, G: 0x5a6a48, C: 0x4a4638 };
+
+    makePixelTexture(
+      this,
+      'ruin_rubble_0',
+      [
+        '..........',
+        '...DDD....',
+        '..DLHMD...',
+        '.DLMMMGLD.',
+        '.DLMMCMLD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      stone,
+      3
+    );
+    makePixelTexture(
+      this,
+      'ruin_rubble_1',
+      [
+        '..........',
+        '..DDDDDD..',
+        '.DLMHMGLD.',
+        '.DLMMMCLD.',
+        '..DDDDDD..',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      mossy,
+      3
+    );
+    makePixelTexture(
+      this,
+      'ruin_rubble_2',
+      [
+        '..........',
+        '....DD....',
+        '...DLHD...',
+        '..DLMMGD..',
+        '.DLMMCMLD.',
+        '..DLMMD...',
+        '...DDD....',
+        '..........',
+      ],
+      pale,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'ruin_pillar_0',
+      [
+        '............',
+        '...HHHHHH...',
+        '...HMMMHH...',
+        '....LMML....',
+        '....LMML....',
+        '....LMGL....',
+        '....LMML....',
+        '....LMCL....',
+        '....LMML....',
+        '...DDDDDD...',
+        '..DDDDDDDD..',
+        '............',
+      ],
+      stone,
+      3
+    );
+    makePixelTexture(
+      this,
+      'ruin_pillar_1',
+      [
+        '............',
+        '..HHHHHHHH..',
+        '..HHMMMHHH..',
+        '...LMMMML...',
+        '...LMMMGL...',
+        '...LMMMML...',
+        '...LMCMCL...',
+        '...LMMMML...',
+        '...LMMMML...',
+        '..DDDDDDDD..',
+        '.DDDDDDDDDD.',
+        '............',
+      ],
+      mossy,
+      3
+    );
+    makePixelTexture(
+      this,
+      'ruin_pillar_2',
+      [
+        '............',
+        '....HHHH....',
+        '...HHMMHH...',
+        '...LMMMML...',
+        '...LMMMML...',
+        '...LMGGML...',
+        '...LMMMML...',
+        '...LMCMML...',
+        '...LMMMML...',
+        '...DDDDDD...',
+        '..DDDDDDDD..',
+        '............',
+      ],
+      pale,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'ruin_statue_0',
+      [
+        '................',
+        '......HHHH......',
+        '.....HMMMHH.....',
+        '.....HMHMHH.....',
+        '......LMML......',
+        '.....LLMMMLL....',
+        '....LMMMMMML....',
+        '....LMMGGMML....',
+        '....LMMMMMML....',
+        '.....LMCMML.....',
+        '.....LMMMML.....',
+        '....DDDDDDDD....',
+        '...DDDDDDDDDD...',
+        '................',
+      ],
+      stone,
+      3
+    );
+    makePixelTexture(
+      this,
+      'ruin_statue_1',
+      [
+        '................',
+        '.....HHHHHH.....',
+        '....HHMMMMHH....',
+        '....HHMHMHHH....',
+        '.....LLMMML.....',
+        '....LMMMMMML....',
+        '...LMMMGMMMML...',
+        '...LMMMMMMMML...',
+        '...LMMCMCMMML...',
+        '....LMMMMMML....',
+        '....LMMMMMML....',
+        '...DDDDDDDDDD...',
+        '..DDDDDDDDDDDD..',
+        '................',
+      ],
+      mossy,
+      3
+    );
+    makePixelTexture(
+      this,
+      'ruin_statue_2',
+      [
+        '................',
+        '......HHHH......',
+        '.....HMMMMH.....',
+        '.....HMHHMH.....',
+        '......LMML......',
+        '.....LMMMML.....',
+        '....LMMGGMML....',
+        '....LMMMMMML....',
+        '....LMMCMMML....',
+        '.....LMMMML.....',
+        '.....LMMMML.....',
+        '....DDDDDDDD....',
+        '...DDDDDDDDDD...',
+        '................',
+      ],
+      pale,
+      3
+    );
+  }
+
+  createCrystalSprites() {
+    // D=sombra, L=base escura, M=cristal, H=brilho, C=núcleo, G=reflexo
+    const amethyst = { D: 0x1a1028, L: 0x2a1848, M: 0x5a40a0, H: 0xc090ff, C: 0x80c0e8, G: 0xe8d0ff };
+    const cyan = { D: 0x102028, L: 0x183848, M: 0x40a0c0, H: 0xa0e8ff, C: 0xc090ff, G: 0xe0f8ff };
+    const rose = { D: 0x281018, L: 0x481828, M: 0xa04070, H: 0xffa0c8, C: 0xc090ff, G: 0xffd0e8 };
+
+    makePixelTexture(
+      this,
+      'crystal_small_0',
+      [
+        '..........',
+        '....H.....',
+        '...HMH....',
+        '..HMCMH...',
+        '..LMMML...',
+        '...LDD....',
+        '..........',
+        '..........',
+      ],
+      amethyst,
+      3
+    );
+    makePixelTexture(
+      this,
+      'crystal_small_1',
+      [
+        '..........',
+        '...H.H....',
+        '..HMCMH...',
+        '..HMMMH...',
+        '...LDL....',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      cyan,
+      3
+    );
+    makePixelTexture(
+      this,
+      'crystal_small_2',
+      [
+        '..........',
+        '....G.....',
+        '...HMH....',
+        '..HMCMH...',
+        '.LHMMMHL..',
+        '..LDDDL...',
+        '..........',
+        '..........',
+      ],
+      rose,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'crystal_med_0',
+      [
+        '............',
+        '.....H......',
+        '....HMH.....',
+        '...HMCMH....',
+        '..LHMMMHL...',
+        '..LHMMMHL...',
+        '...LMMML....',
+        '....LDD.....',
+        '............',
+        '............',
+      ],
+      amethyst,
+      3
+    );
+    makePixelTexture(
+      this,
+      'crystal_med_1',
+      [
+        '............',
+        '....H.G.....',
+        '...HMCMH....',
+        '..LHMMMHL...',
+        '..LHMMMHL...',
+        '...HMMMH....',
+        '...LDDDL....',
+        '............',
+        '............',
+        '............',
+      ],
+      cyan,
+      3
+    );
+    makePixelTexture(
+      this,
+      'crystal_med_2',
+      [
+        '............',
+        '.....G......',
+        '....HMH.....',
+        '...HMCMH....',
+        '..GHMMMHG...',
+        '..LHMMMHL...',
+        '...LMMML....',
+        '....LDD.....',
+        '............',
+        '............',
+      ],
+      rose,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'crystal_large_0',
+      [
+        '................',
+        '.......H........',
+        '......HMH.......',
+        '.....HMCMH......',
+        '....LHMMMHL.....',
+        '...LHMMMMMHL....',
+        '...LHMMMMMHL....',
+        '....LHMMMHL.....',
+        '.....LMMML......',
+        '......LDD.......',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      amethyst,
+      3
+    );
+    makePixelTexture(
+      this,
+      'crystal_large_1',
+      [
+        '................',
+        '......H.G.......',
+        '.....HMCMH......',
+        '....LHMMMHL.....',
+        '...LHMMMMMHL....',
+        '...GHMMMMMHG....',
+        '....LHMMMHL.....',
+        '.....HMMMH......',
+        '......LDD.......',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      cyan,
+      3
+    );
+    makePixelTexture(
+      this,
+      'crystal_large_2',
+      [
+        '................',
+        '.......G........',
+        '......HMH.......',
+        '.....HMCMH......',
+        '....GHMMMHG.....',
+        '...LHMMMMMHL....',
+        '...LHMMMMMHL....',
+        '....LHMMMHL.....',
+        '.....LMMML......',
+        '.....LDDDL......',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      rose,
       3
     );
   }
