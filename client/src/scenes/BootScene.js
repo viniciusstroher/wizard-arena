@@ -140,11 +140,13 @@ export class BootScene extends Phaser.Scene {
     this.createArenaWoodTexture();
     this.createArenaSeaTexture();
     this.createArenaDesertTexture();
+    this.createArenaSwampTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createFurnitureSprites();
     this.createShellSprites();
     this.createCactusSprites();
+    this.createPuddleSprites();
     this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
@@ -1551,6 +1553,132 @@ export class BootScene extends Phaser.Scene {
       bush,
       2
     );
+
+    // Árvores de pântano — troncos tortos, folhas esverdeadas/acinzentadas
+    const mangrove = { T: 0x3a2a18, D: 0x1a3020, L: 0x2a4830, M: 0x3a6840, H: 0x5a8860, R: 0x4a3820 };
+    const swampOak = { T: 0x4a3420, D: 0x1e3424, L: 0x2e5030, M: 0x3e7040, H: 0x589858, F: 0x6a8a40 };
+    const swampBush = { T: 0x3a2818, D: 0x203828, L: 0x305038, M: 0x487048, H: 0x689060 };
+
+    makePixelTexture(
+      this,
+      'tree_mangrove_0',
+      [
+        '.......HHH........',
+        '......HMMMH.......',
+        '.....LMMMMML......',
+        '....LMMMHMMML.....',
+        '.....LMMMMML......',
+        '......DDTTDD......',
+        '.....R..TT..R.....',
+        '....R...TT...R....',
+        '........TT........',
+        '.......TTTT.......',
+        '......R....R......',
+        '..................',
+      ],
+      mangrove,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_mangrove_1',
+      [
+        '........HH........',
+        '......HMMMH.......',
+        '.....LMMMMML......',
+        '....LMMMMMMMML....',
+        '.....LMMHMMML.....',
+        '......DDTTDD......',
+        '....R...TT...R....',
+        '...R....TT....R...',
+        '........TT........',
+        '.......TTTT.......',
+        '.....R......R.....',
+        '..................',
+      ],
+      mangrove,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_swamp_oak_0',
+      [
+        '.....HHHHHH.......',
+        '...HHMMMMMMHH.....',
+        '..HMMMHMMHMMMH....',
+        '.LMMMMMMMMMMMML...',
+        '.LMMMHMMMMHMMML...',
+        '..LMMMMMMMMMML....',
+        '...DDLMMLDD.......',
+        '......TT..........',
+        '.....RTT..........',
+        '......TTTT........',
+        '....R.............',
+        '..................',
+      ],
+      swampOak,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_swamp_oak_1',
+      [
+        '....HHHHHHHH......',
+        '..HHMMMMMMMMHH....',
+        '.HMMMHMMMHMMMMH...',
+        'LMMMMFMMMMFMMMML..',
+        'LMMMMMMMMMMMMMML..',
+        '.LMMMHMMMMHMMML...',
+        '..LMMMMMMMMML.....',
+        '...DDLTTLDD.......',
+        '......TT..........',
+        '......TT.R........',
+        '.....TTTT.........',
+        '..........R.......',
+      ],
+      swampOak,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_swamp_bush_0',
+      [
+        '..................',
+        '.....HHHH.........',
+        '...HHMMMMHH.......',
+        '..HMMMHMMMML......',
+        '..LMMMMMMMML......',
+        '...LMMMMMML.......',
+        '....DDTTDD........',
+        '......TT..........',
+        '..................',
+        '..................',
+        '..................',
+        '..................',
+      ],
+      swampBush,
+      2
+    );
+    makePixelTexture(
+      this,
+      'tree_swamp_bush_1',
+      [
+        '..................',
+        '....HHHHH.........',
+        '..HHMMMMMHH.......',
+        '.HMMMHMMMMML......',
+        '.LMMMMMMMMML......',
+        '..LMMMMMMML.......',
+        '...DDLTLDD........',
+        '......TT..........',
+        '..................',
+        '..................',
+        '..................',
+        '..................',
+      ],
+      swampBush,
+      2
+    );
   }
 
   createBonesSprites() {
@@ -2527,6 +2655,124 @@ export class BootScene extends Phaser.Scene {
     this.textures.get('arena_desert').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
+  createArenaSwampTexture() {
+    // Tile 64×64 seamless — lama escura, musgo e manchas de água
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x2a3a22, // musgo escuro
+      0x3a4e2e, // musgo médio
+      0x4a6238, // musgo claro
+      0x1e2e1a, // sombra
+      0x5a7840, // broto pálido
+      0x3a3020, // lama
+      0x4a3e28, // lama clara
+      0x243830, // água rasa
+      0x1a2a28, // água escura
+      0x6a5a38, // raiz / madeira
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+
+    const wrap = (v, m) => ((v % m) + m) % m;
+
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 19, tw), wrap(y + 11, th));
+        const n3 = valueAt(wrap(x + 37, tw), wrap(y + 23, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.2) tone = tones[3];
+        else if (n1 < 0.38) tone = tones[0];
+        else if (n1 < 0.55) tone = tones[1];
+        else if (n1 < 0.72) tone = tones[2];
+        else if (n1 < 0.88) tone = tones[4];
+        else tone = tones[5];
+
+        // Manchas de lama
+        if (n2 > 0.8 && n1 > 0.25 && n1 < 0.75) tone = tones[5];
+        if (n2 > 0.9) tone = tones[6];
+        if (n2 < 0.15) tone = tones[3];
+
+        // Poças rasas no chão (decorativas — as sólidas são sprites)
+        if (n3 > 0.88) tone = tones[7];
+        if (n3 > 0.94) tone = tones[8];
+
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+        if ((h & 63) === 13) tone = tones[0];
+        if ((h & 127) === 21) tone = tones[9];
+        if ((h & 127) === 42) tone = tones[6];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 14, y: 18, r: 8, c: 0x243830 },
+      { x: 42, y: 28, r: 7, c: 0x1a2a28 },
+      { x: 28, y: 50, r: 9, c: 0x3a3020 },
+      { x: 52, y: 48, r: 6, c: 0x4a6238 },
+      { x: 50, y: 14, r: 5, c: 0x2a3a22 },
+      { x: 18, y: 54, r: 6, c: 0x1e2e1a },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    const twigs = [
+      [10, 20], [11, 21], [30, 10], [46, 32], [47, 33], [34, 54],
+      [58, 42], [4, 36], [20, 40], [52, 14], [8, 50], [40, 44],
+    ];
+    for (const [px, py] of twigs) {
+      g.fillStyle(0x4a3e28, 1);
+      g.fillRect(px, py, 2, 1);
+      g.fillStyle(0x6a5a38, 1);
+      g.fillRect(px, py, 1, 1);
+    }
+
+    g.generateTexture('arena_swamp', tw, th);
+    g.destroy();
+    this.textures.get('arena_swamp').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
   createCactusSprites() {
     // D=sombra, L=verde escuro, M=verde médio, H=highlight, S=areia/base, F=flor
     const green = { D: 0x1a3a18, L: 0x2e6b28, M: 0x4a9a3a, H: 0x7ec85a, S: 0xa88850, F: 0xe878a0 };
@@ -2716,6 +2962,196 @@ export class BootScene extends Phaser.Scene {
         '................',
       ],
       olive,
+      3
+    );
+  }
+
+  createPuddleSprites() {
+    // D=borda lama, L=água escura, M=água média, H=brilho, R=reflexo
+    const murky = { D: 0x2a2418, L: 0x1a3830, M: 0x2a5848, H: 0x4a8870, R: 0x6aaa90 };
+    const deep = { D: 0x221c14, L: 0x142828, M: 0x204040, H: 0x386858, R: 0x589878 };
+    const algae = { D: 0x2e2818, L: 0x1e3a28, M: 0x2e5a38, H: 0x4a7a50, R: 0x6a9a68 };
+
+    makePixelTexture(
+      this,
+      'puddle_small_0',
+      [
+        '..........',
+        '..DDDDD...',
+        '.DLMMMHD..',
+        '.DMMRRMMD.',
+        '.DHMMMMD..',
+        '..DDDDD...',
+        '..........',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      murky,
+      3
+    );
+    makePixelTexture(
+      this,
+      'puddle_small_1',
+      [
+        '..........',
+        '...DDDD...',
+        '..DLMMHD..',
+        '.DMMRRMMD.',
+        '..DHMMMD..',
+        '...DDDD...',
+        '..........',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      deep,
+      3
+    );
+    makePixelTexture(
+      this,
+      'puddle_small_2',
+      [
+        '..........',
+        '..DDDDD...',
+        '.DLMMRHD..',
+        '.DMMHMMMD.',
+        '.DHMMMMD..',
+        '..DDDDD...',
+        '..........',
+        '..........',
+        '..........',
+        '..........',
+      ],
+      algae,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'puddle_med_0',
+      [
+        '..............',
+        '...DDDDDD.....',
+        '..DLMMMMHD....',
+        '.DLMMRRMMMHD..',
+        '.DMMMMMMMMMD..',
+        '.DHMMRRMMMMD..',
+        '..DHMMMMMHD...',
+        '...DDDDDD.....',
+        '..............',
+        '..............',
+        '..............',
+        '..............',
+      ],
+      murky,
+      3
+    );
+    makePixelTexture(
+      this,
+      'puddle_med_1',
+      [
+        '..............',
+        '....DDDDD.....',
+        '..DDLMMMHD....',
+        '.DLMMRRMMHD...',
+        '.DMMMMMMMMMD..',
+        '.DHMMRRMMMD...',
+        '..DHMMMMHD....',
+        '....DDDDD.....',
+        '..............',
+        '..............',
+        '..............',
+        '..............',
+      ],
+      deep,
+      3
+    );
+    makePixelTexture(
+      this,
+      'puddle_med_2',
+      [
+        '..............',
+        '...DDDDDD.....',
+        '..DLMRMMHD....',
+        '.DLMMMMMMMHD..',
+        '.DMMHRRMMMMD..',
+        '.DHMMMMMMMD...',
+        '..DHMMMMHD....',
+        '...DDDDDD.....',
+        '..............',
+        '..............',
+        '..............',
+        '..............',
+      ],
+      algae,
+      3
+    );
+
+    makePixelTexture(
+      this,
+      'puddle_large_0',
+      [
+        '................',
+        '....DDDDDDD.....',
+        '...DLMMMMMHD....',
+        '..DLMMRRMMMMHD..',
+        '.DLMMMMMMMMMMD..',
+        '.DMMMMHRRMMMMD..',
+        '.DHMMMMMMMMMHD..',
+        '..DHMMRRMMMHD...',
+        '...DHMMMMMHD....',
+        '....DDDDDDD.....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      murky,
+      3
+    );
+    makePixelTexture(
+      this,
+      'puddle_large_1',
+      [
+        '................',
+        '.....DDDDDD.....',
+        '...DDLMMMMHD....',
+        '..DLMMRRMMMHD...',
+        '.DLMMMMMMMMMMD..',
+        '.DMMHRRMMMMMMD..',
+        '.DHMMMMMMMMMHD..',
+        '..DHMMRRMMHD....',
+        '...DHMMMMHD.....',
+        '.....DDDDDD.....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      deep,
+      3
+    );
+    makePixelTexture(
+      this,
+      'puddle_large_2',
+      [
+        '................',
+        '....DDDDDDD.....',
+        '...DLMRMMMHD....',
+        '..DLMMMMMMMMHD..',
+        '.DLMMHRRMMMMMD..',
+        '.DMMMMMMMMMMMD..',
+        '.DHMMMMRRMMMHD..',
+        '..DHMMMMMMHD....',
+        '...DHMMMMHD.....',
+        '....DDDDDDD.....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      algae,
       3
     );
   }

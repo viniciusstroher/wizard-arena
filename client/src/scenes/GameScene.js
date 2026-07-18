@@ -2151,6 +2151,9 @@ export class GameScene extends Phaser.Scene {
       cactus_small: ['cactus_small_0', 'cactus_small_1', 'cactus_small_2'],
       cactus: ['cactus_med_0', 'cactus_med_1', 'cactus_med_2'],
       cactus_tall: ['cactus_tall_0', 'cactus_tall_1', 'cactus_tall_2'],
+      puddle_small: ['puddle_small_0', 'puddle_small_1', 'puddle_small_2'],
+      puddle: ['puddle_med_0', 'puddle_med_1', 'puddle_med_2'],
+      puddle_large: ['puddle_large_0', 'puddle_large_1', 'puddle_large_2'],
     };
 
     const hashId = (id) => {
@@ -2170,30 +2173,35 @@ export class GameScene extends Phaser.Scene {
         if (!this.textures.exists(key)) continue;
         const isFurniture = ['chair', 'crate', 'table', 'cabinet'].includes(rock.type);
         const isCactus = ['cactus_small', 'cactus', 'cactus_tall'].includes(rock.type);
+        const isPuddle = ['puddle_small', 'puddle', 'puddle_large'].includes(rock.type);
         const isBoulder =
           rock.type === 'boulder' ||
           rock.type === 'ice_boulder' ||
           rock.type === 'cabinet' ||
           rock.type === 'clam' ||
-          rock.type === 'cactus_tall';
+          rock.type === 'cactus_tall' ||
+          rock.type === 'puddle_large';
         const isRock =
           rock.type === 'rock' ||
           rock.type === 'ice_rock' ||
           rock.type === 'table' ||
           rock.type === 'conch' ||
-          rock.type === 'cactus';
+          rock.type === 'cactus' ||
+          rock.type === 'puddle';
         const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : rock.type === 'crate' ? 1.04 : 1;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
-        // Cactos ficam retos; móveis quase retos; pedras/conchas giram um pouco
-        const rot = isCactus
-          ? (((h >>> 3) % 5) - 2) * 0.012
-          : isFurniture
-            ? (((h >>> 3) % 5) - 2) * 0.015
-            : (((h >>> 3) % 21) - 10) * 0.02;
+        // Poças ficam no chão; cactos retos; móveis quase retos; pedras/conchas giram
+        const rot = isPuddle
+          ? (((h >>> 3) % 9) - 4) * 0.04
+          : isCactus
+            ? (((h >>> 3) % 5) - 2) * 0.012
+            : isFurniture
+              ? (((h >>> 3) % 5) - 2) * 0.015
+              : (((h >>> 3) % 21) - 10) * 0.02;
         s = this.add
           .image(rock.x, rock.y, key)
-          .setDepth(5)
-          .setOrigin(0.5, 0.7)
+          .setDepth(isPuddle ? 4 : 5)
+          .setOrigin(0.5, isPuddle ? 0.5 : 0.7)
           .setScale(baseScale * scaleJitter)
           .setFlipX((h & 1) === 1)
           .setRotation(rot);
@@ -2218,6 +2226,9 @@ export class GameScene extends Phaser.Scene {
       pine: ['tree_pine_0', 'tree_pine_1'],
       oak: ['tree_oak_0', 'tree_oak_1'],
       bush: ['tree_bush_0', 'tree_bush_1'],
+      mangrove: ['tree_mangrove_0', 'tree_mangrove_1'],
+      swamp_oak: ['tree_swamp_oak_0', 'tree_swamp_oak_1'],
+      swamp_bush: ['tree_swamp_bush_0', 'tree_swamp_bush_1'],
     };
 
     const hashId = (id) => {
@@ -2235,7 +2246,12 @@ export class GameScene extends Phaser.Scene {
         const h = hashId(tree.id);
         const key = list[h % list.length];
         if (!this.textures.exists(key)) continue;
-        const baseScale = tree.type === 'oak' ? 1.15 : tree.type === 'pine' ? 1.05 : 0.95;
+        const baseScale =
+          tree.type === 'oak' || tree.type === 'swamp_oak'
+            ? 1.15
+            : tree.type === 'pine' || tree.type === 'mangrove'
+              ? 1.05
+              : 0.95;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
         const scale = baseScale * scaleJitter * 1.35;
         const flip = (h & 1) === 1;
@@ -2289,7 +2305,9 @@ export class GameScene extends Phaser.Scene {
               ? 'arena_sea'
               : a.floorType === 'desert'
                 ? 'arena_desert'
-                : 'arena_brick';
+                : a.floorType === 'swamp'
+                  ? 'arena_swamp'
+                  : 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }

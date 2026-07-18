@@ -196,10 +196,10 @@ export class Match {
     }
   }
 
-  /** Pedras / móveis / conchas / cactos apenas dentro do círculo da arena. */
+  /** Pedras / móveis / conchas / cactos / poças apenas dentro do círculo da arena. */
   generateRocks() {
     // Chance igual entre os tipos de chão.
-    const floors = ['grass', 'dirt', 'ice', 'wood', 'sea', 'desert'];
+    const floors = ['grass', 'dirt', 'ice', 'wood', 'sea', 'desert', 'swamp'];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
     const dirtTypes = [
@@ -228,6 +228,12 @@ export class Match {
       { type: 'cactus', radius: 18 },
       { type: 'cactus_tall', radius: 26 },
     ];
+    // Poças de água — sólidos intransitáveis no pântano.
+    const swampTypes = [
+      { type: 'puddle_small', radius: 14 },
+      { type: 'puddle', radius: 20 },
+      { type: 'puddle_large', radius: 28 },
+    ];
     const types =
       this.floorType === 'ice'
         ? iceTypes
@@ -237,7 +243,9 @@ export class Match {
             ? seaTypes
             : this.floorType === 'desert'
               ? desertTypes
-              : dirtTypes;
+              : this.floorType === 'swamp'
+                ? swampTypes
+                : dirtTypes;
     const count =
       CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
     const rocks = [];
@@ -284,18 +292,25 @@ export class Match {
     this.generateTrees();
   }
 
-  /** Árvores só em grama e apenas dentro do círculo da arena. */
+  /** Árvores em grama/pântano e apenas dentro do círculo da arena. */
   generateTrees() {
-    if (this.floorType !== 'grass') {
+    if (this.floorType !== 'grass' && this.floorType !== 'swamp') {
       this.trees = [];
       return;
     }
 
-    const types = [
-      { type: 'pine', radius: 14 },
-      { type: 'oak', radius: 16 },
-      { type: 'bush', radius: 10 },
-    ];
+    const types =
+      this.floorType === 'swamp'
+        ? [
+            { type: 'mangrove', radius: 14 },
+            { type: 'swamp_oak', radius: 16 },
+            { type: 'swamp_bush', radius: 10 },
+          ]
+        : [
+            { type: 'pine', radius: 14 },
+            { type: 'oak', radius: 16 },
+            { type: 'bush', radius: 10 },
+          ];
     const count =
       CONFIG.TREE_MIN + Math.floor(Math.random() * (CONFIG.TREE_MAX - CONFIG.TREE_MIN + 1));
     const trees = [];
