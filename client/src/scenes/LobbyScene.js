@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
 import { GalleryModal } from '../ui/GalleryModal.js';
+import { parseGalleryUrl } from '../ui/galleryUrl.js';
 import {
   RESOLUTIONS,
   applyResolution,
@@ -722,6 +723,7 @@ export class LobbyScene extends Phaser.Scene {
         }
       },
     });
+    this._maybeOpenGalleryFromUrl();
 
     this.hint = this.add
       .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos/bots', {
@@ -755,12 +757,24 @@ export class LobbyScene extends Phaser.Scene {
     this.messageBoard?.setDomVisible(visible);
   }
 
-  openGalleryModal() {
-    if (this.galleryModal?.isOpen()) return;
+  openGalleryModal(options = {}) {
     if (this.settingsModalOpen) this.closeSettingsModal();
     if (this.adminModalOpen) this.closeAdminModal();
     if (this.controlsModalOpen) this.closeControlsModal();
-    this.galleryModal?.show();
+    this.galleryModal?.show(options);
+  }
+
+  _maybeOpenGalleryFromUrl() {
+    const link = parseGalleryUrl();
+    if (!link) return;
+    // Adia um tick para o layout/DOM do lobby estabilizar.
+    this.time.delayedCall(0, () => {
+      this.openGalleryModal({
+        tab: link.tab,
+        spellId: link.spellId,
+        monsterId: link.monsterId,
+      });
+    });
   }
 
   openSettingsModal() {

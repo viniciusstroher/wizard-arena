@@ -5,6 +5,11 @@ import {
   spellDisplayName,
   spellColor,
 } from '../catalog/galleryCatalog.js';
+import {
+  clearGalleryUrl,
+  galleryShareUrl,
+  syncGalleryUrl,
+} from './galleryUrl.js';
 
 const TIER_SECTIONS = [
   { id: 'normal', label: 'Normais', color: '#9a8bb8' },
@@ -49,6 +54,8 @@ export class GalleryModal {
     this.searchQuery = '';
     this.selectedMonsterId = null;
     this.selectedSpellId = null;
+    this._previewedTab = null;
+    this._previewedId = null;
 
     this.container = scene.add.container(0, 0).setDepth(400).setVisible(false);
     this.listDom = null;
@@ -62,6 +69,9 @@ export class GalleryModal {
     this.tierTabEls = [];
     this.infoTitle = null;
     this.infoBody = null;
+    this.copyBtn = null;
+    this.copyLabel = null;
+    this.copyFeedbackTimer = null;
     this.stageGfx = null;
 
     this.monsters = getMonsterEntries();
@@ -109,14 +119,21 @@ export class GalleryModal {
     };
   }
 
-  show() {
-    if (this.open) return;
+  /**
+   * @param {{ tab?: 'monsters'|'spells', monsterId?: string|null, spellId?: string|null, syncUrl?: boolean }} [options]
+   */
+  show(options = {}) {
+    if (this.open) {
+      this.applyDeepLink(options);
+      return;
+    }
     this.open = true;
     this.onOpen?.();
 
     // Recarrega o catálogo atual (nomes/ícones/defs).
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
+    this._applyDeepLinkState(options);
 
     const { width, height } = this.scene.scale;
     const L = this._computeLayout();
@@ -193,6 +210,23 @@ export class GalleryModal {
       })
       .setOrigin(0.5, 0);
 
+    const copyY = L.closeY;
+    const copyX = L.previewX;
+    this.copyBtn = this.scene.add
+      .rectangle(copyX, copyY, 150, 36, 0x2a2448, 1)
+      .setStrokeStyle(1, 0x6b5cff, 0.7);
+    this.copyLabel = this.scene.add
+      .text(copyX, copyY, 'Copiar link', {
+        fontFamily: FONT,
+        fontSize: '13px',
+        color: '#e8dfff',
+      })
+      .setOrigin(0.5);
+    this.copyBtn.setInteractive({ useHandCursor: true });
+    this.copyBtn.on('pointerover', () => this.copyBtn.setFillStyle(0x3a3360, 1));
+    this.copyBtn.on('pointerout', () => this.copyBtn.setFillStyle(0x2a2448, 1));
+    this.copyBtn.on('pointerup', () => this._copyCurrentLink());
+
     const closeBg = this.scene.add
       .rectangle(L.cx, L.closeY, 140, 40, 0x6b5cff, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
@@ -222,18 +256,127 @@ export class GalleryModal {
       this.previewRoot,
       this.infoTitle,
       this.infoBody,
+      this.copyBtn,
+      this.copyLabel,
       closeBg,
       closeLabel,
     ]);
 
     this._createFx();
     this._setTab(this.tab, true);
+    if (options.syncUrl !== false) this._syncUrl();
+  }
+
+  /**
+   * Aplica deep link com a galeria já aberta (ou só prepara estado se fechada).
+   * @param {{ tab?: 'monsters'|'spells', monsterId?: string|null, spellId?: string|null, syncUrl?: boolean }} [options]
+   */
+  applyDeepLink(options = {}) {
+    if (!options || (!options.tab && !options.monsterId && !options.spellId)) return;
+    this.monsters = getMonsterEntries();
+    this.spells = getSpellEntries();
+    this._applyDeepLinkState(options);
+    if (!this.open) {
+      this.show({ ...options, syncUrl: options.syncUrl });
+      return;
+    }
+    this._setTab(this.tab, true);
+    if (options.syncUrl !== false) this._syncUrl();
+  }
+
+  _applyDeepLinkState(options = {}) {
+    if (options.tab === 'monsters' || options.tab === 'spells') {
+      this.tab = options.tab;
+    } else if (options.spellId) {
+      this.tab = 'spells';
+    } else if (options.monsterId) {
+      this.tab = 'monsters';
+    }
+
+    if (options.monsterId) {
+      const monster = this.monsters.find((m) => m.id === options.monsterId);
+      if (monster) {
+        this.tab = 'monsters';
+        this.monsterTier = monster.tier;
+        this.selectedMonsterId = monster.id;
+        this.searchQuery = '';
+      }
+    }
+
+    if (options.spellId) {
+      const spell = this.spells.find((s) => s.id === options.spellId);
+      if (spell) {
+        this.tab = 'spells';
+        this.spellCategory = spell.category;
+        this.selectedSpellId = spell.id;
+        this.searchQuery = '';
+      }
+    }
+  }
+
+  _syncUrl() {
+    const spellId = this.tab === 'spells' ? this.selectedSpellId : null;
+    const monsterId = this.tab === 'monsters' ? this.selectedMonsterId : null;
+    syncGalleryUrl({ tab: this.tab, spellId, monsterId });
+  }
+
+  async _copyCurrentLink() {
+    const spellId = this.tab === 'spells' ? this.selectedSpellId : null;
+    const monsterId = this.tab === 'monsters' ? this.selectedMonsterId : null;
+    if ((this.tab === 'spells' && !spellId) || (this.tab === 'monsters' && !monsterId)) {
+      this._setCopyFeedback('Selecione um item');
+      return;
+    }
+    const url = galleryShareUrl({ tab: this.tab, spellId, monsterId });
+    const ok = await this._writeClipboard(url);
+    this._setCopyFeedback(ok ? 'Link copiado!' : 'Falha ao copiar');
+  }
+
+  async _writeClipboard(text) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      /* fallback abaixo */
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  _setCopyFeedback(message) {
+    if (!this.copyLabel) return;
+    this.copyLabel.setText(message);
+    if (this.copyFeedbackTimer) {
+      this.copyFeedbackTimer.remove(false);
+      this.copyFeedbackTimer = null;
+    }
+    this.copyFeedbackTimer = this.scene.time.delayedCall(1400, () => {
+      this.copyFeedbackTimer = null;
+      if (this.copyLabel?.active) this.copyLabel.setText('Copiar link');
+    });
   }
 
   hide() {
     if (!this.open && !this.listDom) return;
     this.open = false;
     if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = true;
+    if (this.copyFeedbackTimer) {
+      this.copyFeedbackTimer.remove(false);
+      this.copyFeedbackTimer = null;
+    }
     this._clearPreview();
     this._destroyFx();
     this._destroyListDom();
@@ -242,12 +385,17 @@ export class GalleryModal {
     this.previewRoot = null;
     this.infoTitle = null;
     this.infoBody = null;
+    this.copyBtn = null;
+    this.copyLabel = null;
     this.stageGfx = null;
     this.tabTexts = [];
     this.tierTabEls = [];
     this.listScrollEl = null;
     this.searchInputEl = null;
     this.layout = null;
+    this._previewedTab = null;
+    this._previewedId = null;
+    clearGalleryUrl();
     this.onClose?.();
   }
 
@@ -265,6 +413,7 @@ export class GalleryModal {
     }
     this._rebuildList();
     this._selectDefaultForCurrentView();
+    this._syncUrl();
   }
 
   _setMonsterTier(tier) {
@@ -273,6 +422,7 @@ export class GalleryModal {
     this._syncFilterTabs();
     this._fillListContent();
     this._selectDefaultForCurrentView();
+    this._syncUrl();
   }
 
   _setSpellCategory(category) {
@@ -281,6 +431,7 @@ export class GalleryModal {
     this._syncFilterTabs();
     this._fillListContent();
     this._selectDefaultForCurrentView();
+    this._syncUrl();
   }
 
   _selectDefaultForCurrentView() {
@@ -288,7 +439,10 @@ export class GalleryModal {
       const filtered = this._filteredMonsters();
       const keep = filtered.find((m) => m.id === this.selectedMonsterId);
       if (keep) {
-        this._highlightListSelection();
+        const samePreview =
+          this._previewedTab === 'monsters' && this._previewedId === keep.id;
+        if (samePreview) this._highlightListSelection();
+        else this._selectMonster(keep.id, { syncUrl: false });
         return;
       }
       const first = filtered[0];
@@ -297,6 +451,8 @@ export class GalleryModal {
         return;
       }
       this.selectedMonsterId = null;
+      this._previewedId = null;
+      this._previewedTab = null;
       this._clearPreview();
       if (this.infoTitle) this.infoTitle.setText('');
       if (this.infoBody) this.infoBody.setText('Nenhum monstro encontrado.');
@@ -306,7 +462,9 @@ export class GalleryModal {
     const filtered = this._filteredSpells();
     const keep = filtered.find((s) => s.id === this.selectedSpellId);
     if (keep) {
-      this._highlightListSelection();
+      const samePreview = this._previewedTab === 'spells' && this._previewedId === keep.id;
+      if (samePreview) this._highlightListSelection();
+      else this._selectSpell(keep.id, { syncUrl: false });
       return;
     }
     const first = filtered[0];
@@ -315,6 +473,8 @@ export class GalleryModal {
       return;
     }
     this.selectedSpellId = null;
+    this._previewedId = null;
+    this._previewedTab = null;
     this._clearPreview();
     if (this.infoTitle) this.infoTitle.setText('');
     if (this.infoBody) this.infoBody.setText('Nenhuma magia encontrada.');
@@ -626,13 +786,25 @@ export class GalleryModal {
       const active = row.dataset.id === selectedId;
       row.style.background = active ? 'rgba(107,92,255,0.35)' : 'transparent';
       row.style.color = active ? '#ffffff' : '#c4b5e0';
+      if (active) {
+        try {
+          row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch {
+          row.scrollIntoView(false);
+        }
+      }
     }
   }
 
-  _selectMonster(id) {
+  _selectMonster(id, { syncUrl = true } = {}) {
     const entry = this.monsters.find((m) => m.id === id);
     if (!entry) return;
     this.selectedMonsterId = id;
+    if (entry.tier !== this.monsterTier) {
+      this.monsterTier = entry.tier;
+      this._syncFilterTabs();
+      this._fillListContent();
+    }
     this._highlightListSelection();
 
     const details = [
@@ -649,20 +821,31 @@ export class GalleryModal {
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
     if (this.infoBody) this.infoBody.setText(details.join('\n'));
 
+    this._previewedTab = 'monsters';
+    this._previewedId = id;
     this._playMonsterPreview(entry);
+    if (syncUrl) this._syncUrl();
   }
 
-  _selectSpell(id) {
+  _selectSpell(id, { syncUrl = true } = {}) {
     const entry = this.spells.find((s) => s.id === id);
     if (!entry) return;
     this.selectedSpellId = id;
+    if (entry.category !== this.spellCategory) {
+      this.spellCategory = entry.category;
+      this._syncFilterTabs();
+      this._fillListContent();
+    }
     this._highlightListSelection();
 
     if (this.infoTitle) this.infoTitle.setText(entry.name);
     if (this.infoBody) {
       this.infoBody.setText(`${entry.typeLabel}\n${entry.description}`);
     }
+    this._previewedTab = 'spells';
+    this._previewedId = id;
     this._playSpellPreview(entry);
+    if (syncUrl) this._syncUrl();
   }
 
   _playMonsterPreview(entry) {
