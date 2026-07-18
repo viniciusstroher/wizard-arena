@@ -224,6 +224,12 @@ export const CONFIG = {
    * Nesses rounds o boss não vem do spawn contínuo — só no início do round.
    */
   BOSS_APPEARS: envIntList('BOSS_APPEARS', []),
+  /** Intervalo (segundos) entre tentativas de auto-cura do boss. */
+  BOSS_HEAL_INTERVAL: Math.max(0.5, envNumber('BOSS_HEAL_INTERVAL', 5)),
+  /** Chance (0–1) de curar a cada intervalo. */
+  BOSS_HEAL_CHANCE: Math.min(1, Math.max(0, envNumber('BOSS_HEAL_CHANCE', 0.1))),
+  /** Fração máxima da vida máxima restaurada por cura (ex.: 0.6 = 60%). */
+  BOSS_HEAL_MAX_PERCENT: Math.min(1, Math.max(0, envNumber('BOSS_HEAL_MAX_PERCENT', 0.6))),
   /**
    * Diversidade do spawn (0–2+). Penaliza tipos já vivos e o último spawnado.
    * 0 = só pesos fixos; 1 = variação forte; >1 = ainda mais espalhado.

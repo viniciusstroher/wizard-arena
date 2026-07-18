@@ -2064,6 +2064,8 @@ export class Match {
       isBoss,
       isElite,
       difficulty: def.difficulty || (isBoss ? 'boss' : isElite ? 'hard' : 'normal'),
+      /** Acumulador para tentativa de auto-cura (só bosses). */
+      healAcc: 0,
       knockbackTimer: 0,
       knockbackDx: 0,
       knockbackDy: 0,
@@ -2078,6 +2080,50 @@ export class Match {
       burnTickAcc: 0,
       burnOwnerId: null,
     };
+  }
+
+  /**
+   * Auto-cura de boss: a cada BOSS_HEAL_INTERVAL, chance BOSS_HEAL_CHANCE
+   * de restaurar até BOSS_HEAL_MAX_PERCENT da vida máxima (sem ultrapassar maxHp).
+   */
+  tryBossHeal(monster, dt) {
+    if (!monster?.alive || !monster.isBoss) return;
+    if (monster.hp >= monster.maxHp) {
+      monster.healAcc = 0;
+      return;
+    }
+    const interval = Math.max(0.5, CONFIG.BOSS_HEAL_INTERVAL || 5);
+    monster.healAcc = (monster.healAcc || 0) + dt;
+    if (monster.healAcc < interval) return;
+    monster.healAcc = 0;
+
+    const chance = Math.max(0, Math.min(1, CONFIG.BOSS_HEAL_CHANCE ?? 0.1));
+    if (Math.random() >= chance) return;
+
+    const pct = Math.max(0, Math.min(1, CONFIG.BOSS_HEAL_MAX_PERCENT ?? 0.6));
+    if (pct <= 0) return;
+    const missing = Math.max(0, monster.maxHp - monster.hp);
+    const heal = Math.min(missing, Math.max(1, Math.round(monster.maxHp * pct)));
+    if (heal <= 0) return;
+
+    monster.hp = Math.min(monster.maxHp, monster.hp + heal);
+    this.effects.push({
+      type: 'heal',
+      x: monster.x,
+      y: monster.y,
+      life: 0.85,
+      maxLife: 0.85,
+      color: 0x55ff88,
+      radius: Math.max(42, (monster.radius || 20) * 1.6),
+    });
+    this.pushEvent({
+      type: 'boss_heal',
+      amount: heal,
+      x: +monster.x.toFixed(1),
+      y: +monster.y.toFixed(1),
+      targetId: monster.entityId,
+      targetName: monster.type || 'Boss',
+    });
   }
 
   /** Dano de magia de boss: % da vida máxima do alvo (máx. 85%), sem crítico além do teto. */
@@ -3329,6 +3375,7 @@ export class Match {
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
       m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
+      this.tryBossHeal(m, dt);
       if (m.stunTimer > 0) {
         m.vx = 0;
         m.vy = 0;
