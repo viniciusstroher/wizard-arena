@@ -107,6 +107,10 @@ export const CONFIG = {
   MONSTER_RADIUS: 14,
   MONSTER_ATTACK_RANGE: 28,
   MONSTER_ATTACK_COOLDOWN: 1.0,
+  /**
+   * Legado: a IA dos mobs não usa mais limite de aggro — eles sempre
+   * perseguem o jogador/bot vivo mais próximo e permanecem na plataforma.
+   */
   MONSTER_AGGRO_RANGE: 220,
   /** Peso base dos monstros comuns no sorteio de spawn. */
   MONSTER_WEIGHT_COMMON: envNumber('MONSTER_WEIGHT_COMMON', 10),

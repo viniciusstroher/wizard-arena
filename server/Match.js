@@ -350,6 +350,28 @@ export class Match {
     }
   }
 
+  /** Mantém o monstro dentro da plataforma (círculo da arena). */
+  clampMonsterToArena(m) {
+    const radius = m.radius || CONFIG.MONSTER_RADIUS;
+    this.resolveRockCollision(m, radius);
+    const dx = m.x - CONFIG.ARENA_CENTER_X;
+    const dy = m.y - CONFIG.ARENA_CENTER_Y;
+    const d = Math.hypot(dx, dy);
+    const maxR = Math.max(0, this.arenaRadius - radius);
+    if (d > maxR && d > 0) {
+      const nx = dx / d;
+      const ny = dy / d;
+      m.x = CONFIG.ARENA_CENTER_X + nx * maxR;
+      m.y = CONFIG.ARENA_CENTER_Y + ny * maxR;
+      const outward = (m.vx || 0) * nx + (m.vy || 0) * ny;
+      if (outward > 0) {
+        m.vx -= nx * outward;
+        m.vy -= ny * outward;
+      }
+      this.resolveRockCollision(m, radius);
+    }
+  }
+
   isBlockedByRock(x, y, radius) {
     for (const rock of this.solidObstacles()) {
       if (Math.hypot(x - rock.x, y - rock.y) < rock.radius + radius) return true;
@@ -571,17 +593,7 @@ export class Match {
     this.generateRocks();
     if (CONFIG.MONSTER_PERSIST_ROUNDS && this.monsters.length) {
       for (const m of this.monsters) {
-        const radius = m.radius || CONFIG.MONSTER_RADIUS;
-        this.resolveRockCollision(m, radius);
-        const dx = m.x - CONFIG.ARENA_CENTER_X;
-        const dy = m.y - CONFIG.ARENA_CENTER_Y;
-        const d = Math.hypot(dx, dy);
-        const maxR = Math.max(0, this.arenaRadius - radius);
-        if (d > maxR && d > 0) {
-          m.x = CONFIG.ARENA_CENTER_X + (dx / d) * maxR;
-          m.y = CONFIG.ARENA_CENTER_Y + (dy / d) * maxR;
-          this.resolveRockCollision(m, radius);
-        }
+        this.clampMonsterToArena(m);
       }
     }
   }
@@ -2888,7 +2900,7 @@ export class Match {
       }
     }
 
-    // Monsters AI
+    // Monsters AI — sempre na plataforma; sempre tentam engajar jogador/bot
     for (const m of this.monsters) {
       if (!m.alive) continue;
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
@@ -2898,6 +2910,7 @@ export class Match {
         m.vx = 0;
         m.vy = 0;
         m.knockbackTimer = 0;
+        this.clampMonsterToArena(m);
         continue;
       }
 
@@ -2913,11 +2926,13 @@ export class Match {
           m.vx *= 0.35;
           m.vy *= 0.35;
         }
+        this.clampMonsterToArena(m);
         continue;
       }
 
+      // Sem limite de aggro: sempre mira o vivo mais próximo (jogador ou bot)
       let nearest = null;
-      let nearestD = CONFIG.MONSTER_AGGRO_RANGE;
+      let nearestD = Infinity;
       for (const p of this.players.values()) {
         if (!p.alive) continue;
         const d = dist(m, p);
@@ -2927,13 +2942,25 @@ export class Match {
         }
       }
 
+      const mRadius = m.radius || CONFIG.MONSTER_RADIUS;
+      const fromCenter = dist(m, { x: CONFIG.ARENA_CENTER_X, y: CONFIG.ARENA_CENTER_Y });
+      const maxR = Math.max(0, this.arenaRadius - mRadius);
+      const outsidePlatform = fromCenter > maxR;
+
       const meleeRange =
         CONFIG.MONSTER_ATTACK_RANGE +
-        Math.max(0, (m.radius || CONFIG.MONSTER_RADIUS) - CONFIG.MONSTER_RADIUS);
+        Math.max(0, mRadius - CONFIG.MONSTER_RADIUS);
 
       let targetVx = 0;
       let targetVy = 0;
-      if (nearest) {
+      if (outsidePlatform) {
+        // Prioridade: voltar para a plataforma
+        const dx = CONFIG.ARENA_CENTER_X - m.x;
+        const dy = CONFIG.ARENA_CENTER_Y - m.y;
+        const len = Math.hypot(dx, dy) || 1;
+        targetVx = (dx / len) * m.speed;
+        targetVy = (dy / len) * m.speed;
+      } else if (nearest) {
         const dx = nearest.x - m.x;
         const dy = nearest.y - m.y;
         const len = Math.hypot(dx, dy) || 1;
@@ -3016,9 +3043,10 @@ export class Match {
 
       applyInertia(m, targetVx, targetVy, CONFIG.MONSTER_INERTIA, dt);
       m.x += m.vx * dt;
-      this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
+      this.resolveRockCollision(m, mRadius);
       m.y += m.vy * dt;
-      this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
+      this.resolveRockCollision(m, mRadius);
+      this.clampMonsterToArena(m);
     }
 
     // Projectiles
