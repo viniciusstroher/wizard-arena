@@ -2202,7 +2202,11 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.arenaFloor.setPosition(a.x, a.y);
-    this.arenaFloor.setSize(diameter, diameter);
+    // Keep TileSprite at max size; only the mask shrinks. Resizing every frame
+    // shifts UV from the top-left and makes the floor look like it's crawling.
+    if (diameter > this.arenaFloor.width) {
+      this.arenaFloor.setSize(diameter, diameter);
+    }
 
     this.arenaMaskGfx.clear();
     this.arenaMaskGfx.fillStyle(0xffffff, 1);
