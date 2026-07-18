@@ -2059,6 +2059,36 @@ export class Match {
     const bossDmgMul = isBoss ? CONFIG.DIFFICULTY_BOSS_DMG_MUL || 1 : 1;
     const hp = Math.round(CONFIG.MONSTER_HP * def.hpMul * bossHpMul);
     const damage = Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul * bossDmgMul);
+    const attack = def.attack || 'melee';
+    const castRate =
+      attack === 'caster'
+        ? isBoss
+          ? CONFIG.MONSTER_CAST_RATE_BOSS || 5
+          : isElite
+            ? CONFIG.MONSTER_CAST_RATE_ELITE || 3
+            : CONFIG.MONSTER_CAST_RATE_NORMAL || 0.4
+        : 1;
+    const baseAtkCd = def.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
+    const baseNovaCd = def.novaCooldown || 4;
+    // Magias de área / cone / radial — só elite e boss.
+    const AREA_SPELLS = new Set([
+      'flame_nova',
+      'poison_cloud',
+      'electric_storm',
+      'firebreath',
+      'skull_wave',
+      'void_collapse',
+      'abyss_nova',
+      'frost_apocalypse',
+      'plague_burst',
+      'shadow_eclipse',
+      'cataclysm_beam',
+    ]);
+    let spells = Array.isArray(def.spells) ? [...def.spells] : null;
+    if (spells && !isElite && !isBoss) {
+      spells = spells.filter((id) => !AREA_SPELLS.has(id));
+      if (!spells.length) spells = ['firebolt'];
+    }
 
     return {
       entityId: eid(),
@@ -2078,17 +2108,19 @@ export class Match {
       critChance: CONFIG.MONSTER_CRIT_CHANCE,
       critMult: CONFIG.MONSTER_CRIT_MULT,
       attackCd: 0,
-      attack: def.attack || 'melee',
-      spells: def.spells || null,
+      attack,
+      spells,
       projectile: def.projectile || null,
       range: def.range || CONFIG.MONSTER_ATTACK_RANGE,
       preferRange: def.preferRange || 0,
       projectileSpeed: def.projectileSpeed || 0,
       projectileRadius: def.projectileRadius || 6,
       projectileColor: def.projectileColor || def.color,
-      attackCooldown: def.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN,
+      castRate,
+      attackCooldown: Math.max(0.12, baseAtkCd / castRate),
       novaRadius: def.novaRadius || 110,
-      novaCooldown: def.novaCooldown || 4,
+      // Novas aceleram menos que fillers (teto ~2.5×) para não spammar AoE.
+      novaCooldown: Math.max(0.8, baseNovaCd / Math.min(castRate, 2.5)),
       novaCd: 0,
       skullCount: def.skullCount || 0,
       fireTrail: !!def.fireTrail,
@@ -2390,6 +2422,20 @@ export class Match {
   monsterCast(monster, spellId, target) {
     const stats = spellStats(spellId, 1);
     if (!stats) return;
+    const AREA_SPELLS = new Set([
+      'flame_nova',
+      'poison_cloud',
+      'electric_storm',
+      'firebreath',
+      'skull_wave',
+      'void_collapse',
+      'abyss_nova',
+      'frost_apocalypse',
+      'plague_burst',
+      'shadow_eclipse',
+      'cataclysm_beam',
+    ]);
+    if (AREA_SPELLS.has(spellId) && !monster.isElite && !monster.isBoss) return;
 
     switch (spellId) {
       case 'arc_lightning': {
@@ -2669,8 +2715,8 @@ export class Match {
           color: stats.color,
         });
         this.spawnSpellImpact(target.x, target.y, spellId, stats.color, 34);
-        monster.attackCd = monster.attackCooldown || stats.cooldown || 5.5;
-        monster.novaCd = Math.max(monster.novaCd || 0, (monster.novaCooldown || 5) * 0.85);
+        // Single-target de boss usa só attackCd — não bloqueia fillers/AoE via novaCd.
+        monster.attackCd = monster.attackCooldown || 1.2;
         break;
       }
       case 'infernal_judgment': {
@@ -2699,8 +2745,7 @@ export class Match {
           color: stats.color,
         });
         this.spawnSpellImpact(target.x, target.y, spellId, stats.color, 40);
-        monster.attackCd = monster.attackCooldown || stats.cooldown || 7;
-        monster.novaCd = Math.max(monster.novaCd || 0, (monster.novaCooldown || 5) * 0.9);
+        monster.attackCd = monster.attackCooldown || 1.25;
         break;
       }
       case 'void_collapse':
@@ -2788,8 +2833,8 @@ export class Match {
           maxLife: 0.6,
           color: stats.color,
         });
-        monster.attackCd = monster.attackCooldown || stats.cooldown || 6.5;
-        monster.novaCd = Math.max(monster.novaCd || 0, (monster.novaCooldown || 5) * 0.9);
+        monster.attackCd = monster.attackCooldown || 1.3;
+        monster.novaCd = monster.novaCooldown || 4.5;
         break;
       }
       default:
@@ -3476,15 +3521,22 @@ export class Match {
         const len = Math.hypot(dx, dy) || 1;
 
         if (m.attack === 'ranged') {
+          // Longa distância: mantém banda de tiro e faz strafe lateral.
           const shootRange = m.range || 180;
           const prefer = m.preferRange || shootRange * 0.7;
-          if (nearestD > shootRange) {
+          const sideX = -dy / len;
+          const sideY = dx / len;
+          const strafe = ((Number(m.entityId) || 0) % 2 === 0 ? 1 : -1) * m.speed * 0.45;
+          if (nearestD > shootRange * 0.92) {
             targetVx = (dx / len) * m.speed;
             targetVy = (dy / len) * m.speed;
-          } else if (nearestD < prefer * 0.65) {
-            // Recua um pouco para manter distância de tiro
-            targetVx = (-dx / len) * m.speed * 0.7;
-            targetVy = (-dy / len) * m.speed * 0.7;
+          } else if (nearestD < prefer * 0.7) {
+            targetVx = (-dx / len) * m.speed * 0.85 + sideX * strafe;
+            targetVy = (-dy / len) * m.speed * 0.85 + sideY * strafe;
+          } else {
+            // Na distância ideal: strafe para dificultar mira
+            targetVx = sideX * strafe;
+            targetVy = sideY * strafe;
           }
           if (nearestD <= shootRange && m.attackCd <= 0) {
             this.monsterShoot(m, nearest);
@@ -3495,11 +3547,25 @@ export class Match {
           const prefer = m.preferRange || shootRange * 0.7;
           const novaR = m.novaRadius || 110;
           const lightningR = spellStats('arc_lightning')?.range || 160;
+          const breathRange = spellStats('firebreath')?.range || 170;
+          const boltRange = spellStats('electric_bolt')?.range || 240;
+          const canArea = !!(m.isElite || m.isBoss);
+          const hasLongFiller = spells.some((id) =>
+            ['firebolt', 'ice_shard', 'electric_bolt', 'skull_wave'].includes(id)
+          );
+          const sideX = -dy / len;
+          const sideY = dx / len;
+          const strafe = ((Number(m.entityId) || 0) % 2 === 0 ? 1 : -1) * m.speed * 0.4;
 
           if (nearestD > shootRange) {
             targetVx = (dx / len) * m.speed;
             targetVy = (dy / len) * m.speed;
+          } else if (!hasLongFiller && nearestD > Math.min(breathRange, lightningR) * 0.9) {
+            // Só tem magias curtas — aproxima para conseguir castar
+            targetVx = (dx / len) * m.speed;
+            targetVy = (dy / len) * m.speed;
           } else if (
+            canArea &&
             (spells.includes('flame_nova') ||
               spells.includes('electric_storm') ||
               spells.includes('abyss_nova') ||
@@ -3511,18 +3577,21 @@ export class Match {
             nearestD < novaR * 0.45 &&
             (m.novaCd || 0) > 0
           ) {
-            // Nova/storm em CD e jogador colado — recua
-            targetVx = (-dx / len) * m.speed * 0.75;
-            targetVy = (-dy / len) * m.speed * 0.75;
-          } else if (nearestD < prefer * 0.6) {
-            targetVx = (-dx / len) * m.speed * 0.65;
-            targetVy = (-dy / len) * m.speed * 0.65;
+            targetVx = (-dx / len) * m.speed * 0.8 + sideX * strafe;
+            targetVy = (-dy / len) * m.speed * 0.8 + sideY * strafe;
+          } else if (nearestD < prefer * 0.55) {
+            targetVx = (-dx / len) * m.speed * 0.7 + sideX * strafe;
+            targetVy = (-dy / len) * m.speed * 0.7 + sideY * strafe;
+          } else if (nearestD > prefer * 1.15) {
+            targetVx = (dx / len) * m.speed * 0.75;
+            targetVy = (dy / len) * m.speed * 0.75;
+          } else {
+            targetVx = sideX * strafe;
+            targetVy = sideY * strafe;
           }
 
           if (m.attackCd <= 0) {
             let spell = null;
-            const breathRange = spellStats('firebreath')?.range || 170;
-            const boltRange = spellStats('electric_bolt')?.range || 240;
             const stormR = m.novaRadius || spellStats('electric_storm')?.radius || novaR;
             const bossNovaSpells = [
               'shadow_eclipse',
@@ -3540,16 +3609,21 @@ export class Match {
             const bossNovaReady =
               m.isBoss &&
               (m.novaCd || 0) <= 0 &&
-              bossNovaSpells.find((id) => spells.includes(id) && nearestD <= (m.novaRadius || spellStats(id)?.radius || novaR));
+              bossNovaSpells.find(
+                (id) =>
+                  spells.includes(id) &&
+                  nearestD <= (m.novaRadius || spellStats(id)?.radius || novaR)
+              );
+            // Singles de boss usam attackCd (já checado) — NÃO exigem novaCd.
             const bossSingleReady =
               m.isBoss &&
-              (m.novaCd || 0) <= 0 &&
               bossSingleSpells.find((id) => {
                 const r = spellStats(id)?.range || shootRange;
                 return spells.includes(id) && nearestD <= r;
               });
             const beamReady =
               m.isBoss &&
+              canArea &&
               spells.includes('cataclysm_beam') &&
               (m.novaCd || 0) <= 0 &&
               nearestD <= (spellStats('cataclysm_beam')?.range || 200);
@@ -3561,30 +3635,33 @@ export class Match {
             } else if (bossSingleReady) {
               spell = bossSingleReady;
             } else if (
+              canArea &&
               spells.includes('electric_storm') &&
               nearestD <= stormR &&
               (m.novaCd || 0) <= 0
             ) {
               spell = 'electric_storm';
             } else if (
+              canArea &&
               spells.includes('flame_nova') &&
               nearestD <= novaR &&
               (m.novaCd || 0) <= 0
             ) {
               spell = 'flame_nova';
             } else if (
+              canArea &&
               spells.includes('poison_cloud') &&
               nearestD <= (m.novaRadius || 100) &&
               (m.novaCd || 0) <= 0
             ) {
               spell = 'poison_cloud';
-            } else if (spells.includes('firebreath') && nearestD <= breathRange) {
+            } else if (canArea && spells.includes('firebreath') && nearestD <= breathRange) {
               spell = 'firebreath';
             } else if (spells.includes('electric_bolt') && nearestD <= boltRange) {
               spell = 'electric_bolt';
             } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
               spell = 'arc_lightning';
-            } else if (spells.includes('skull_wave') && nearestD <= shootRange) {
+            } else if (canArea && spells.includes('skull_wave') && nearestD <= shootRange) {
               spell = 'skull_wave';
             } else if (spells.includes('ice_shard') && nearestD <= shootRange) {
               spell = 'ice_shard';
@@ -3594,8 +3671,10 @@ export class Match {
             if (spell) this.monsterCast(m, spell, nearest);
           }
         } else if (nearestD > meleeRange) {
-          targetVx = (dx / len) * m.speed;
-          targetVy = (dy / len) * m.speed;
+          // Curta distância: persegue agressivo; acelera quando longe.
+          const charge = nearestD > meleeRange * 4 ? 1.2 : 1;
+          targetVx = (dx / len) * m.speed * charge;
+          targetVy = (dy / len) * m.speed * charge;
         } else if (m.attackCd <= 0) {
           this.damageEntity(nearest, m.damage, m.entityId, true, true);
           m.attackCd = m.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
