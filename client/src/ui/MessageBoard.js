@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 /**
  * Painel inferior-esquerdo de Eventos / Chat (HUD Phaser + input DOM).
- * Lobby: só aba Chat. Batalha: abas Eventos + Chat.
+ * Lobby: só aba Chat. Batalha: abas Chat + Eventos.
  */
 export class MessageBoard {
   /**
@@ -16,7 +16,7 @@ export class MessageBoard {
    */
   constructor(scene, options = {}) {
     this.scene = scene;
-    this.tabs = options.tabs?.length ? [...options.tabs] : ['events', 'chat'];
+    this.tabs = options.tabs?.length ? [...options.tabs] : ['chat', 'events'];
     this.activeTab = options.initialTab && this.tabs.includes(options.initialTab)
       ? options.initialTab
       : this.tabs[0];

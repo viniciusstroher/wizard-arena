@@ -664,8 +664,8 @@ export class GameScene extends Phaser.Scene {
 
   createEventBoard() {
     this.messageBoard = new MessageBoard(this, {
-      tabs: ['events', 'chat'],
-      initialTab: 'events',
+      tabs: ['chat', 'events'],
+      initialTab: 'chat',
       onSendChat: (text) => this.socket.emit('chat_message', { text }),
     });
     this.messageBoard.pushEvent('Partida iniciada');
