@@ -143,6 +143,7 @@ export class BootScene extends Phaser.Scene {
     this.createBloodSprites();
     this.createBonesSprites();
     this.createLootBagSprite();
+    this.createCoinSprite();
     this.createSpellIcons();
     this.scene.start('Lobby');
   }
@@ -1188,6 +1189,29 @@ export class BootScene extends Phaser.Scene {
         '..............',
       ],
       { B: 0x3d2410, R: 0xa86b32, G: 0xffd84a, Y: 0xffe066, W: 0xfff2a8 },
+      3
+    );
+  }
+
+  createCoinSprite() {
+    makePixelTexture(
+      this,
+      'coin',
+      [
+        '............',
+        '....YYYY....',
+        '...YWWWWY...',
+        '..YWGGGGWY..',
+        '.YWGGGGGGWY.',
+        '.YWGGYYGGWY.',
+        '.YWGGYYGGWY.',
+        '.YWGGGGGGWY.',
+        '..YWGGGGWY..',
+        '...YWWWWY...',
+        '....YYYY....',
+        '............',
+      ],
+      { Y: 0xe8b020, W: 0xffe066, G: 0xd4a017 },
       3
     );
   }

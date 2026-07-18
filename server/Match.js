@@ -85,6 +85,7 @@ export class Match {
     this.aoes = [];
     this.effects = [];
     this.lootBags = [];
+    this.coins = [];
     this.meteors = [];
     this.meteorTimer = 0;
     this.massHeals = [];
@@ -472,6 +473,7 @@ export class Match {
       deaths: 0,
       monsterKills: 0,
       loot: 0,
+      gold: 0,
       damageDealt: 0,
       critChance: CONFIG.PLAYER_CRIT_CHANCE,
       critMult: CONFIG.PLAYER_CRIT_MULT,
@@ -583,6 +585,7 @@ export class Match {
     this.aoes = [];
     this.effects = [];
     this.lootBags = [];
+    this.coins = [];
     this.meteors = [];
     this.meteorTimer = 0;
     this.massHeals = [];
@@ -1338,17 +1341,46 @@ export class Match {
     return bone;
   }
 
+  /** Posição do drop em cima do crânio do esqueleto. */
+  dropPosOnBones(bones) {
+    return {
+      x: +(bones.x + (bones.skullOffsetX || 0)).toFixed(1),
+      y: +(bones.y + (bones.skullOffsetY || -6) - 2).toFixed(1),
+    };
+  }
+
   /** Saco em cima do crânio do esqueleto. */
   spawnLootBagOnBones(bones) {
-    const x = bones.x + (bones.skullOffsetX || 0);
-    const y = bones.y + (bones.skullOffsetY || -6) - 2;
+    const { x, y } = this.dropPosOnBones(bones);
     this.lootBags.push({
       entityId: eid(),
-      x: +x.toFixed(1),
-      y: +y.toFixed(1),
+      x,
+      y,
       radius: CONFIG.LOOT_BAG_RADIUS,
       readyAt: this.matchTime + CONFIG.LOOT_BAG_PICKUP_DELAY,
     });
+  }
+
+  /** Moeda em cima do crânio do esqueleto. */
+  spawnCoinOnBones(bones) {
+    const { x, y } = this.dropPosOnBones(bones);
+    this.coins.push({
+      entityId: eid(),
+      x,
+      y,
+      radius: CONFIG.COIN_RADIUS,
+      value: CONFIG.COIN_VALUE,
+      readyAt: this.matchTime + CONFIG.COIN_PICKUP_DELAY,
+    });
+  }
+
+  /** Mob morto: saco de loot OU moeda (nunca os dois). */
+  spawnMonsterDrop(bones) {
+    if (Math.random() < CONFIG.MONSTER_COIN_DROP_CHANCE) {
+      this.spawnCoinOnBones(bones);
+    } else {
+      this.spawnLootBagOnBones(bones);
+    }
   }
 
   /** Jogadores/bots vivos coletam sacos ao passar por cima (após o delay). */
@@ -1379,6 +1411,38 @@ export class Match {
       if (!taken) remaining.push(bag);
     }
     this.lootBags = remaining;
+  }
+
+  /** Jogadores/bots vivos coletam moedas ao passar por cima (após o delay). */
+  collectCoins() {
+    if (!this.coins.length) return;
+    const pickupR = CONFIG.PLAYER_RADIUS + CONFIG.COIN_RADIUS;
+    const remaining = [];
+    for (const coin of this.coins) {
+      if (this.matchTime < (coin.readyAt || 0)) {
+        remaining.push(coin);
+        continue;
+      }
+      let taken = false;
+      for (const p of this.players.values()) {
+        if (!p.alive) continue;
+        if (dist(p, coin) > pickupR) continue;
+        const value = Math.max(1, Math.round(coin.value || CONFIG.COIN_VALUE));
+        p.gold = (p.gold || 0) + value;
+        this.pushEvent({
+          type: 'coin_pickup',
+          playerId: p.id,
+          gold: p.gold,
+          value,
+          x: coin.x,
+          y: coin.y,
+        });
+        taken = true;
+        break;
+      }
+      if (!taken) remaining.push(coin);
+    }
+    this.coins = remaining;
   }
 
   /** @param {boolean} fromHit hit de jogador/monstro (não zona) */
@@ -1473,11 +1537,11 @@ export class Match {
       return true;
     }
 
-    // Monster — ossos + saco de loot em cima do esqueleto; remove da lista
+    // Monster — ossos + saco de loot OU moeda; remove da lista
     const mx = target.x;
     const my = target.y;
     const bones = this.spawnBones(mx, my);
-    this.spawnLootBagOnBones(bones);
+    this.spawnMonsterDrop(bones);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
@@ -1571,6 +1635,7 @@ export class Match {
           deaths: p.deaths,
           monsterKills: p.monsterKills || 0,
           loot: p.loot || 0,
+          gold: p.gold || 0,
           damageDealt: Math.round(p.damageDealt || 0),
           level: p.level,
         }))
@@ -3178,6 +3243,7 @@ export class Match {
     this.effects = this.effects.filter((e) => e.life > 0);
 
     this.collectLootBags();
+    this.collectCoins();
 
     this.broadcastState();
   }
@@ -3248,6 +3314,7 @@ export class Match {
       deaths: p.deaths,
       monsterKills: p.monsterKills || 0,
       loot: p.loot || 0,
+      gold: p.gold || 0,
       score: p.score,
       damageDealt: Math.round(p.damageDealt || 0),
       pendingLevelUps: p.pendingLevelUps,
@@ -3348,6 +3415,13 @@ export class Match {
         x: b.x,
         y: b.y,
         radius: b.radius,
+      })),
+      coins: this.coins.map((c) => ({
+        entityId: c.entityId,
+        x: c.x,
+        y: c.y,
+        radius: c.radius,
+        value: c.value || CONFIG.COIN_VALUE,
       })),
       events: this.events,
       winnerId: this.winnerId,

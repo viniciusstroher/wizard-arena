@@ -102,14 +102,21 @@ export class BotController {
     return best;
   }
 
-  /** Saco de loot mais próximo dentro do alcance de busca. */
-  findNearestLootBag(player, maxDist = 220) {
+  /** Saco de loot ou moeda mais próximo dentro do alcance de busca. */
+  findNearestPickup(player, maxDist = 220) {
     let best = null;
     let bestD = Infinity;
     for (const bag of this.match.lootBags || []) {
       const d = Math.hypot(bag.x - player.x, bag.y - player.y);
       if (d <= maxDist && d < bestD) {
         best = bag;
+        bestD = d;
+      }
+    }
+    for (const coin of this.match.coins || []) {
+      const d = Math.hypot(coin.x - player.x, coin.y - player.y);
+      if (d <= maxDist && d < bestD) {
+        best = coin;
         bestD = d;
       }
     }
@@ -188,7 +195,7 @@ export class BotController {
 
     const threat = this.findThreateningMeteor(player);
     const heal = this.findMassHealTarget(player);
-    const lootBag = this.findNearestLootBag(player);
+    const pickup = this.findNearestPickup(player);
 
     // 1) Prioridade máxima: sair da área do meteoro
     if (threat) {
@@ -224,11 +231,11 @@ export class BotController {
       } else {
         ({ up, down, left, right } = dirsToward(player.x, player.y, heal.x, heal.y));
       }
-    } else if (lootBag && fromCenter <= arena.r) {
-      // 3) Coleta saco de loot próximo
-      aimX = lootBag.x;
-      aimY = lootBag.y;
-      ({ up, down, left, right } = dirsToward(player.x, player.y, lootBag.x, lootBag.y, 6));
+    } else if (pickup && fromCenter <= arena.r) {
+      // 3) Coleta saco de loot ou moeda próximo
+      aimX = pickup.x;
+      aimY = pickup.y;
+      ({ up, down, left, right } = dirsToward(player.x, player.y, pickup.x, pickup.y, 6));
     } else if (fromCenter > arena.r) {
       // Fica dentro da arena
       aimX = arena.x;

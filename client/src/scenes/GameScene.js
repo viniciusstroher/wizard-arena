@@ -17,6 +17,7 @@ export class GameScene extends Phaser.Scene {
     this.bloodSprites = new Map();
     this.boneSprites = new Map();
     this.lootBagSprites = new Map();
+    this.coinSprites = new Map();
     this.localCorpses = [];
     this.aoeGraphics = null;
     this.arenaGraphics = null;
@@ -332,6 +333,15 @@ export class GameScene extends Phaser.Scene {
       })
       .setScrollFactor(0)
       .setDepth(102);
+    this.goldText = this.add
+      .text(100, 94, 'Gold 0', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#ffd76a',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
 
     // Status recebidos (slow, etc.) — abaixo de Lv/XP
     this.statusSlots = [];
@@ -463,7 +473,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   createScoreboard(width) {
-    const panelW = 300;
+    const panelW = 340;
     const panelX = width - 12 - panelW;
     const panelY = 12;
     const maxRows = 8;
@@ -523,7 +533,7 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
     this.scoreboardHeaderStats = this.add
-      .text(panelX + panelW - 12, panelY + 36, 'K/M  Mob  Loot  Dmg  Pts', {
+      .text(panelX + panelW - 12, panelY + 36, 'K/M  Mob  Loot  Gold  Dmg  Pts', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '10px',
         color: '#7a6d9a',
@@ -614,7 +624,7 @@ export class GameScene extends Phaser.Scene {
         .setVisible(true);
       row.stats
         .setText(
-          `${p.kills || 0}/${p.deaths || 0}  ${p.monsterKills || 0}  ${p.loot || 0}  ${p.damageDealt || 0}  ${p.score || 0}`
+          `${p.kills || 0}/${p.deaths || 0}  ${p.monsterKills || 0}  ${p.loot || 0}  ${p.gold || 0}  ${p.damageDealt || 0}  ${p.score || 0}`
         )
         .setColor(color)
         .setPosition(panelX + panelW - 12, y)
@@ -808,7 +818,8 @@ export class GameScene extends Phaser.Scene {
         (b.level || 0) - (a.level || 0)
     );
     const winner = ranking.find((p) => p.id === state.winnerId) || ranking[0] || null;
-    const header = 'Jogador          K/M   Mob  Loot   Dano   Pts';
+    const me = ranking.find((p) => p.id === this.playerId) || null;
+    const header = 'Jogador          K/M   Mob  Loot  Gold   Dano   Pts';
     const rows = ranking
       .map((p, i) => {
         const mark = p.id === winner?.id ? '★' : `${i + 1}.`;
@@ -816,14 +827,15 @@ export class GameScene extends Phaser.Scene {
         const km = `${p.kills || 0}/${p.deaths || 0}`.padStart(5, ' ');
         const mob = String(p.monsterKills || 0).padStart(5, ' ');
         const loot = String(p.loot || 0).padStart(5, ' ');
+        const gold = String(p.gold || 0).padStart(5, ' ');
         const dmg = String(p.damageDealt || 0).padStart(6, ' ');
         const pts = String(p.score || 0).padStart(5, ' ');
-        return `${name}${km} ${mob} ${loot} ${dmg} ${pts}`;
+        return `${name}${km} ${mob} ${loot} ${gold} ${dmg} ${pts}`;
       })
       .join('\n');
 
-    const panelW = 560;
-    const panelH = Math.min(440, 230 + ranking.length * 22);
+    const panelW = 620;
+    const panelH = Math.min(460, 250 + ranking.length * 22);
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
     const panel = this.add
       .rectangle(width / 2, height / 2, panelW, panelH, 0x161228, 0.98)
@@ -842,8 +854,22 @@ export class GameScene extends Phaser.Scene {
         color: '#a99bc8',
       })
       .setOrigin(0.5);
+    const goldGained = me?.gold || 0;
+    const goldLine = this.add
+      .text(
+        width / 2,
+        height / 2 - panelH / 2 + 90,
+        `Você ganhou ${goldGained} gold`,
+        {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '15px',
+          fontStyle: 'bold',
+          color: '#ffd76a',
+        }
+      )
+      .setOrigin(0.5);
     const boardHeader = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 96, header, {
+      .text(width / 2, height / 2 - panelH / 2 + 116, header, {
         fontFamily: 'Consolas, Monaco, monospace',
         fontSize: '13px',
         color: '#7a6d9a',
@@ -851,7 +877,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
     const board = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 118, rows || 'Sem jogadores', {
+      .text(width / 2, height / 2 - panelH / 2 + 138, rows || 'Sem jogadores', {
         fontFamily: 'Consolas, Monaco, monospace',
         fontSize: '14px',
         color: '#e8dfff',
@@ -874,7 +900,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
-    this.matchEndModal.add([dim, panel, title, subtitle, boardHeader, board, lobbyBg, lobbyLabel]);
+    this.matchEndModal.add([dim, panel, title, subtitle, goldLine, boardHeader, board, lobbyBg, lobbyLabel]);
     this.bannerText.setAlpha(0);
   }
 
@@ -973,6 +999,8 @@ export class GameScene extends Phaser.Scene {
         return `${this.playerName(ev.killerId)} derrotou um monstro`;
       case 'loot_pickup':
         return `${this.playerName(ev.playerId)} coletou loot (+1)`;
+      case 'coin_pickup':
+        return `${this.playerName(ev.playerId)} coletou moeda (+${ev.value || 1} gold)`;
       case 'damage': {
         // Zona/DoT contínuo: só números flutuantes (evita spam no painel)
         if (!ev.fromHit && !ev.sourceId) return null;
@@ -1309,6 +1337,7 @@ export class GameScene extends Phaser.Scene {
     this.renderAoes();
     this.renderEffects();
     this.renderLootBags();
+    this.renderCoins();
     this.renderSpawnPing();
     this.updateHud();
     this.updateLevelUpUi();
@@ -3862,6 +3891,49 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  renderCoins() {
+    if (!this.textures.exists('coin')) return;
+    const seen = new Set();
+    for (const coin of this.state?.coins || []) {
+      seen.add(coin.entityId);
+      let s = this.coinSprites.get(coin.entityId);
+      if (!s) {
+        s = this.add
+          .image(coin.x, coin.y, 'coin')
+          .setDepth(6)
+          .setScale(0.2)
+          .setAlpha(1);
+        this.coinSprites.set(coin.entityId, s);
+        this.tweens.add({
+          targets: s,
+          scale: 1.05,
+          duration: 200,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            if (!s.active) return;
+            this.tweens.add({
+              targets: s,
+              y: coin.y - 4,
+              duration: 420,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            });
+          },
+        });
+      } else {
+        s.x = coin.x;
+      }
+    }
+    for (const [id, s] of this.coinSprites) {
+      if (!seen.has(id)) {
+        this.tweens.killTweensOf(s);
+        s.destroy();
+        this.coinSprites.delete(id);
+      }
+    }
+  }
+
   updateHud() {
     const me = this.me();
     if (!me) return;
@@ -3920,6 +3992,8 @@ export class GameScene extends Phaser.Scene {
 
     this.lootText.setPosition(PAD_X + 4, y);
     this.lootText.setText(`Loot ${me.loot || 0}`);
+    this.goldText.setPosition(this.lootText.x + this.lootText.width + 14, y);
+    this.goldText.setText(`Gold ${me.gold || 0}`);
     y += 20;
 
     // Status recebidos (abaixo de Lv/XP)
@@ -3968,7 +4042,7 @@ export class GameScene extends Phaser.Scene {
     const contentRight = Math.max(
       PAD_X + BAR_W,
       this.scoreText.x + this.scoreText.width,
-      this.lootText.x + this.lootText.width
+      this.goldText.x + this.goldText.width
     );
     const panelW = Math.max(240, contentRight - PANEL_X + 12);
     const panelH = Math.max(72, y - PANEL_Y + 8);
