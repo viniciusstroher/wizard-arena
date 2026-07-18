@@ -137,8 +137,10 @@ export class BootScene extends Phaser.Scene {
     this.createArenaDirtTexture();
     this.createArenaGrassTexture();
     this.createArenaIceTexture();
+    this.createArenaWoodTexture();
     this.createLavaTextures();
     this.createRockSprites();
+    this.createFurnitureSprites();
     this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
@@ -999,6 +1001,250 @@ export class BootScene extends Phaser.Scene {
     );
   }
 
+  createFurnitureSprites() {
+    // D=sombra, L=base, M=meio, H=highlight, C=fenda/detalhe, M=madeira, S=assento
+    const oak = { D: 0x2a1a10, L: 0x6a4428, M: 0x8a5a34, H: 0xc49a5a, C: 0x3e2818, S: 0xa07040 };
+    const pine = { D: 0x2e2214, L: 0x7a5a30, M: 0x9a7440, H: 0xd4b070, C: 0x4a3420, S: 0xb88850 };
+    const walnut = { D: 0x1e140c, L: 0x4a3020, M: 0x6a4830, H: 0x9a6a48, C: 0x2e1e14, S: 0x7a5038 };
+    const crate = { D: 0x241810, L: 0x5a3e24, M: 0x7a5430, H: 0xb88850, C: 0x3a2818, S: 0x8a6440 };
+
+    // Cadeira (pequena)
+    makePixelTexture(
+      this,
+      'furn_chair_0',
+      [
+        '..........',
+        '..HH......',
+        '..MMH.....',
+        '..MMC.....',
+        '..MMM.....',
+        '.SMMMS....',
+        '.DLLLD....',
+        '..L..L....',
+        '..L..L....',
+        '..........',
+      ],
+      oak,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_chair_1',
+      [
+        '..........',
+        '...HH.....',
+        '..HMMH....',
+        '..MCMC....',
+        '.SMMMS....',
+        '.DLLLD....',
+        '..L..L....',
+        '..L..L....',
+        '..........',
+        '..........',
+      ],
+      pine,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_chair_2',
+      [
+        '..........',
+        '.HH.HH....',
+        '.MM.MM....',
+        '.MCMC.....',
+        'SMMMMS....',
+        'DLLLLD....',
+        '.L..L.....',
+        '.L..L.....',
+        '..........',
+        '..........',
+      ],
+      walnut,
+      3
+    );
+
+    // Caixa / barril
+    makePixelTexture(
+      this,
+      'furn_crate_0',
+      [
+        '............',
+        '..DDDDDDD...',
+        '.DLHHHHHLD..',
+        '.DLMMMMMLD..',
+        '.DLMCMMCLD..',
+        '.DLMMMMMLD..',
+        '.DLHHHHHLD..',
+        '..DDDDDDD...',
+        '............',
+        '............',
+      ],
+      crate,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_crate_1',
+      [
+        '............',
+        '...DDDDD....',
+        '..DLHHHLD...',
+        '.DLMMMMMLD..',
+        '.DLMHMHMLD..',
+        '.DLMMMMMLD..',
+        '..DLHHHLD...',
+        '...DDDDD....',
+        '............',
+        '............',
+      ],
+      oak,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_crate_2',
+      [
+        '............',
+        '..DDDDDD....',
+        '.DLHHHHLD...',
+        '.DLMMMMLD...',
+        '.DLCMMCLD...',
+        '.DLMMMMLD...',
+        '.DLHHHHLD...',
+        '..DDDDDD....',
+        '............',
+        '............',
+      ],
+      pine,
+      3
+    );
+
+    // Mesa
+    makePixelTexture(
+      this,
+      'furn_table_0',
+      [
+        '..............',
+        '.HHHHHHHHHHH..',
+        '.MMMMMMMMMMM..',
+        '.DLLLLLLLLLD..',
+        '..L......L....',
+        '..L......L....',
+        '..L......L....',
+        '..D......D....',
+        '..............',
+        '..............',
+      ],
+      oak,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_table_1',
+      [
+        '..............',
+        '..HHHHHHHHH...',
+        '..MMMMMCMMM...',
+        '..DLLLLLLLD...',
+        '...L.....L....',
+        '...L.....L....',
+        '...L.....L....',
+        '...D.....D....',
+        '..............',
+        '..............',
+      ],
+      pine,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_table_2',
+      [
+        '..............',
+        '.HHHHHHHHHH...',
+        '.MMMHCMMMMM...',
+        '.DLLLLLLLLD...',
+        '..L..L...L....',
+        '..L..L...L....',
+        '..L......L....',
+        '..D......D....',
+        '..............',
+        '..............',
+      ],
+      walnut,
+      3
+    );
+
+    // Armário / estante (grande)
+    makePixelTexture(
+      this,
+      'furn_cabinet_0',
+      [
+        '................',
+        '..DDDDDDDDDD....',
+        '.DLHHHHHHHHLD...',
+        '.DLMMMMMMMMLD...',
+        '.DLMHCCHMMMLD...',
+        '.DLMMMMMMMMLD...',
+        '.DLMHCCHMMMLD...',
+        '.DLMMMMMMMMLD...',
+        '.DLHHHHHHHHLD...',
+        '..DDDDDDDDDD....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      walnut,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_cabinet_1',
+      [
+        '................',
+        '...DDDDDDDD.....',
+        '..DLHHHHHHLD....',
+        '.DLMMMMMMMMLD...',
+        '.DLMHMMMMHMLD...',
+        '.DLMMCMMCMLD....',
+        '.DLMHMMMMHMLD...',
+        '.DLMMMMMMMMLD...',
+        '..DLHHHHHHLD....',
+        '...DDDDDDDD.....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      oak,
+      3
+    );
+    makePixelTexture(
+      this,
+      'furn_cabinet_2',
+      [
+        '................',
+        '..DDDDDDDDD.....',
+        '.DLHHHHHHHLD....',
+        '.DLMMMMMMMLD....',
+        '.DLCMMMMMCLD....',
+        '.DLMMMMMMMLD....',
+        '.DLCMMMMMCLD....',
+        '.DLMMMMMMMLD....',
+        '.DLHHHHHHHLD....',
+        '..DDDDDDDDD.....',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      pine,
+      3
+    );
+  }
+
   createTreeSprites() {
     // T=tronco, D=sombra folha, L=folha escura, M=folha, H=highlight, F=fruta
     const pine = { T: 0x5a3a22, D: 0x1e3a18, L: 0x2e5a28, M: 0x3e7a34, H: 0x5aaa48 };
@@ -1749,6 +1995,114 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('arena_ice', tw, th);
     g.destroy();
     this.textures.get('arena_ice').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createArenaWoodTexture() {
+    // Tile 64×64 seamless — tábuas de madeira com veios e nós
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0x5a3a22, // tábua escura
+      0x6e4a2a, // tábua média
+      0x8a5e34, // tábua clara
+      0x3e2814, // sombra / junta
+      0xa07040, // destaque
+      0x4a3018, // veia
+      0x7a5230, // nó
+      0xb88850, // brilho
+      0x644028, // tábua média-escura
+      0x9a6840, // pó / desgaste
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+
+    const wrap = (v, m) => ((v % m) + m) % m;
+
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    const plankH = 16;
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const plank = Math.floor(y / plankH);
+        const localY = y % plankH;
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 19, tw), wrap(y + 11, th));
+        const h = hash(x + plank * 17, y);
+
+        let tone;
+        if (n1 < 0.25) tone = tones[0];
+        else if (n1 < 0.45) tone = tones[8];
+        else if (n1 < 0.65) tone = tones[1];
+        else if (n1 < 0.82) tone = tones[2];
+        else tone = tones[4];
+
+        // Offset por tábua para quebrar o padrão
+        if ((plank & 1) === 1 && n1 > 0.4 && n1 < 0.7) tone = tones[1];
+
+        if (n2 > 0.86) tone = tones[9];
+        if (n2 < 0.14) tone = tones[0];
+
+        // Juntas horizontais entre tábuas
+        if (localY === 0 || localY === plankH - 1) tone = tones[3];
+        // Junta vertical deslocada por fileira
+        const seamX = wrap(plank * 23 + 8, tw);
+        if (x === seamX || x === wrap(seamX + 32, tw)) tone = tones[3];
+
+        // Veios longitudinais
+        if ((h & 63) === 11 && localY > 2 && localY < plankH - 2) tone = tones[5];
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[2];
+
+        // Nós de madeira
+        if ((h & 255) === 37) tone = tones[6];
+        if ((h & 255) === 91) tone = tones[7];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    // Nós maiores
+    const knots = [
+      [12, 8], [40, 22], [28, 40], [52, 54], [6, 48], [48, 10],
+    ];
+    for (const [kx, ky] of knots) {
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          if (dx * dx + dy * dy > 5) continue;
+          const px = wrap(kx + dx, tw);
+          const py = wrap(ky + dy, th);
+          g.fillStyle(dx === 0 && dy === 0 ? 0x3e2814 : 0x6a4830, 1);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    g.generateTexture('arena_wood', tw, th);
+    g.destroy();
+    this.textures.get('arena_wood').setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
 
   /** Title decoration: blue mana potion flask. */

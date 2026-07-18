@@ -116,7 +116,7 @@ export class Match {
     this.bots = [];
     this.rocks = [];
     this.trees = [];
-    /** 'dirt' | 'grass' | 'ice' — escolhido ao regenerar a arena. */
+    /** 'dirt' | 'grass' | 'ice' | 'wood' — escolhido ao regenerar a arena. */
     this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
@@ -190,10 +190,10 @@ export class Match {
     }
   }
 
-  /** Pedras apenas dentro do círculo da arena. */
+  /** Pedras / móveis apenas dentro do círculo da arena. */
   generateRocks() {
-    // Terços iguais: grama / terra / gelo.
-    const floors = ['grass', 'dirt', 'ice'];
+    // Quartos iguais: grama / terra / gelo / madeira.
+    const floors = ['grass', 'dirt', 'ice', 'wood'];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
     const dirtTypes = [
@@ -206,7 +206,18 @@ export class Match {
       { type: 'ice_rock', radius: 18 },
       { type: 'ice_boulder', radius: 26 },
     ];
-    const types = this.floorType === 'ice' ? iceTypes : dirtTypes;
+    const woodTypes = [
+      { type: 'chair', radius: 12 },
+      { type: 'crate', radius: 14 },
+      { type: 'table', radius: 18 },
+      { type: 'cabinet', radius: 26 },
+    ];
+    const types =
+      this.floorType === 'ice'
+        ? iceTypes
+        : this.floorType === 'wood'
+          ? woodTypes
+          : dirtTypes;
     const count =
       CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
     const rocks = [];

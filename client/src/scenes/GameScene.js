@@ -2043,6 +2043,10 @@ export class GameScene extends Phaser.Scene {
       ice_stone: ['rock_ice_stone_0', 'rock_ice_stone_1', 'rock_ice_stone_2'],
       ice_rock: ['rock_ice_rock_0', 'rock_ice_rock_1', 'rock_ice_rock_2'],
       ice_boulder: ['rock_ice_boulder_0', 'rock_ice_boulder_1', 'rock_ice_boulder_2'],
+      chair: ['furn_chair_0', 'furn_chair_1', 'furn_chair_2'],
+      crate: ['furn_crate_0', 'furn_crate_1', 'furn_crate_2'],
+      table: ['furn_table_0', 'furn_table_1', 'furn_table_2'],
+      cabinet: ['furn_cabinet_0', 'furn_cabinet_1', 'furn_cabinet_2'],
     };
 
     const hashId = (id) => {
@@ -2060,17 +2064,23 @@ export class GameScene extends Phaser.Scene {
         const h = hashId(rock.id);
         const key = list[h % list.length];
         if (!this.textures.exists(key)) continue;
-        const isBoulder = rock.type === 'boulder' || rock.type === 'ice_boulder';
-        const isRock = rock.type === 'rock' || rock.type === 'ice_rock';
-        const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : 1;
+        const isFurniture = ['chair', 'crate', 'table', 'cabinet'].includes(rock.type);
+        const isBoulder =
+          rock.type === 'boulder' || rock.type === 'ice_boulder' || rock.type === 'cabinet';
+        const isRock =
+          rock.type === 'rock' || rock.type === 'ice_rock' || rock.type === 'table';
+        const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : rock.type === 'crate' ? 1.04 : 1;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
+        const rot = isFurniture
+          ? (((h >>> 3) % 5) - 2) * 0.015
+          : (((h >>> 3) % 21) - 10) * 0.02;
         s = this.add
           .image(rock.x, rock.y, key)
           .setDepth(5)
           .setOrigin(0.5, 0.7)
           .setScale(baseScale * scaleJitter)
           .setFlipX((h & 1) === 1)
-          .setRotation((((h >>> 3) % 21) - 10) * 0.02);
+          .setRotation(rot);
         this.rockSprites.set(rock.id, s);
       } else {
         s.setPosition(rock.x, rock.y);
@@ -2157,7 +2167,9 @@ export class GameScene extends Phaser.Scene {
         ? 'arena_grass'
         : a.floorType === 'ice'
           ? 'arena_ice'
-          : 'arena_brick';
+          : a.floorType === 'wood'
+            ? 'arena_wood'
+            : 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }

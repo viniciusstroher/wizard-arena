@@ -43,7 +43,7 @@ export const CONFIG = {
   /** Velocidade de movimento de jogadores/bots (px/s). */
   PLAYER_SPEED: envNumber('PLAYER_SPEED', 189),
   /** Multiplicador de velocidade por tipo de chão da arena. */
-  FLOOR_SPEED_MUL: { dirt: 1, grass: 1, ice: 0.75 },
+  FLOOR_SPEED_MUL: { dirt: 1, grass: 1, ice: 0.75, wood: 1.2 },
   PLAYER_RADIUS: 16,
   /** Raio de coleta do saco de loot no chão. */
   LOOT_BAG_RADIUS: 14,
