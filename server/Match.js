@@ -96,6 +96,10 @@ export class Match {
     this.arenaRadius = CONFIG.ARENA_START_RADIUS;
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
     this.shrinksDone = 0;
+    this.shrinkActive = false;
+    this.shrinkFrom = CONFIG.ARENA_START_RADIUS;
+    this.shrinkTo = CONFIG.ARENA_START_RADIUS;
+    this.shrinkElapsed = 0;
     this.monsterSpawnTimer = 0;
     this.lastSpawnedMonsterType = null;
     this.countdown = 0;
@@ -523,6 +527,10 @@ export class Match {
     this.arenaRadius = CONFIG.ARENA_START_RADIUS;
     this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
     this.shrinksDone = 0;
+    this.shrinkActive = false;
+    this.shrinkFrom = CONFIG.ARENA_START_RADIUS;
+    this.shrinkTo = CONFIG.ARENA_START_RADIUS;
+    this.shrinkElapsed = 0;
     this.monsterSpawnTimer = 1;
     this.xpPassiveTimer = 0;
     if (CONFIG.MONSTER_PERSIST_ROUNDS) {
@@ -2671,22 +2679,41 @@ export class Match {
       }
     }
 
-    // Arena shrink (quantidade e intervalo via .env)
-    if (
+    // Arena shrink gradual (intervalo / duração / quantidade via .env)
+    if (this.shrinkActive) {
+      this.shrinkElapsed += dt;
+      const t = Math.min(1, this.shrinkElapsed / CONFIG.ARENA_SHRINK_DURATION);
+      this.arenaRadius = this.shrinkFrom + (this.shrinkTo - this.shrinkFrom) * t;
+      this.cullTreesOutsideArena();
+      this.cullRocksOutsideArena();
+      if (t >= 1) {
+        this.arenaRadius = this.shrinkTo;
+        this.shrinkActive = false;
+        this.shrinksDone += 1;
+      }
+    } else if (
       this.shrinksDone < CONFIG.ARENA_SHRINK_TIMES &&
       this.roundTime >= this.nextShrinkAt
     ) {
-      this.arenaRadius = Math.max(
+      this.shrinkFrom = this.arenaRadius;
+      this.shrinkTo = Math.max(
         CONFIG.ARENA_MIN_RADIUS,
         this.arenaRadius - CONFIG.ARENA_SHRINK_AMOUNT
       );
-      this.shrinksDone += 1;
-      if (this.shrinksDone < CONFIG.ARENA_SHRINK_TIMES) {
+      this.shrinkElapsed = 0;
+      if (this.shrinksDone + 1 < CONFIG.ARENA_SHRINK_TIMES) {
         this.nextShrinkAt += CONFIG.ARENA_SHRINK_INTERVAL;
       }
-      this.cullTreesOutsideArena();
-      this.cullRocksOutsideArena();
-      this.pushEvent({ type: 'arena_shrink', radius: this.arenaRadius });
+      this.pushEvent({ type: 'arena_shrink', radius: this.shrinkTo });
+      if (CONFIG.ARENA_SHRINK_DURATION <= 0) {
+        this.arenaRadius = this.shrinkTo;
+        this.shrinkActive = false;
+        this.shrinksDone += 1;
+        this.cullTreesOutsideArena();
+        this.cullRocksOutsideArena();
+      } else {
+        this.shrinkActive = true;
+      }
     }
 
     // Spawns
@@ -3178,6 +3205,8 @@ export class Match {
         nextShrinkAt: this.nextShrinkAt,
         shrinksDone: this.shrinksDone,
         shrinkTimes: CONFIG.ARENA_SHRINK_TIMES,
+        shrinking: this.shrinkActive,
+        targetRadius: this.shrinkActive ? this.shrinkTo : this.arenaRadius,
         floorType: this.floorType || 'dirt',
       },
       rocks: this.rocks,

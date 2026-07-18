@@ -67,8 +67,10 @@ export const CONFIG = {
   ARENA_CENTER_Y: 360,
   ARENA_START_RADIUS,
   ARENA_MIN_RADIUS,
-  /** Intervalo em segundos entre cada encolhimento da arena. */
+  /** Intervalo em segundos entre o início de cada encolhimento da arena. */
   ARENA_SHRINK_INTERVAL: envInt('ARENA_SHRINK_INTERVAL', 10),
+  /** Duração em segundos do fechamento gradual de cada encolhimento (0 = instantâneo). */
+  ARENA_SHRINK_DURATION: Math.max(0, envNumber('ARENA_SHRINK_DURATION', 5)),
   /** Quantas vezes a arena encolhe por round (até o raio mínimo). */
   ARENA_SHRINK_TIMES,
   ARENA_SHRINK_AMOUNT,

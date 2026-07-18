@@ -3916,10 +3916,14 @@ export class GameScene extends Phaser.Scene {
     if (this.state.phase === 'levelup' || choosers.length > 0) {
       zoneLabel = this.skillChoiceStatusLabel(choosers);
     } else if (this.state.phase !== 'countdown') {
-      zoneLabel =
-        shrinkTimes > 0 && shrinksDone >= shrinkTimes
-          ? 'zona final'
-          : `zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`;
+      if (this.state.arena?.shrinking) {
+        zoneLabel = 'fechando zona';
+      } else {
+        zoneLabel =
+          shrinkTimes > 0 && shrinksDone >= shrinkTimes
+            ? 'zona final'
+            : `zona em ${Math.max(0, Math.ceil(this.state.arena.nextShrinkAt - this.state.roundTime))}s`;
+      }
     }
     this.roundText.setText(`Round ${displayRound}/${maxRounds} · ${zoneLabel}`);
 
