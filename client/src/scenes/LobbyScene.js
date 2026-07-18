@@ -23,7 +23,7 @@ export class LobbyScene extends Phaser.Scene {
     this.adminChecksDom = null;
 
     this.drawBackground();
-    this.createAmbientWizards();
+    this.createAmbientCreatures();
     this.buildUI();
     this.bindSocket();
     this.startLobbyMusic();
@@ -32,7 +32,7 @@ export class LobbyScene extends Phaser.Scene {
       this.closeSettingsModal();
       this.closeAdminModal();
       this.stopLobbyMusic();
-      this.destroyAmbientWizards();
+      this.destroyAmbientCreatures();
     });
   }
 
@@ -276,39 +276,74 @@ export class LobbyScene extends Phaser.Scene {
 
   update(_time, delta) {
     this.drawTopFlames();
-    this.updateAmbientWizards(delta);
+    this.updateAmbientCreatures(delta);
   }
 
-  /** Magos do jogo vagando atrás do menu, em camadas de profundidade. */
-  createAmbientWizards() {
-    const types = ['crimson', 'azure', 'emerald', 'amber', 'necromancer'].filter((t) =>
-      this.textures.exists(`wizard_${t}`)
-    );
-    if (!types.length) {
-      this.ambientWizards = [];
+  /** Magos e monstros do jogo vagando atrás do menu, em camadas de profundidade. */
+  createAmbientCreatures() {
+    const catalogs = [
+      {
+        prefix: 'wizard',
+        types: ['crimson', 'azure', 'emerald', 'amber', 'necromancer'],
+      },
+      {
+        prefix: 'monster',
+        types: [
+          'imp',
+          'slime',
+          'wraith',
+          'goblin',
+          'orc',
+          'skeleton',
+          'skeleton_archer',
+          'wolf',
+          'giant_spider',
+          'bat',
+          'elf',
+          'beholder',
+          'dragon',
+          'lich',
+          'fire_elemental',
+          'demon',
+        ],
+      },
+    ]
+      .map((c) => ({
+        ...c,
+        types: c.types.filter((t) => this.textures.exists(`${c.prefix}_${t}`)),
+      }))
+      .filter((c) => c.types.length);
+
+    if (!catalogs.length) {
+      this.ambientCreatures = [];
       return;
     }
 
     const { width, height } = this.scale;
-    const count = 10;
-    this.ambientWizards = [];
+    // Mais criaturas na tela: magos + todos os monstros
+    const count = 32;
+    this.ambientCreatures = [];
+    this.ambientCatalogs = catalogs;
 
     for (let i = 0; i < count; i++) {
-      this.ambientWizards.push(this.spawnAmbientWizard(types, width, height, true));
+      // Alterna catálogos no spawn inicial para garantir variedade
+      const catalog = catalogs[i % catalogs.length];
+      this.ambientCreatures.push(this.spawnAmbientCreature(catalog, width, height, true));
     }
   }
 
-  destroyAmbientWizards() {
-    if (!this.ambientWizards) return;
-    for (const w of this.ambientWizards) {
-      w.sprite?.destroy();
+  destroyAmbientCreatures() {
+    if (!this.ambientCreatures) return;
+    for (const c of this.ambientCreatures) {
+      c.sprite?.destroy();
     }
-    this.ambientWizards = null;
+    this.ambientCreatures = null;
+    this.ambientCatalogs = null;
   }
 
-  spawnAmbientWizard(types, width, height, instant = false) {
-    const type = Phaser.Utils.Array.GetRandom(types);
-    const tex = `wizard_${type}`;
+  spawnAmbientCreature(catalog, width, height, instant = false) {
+    const type = Phaser.Utils.Array.GetRandom(catalog.types);
+    const tex = `${catalog.prefix}_${type}`;
     // z: 0 = longe (fundo), 1 = perto (ainda atrás do menu)
     const z = Phaser.Math.FloatBetween(0.08, 1);
     const scale = Phaser.Math.Linear(0.55, 2.35, z);
@@ -344,10 +379,11 @@ export class LobbyScene extends Phaser.Scene {
 
     const speed = Phaser.Math.Linear(12, 38, z);
     const angle = Math.random() * Math.PI * 2;
-    const wizard = {
+    const creature = {
       sprite,
       type,
       tex,
+      prefix: catalog.prefix,
       z,
       x,
       y,
@@ -359,7 +395,7 @@ export class LobbyScene extends Phaser.Scene {
       bobAmp: Phaser.Math.Linear(0.6, 2.2, z),
       life: Phaser.Math.Between(9000, 18000),
       fadingOut: false,
-      types,
+      catalog,
     };
 
     if (!instant) {
@@ -377,68 +413,76 @@ export class LobbyScene extends Phaser.Scene {
       sprite.anims.timeScale = Phaser.Math.Linear(0.45, 0.95, z);
     }
 
-    return wizard;
+    return creature;
   }
 
-  updateAmbientWizards(delta) {
-    const list = this.ambientWizards;
+  updateAmbientCreatures(delta) {
+    const list = this.ambientCreatures;
     if (!list?.length) return;
 
     const { width, height } = this.scale;
     const dt = delta / 1000;
-    const types = list[0].types;
+    const catalogs = this.ambientCatalogs;
 
     for (let i = 0; i < list.length; i++) {
-      const w = list[i];
-      const s = w.sprite;
+      const c = list[i];
+      const s = c.sprite;
       if (!s?.active) continue;
 
-      w.life -= delta;
+      c.life -= delta;
 
       // Troca de direção ocasional
       if (Math.random() < 0.008) {
         const angle = Math.random() * Math.PI * 2;
-        const speed = Phaser.Math.Linear(12, 38, w.z);
-        w.vx = Math.cos(angle) * speed;
-        w.vy = Math.sin(angle) * speed * 0.55;
+        const speed = Phaser.Math.Linear(12, 38, c.z);
+        c.vx = Math.cos(angle) * speed;
+        c.vy = Math.sin(angle) * speed * 0.55;
       }
 
-      w.x += w.vx * dt;
-      w.y += w.vy * dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
 
       const margin = 28;
-      if (w.x < margin || w.x > width - margin) {
-        w.vx *= -1;
-        w.x = Phaser.Math.Clamp(w.x, margin, width - margin);
+      if (c.x < margin || c.x > width - margin) {
+        c.vx *= -1;
+        c.x = Phaser.Math.Clamp(c.x, margin, width - margin);
       }
-      if (w.y < height * 0.18 || w.y > height - 36) {
-        w.vy *= -1;
-        w.y = Phaser.Math.Clamp(w.y, height * 0.18, height - 36);
+      if (c.y < height * 0.18 || c.y > height - 36) {
+        c.vy *= -1;
+        c.y = Phaser.Math.Clamp(c.y, height * 0.18, height - 36);
       }
 
-      if (Math.abs(w.vx) > 4) s.setFlipX(w.vx < 0);
+      if (Math.abs(c.vx) > 4) s.setFlipX(c.vx < 0);
 
-      w.bobPhase += dt * (2.2 + w.z);
-      const bob = Math.sin(w.bobPhase) * w.bobAmp;
-      s.setPosition(w.x, w.y + bob);
+      c.bobPhase += dt * (2.2 + c.z);
+      const bob = Math.sin(c.bobPhase) * c.bobAmp;
+      s.setPosition(c.x, c.y + bob);
 
       // Respiração leve de escala (profundidade viva)
-      const breathe = 1 + Math.sin(w.bobPhase * 0.55) * 0.02;
-      s.setScale(w.baseScale * breathe);
+      const breathe = 1 + Math.sin(c.bobPhase * 0.55) * 0.02;
+      s.setScale(c.baseScale * breathe);
 
-      if (!w.fadingOut && w.life <= 0) {
-        w.fadingOut = true;
+      if (!c.fadingOut && c.life <= 0) {
+        c.fadingOut = true;
         this.tweens.add({
           targets: s,
           alpha: 0,
           duration: 650,
           ease: 'Sine.easeIn',
           onComplete: () => {
-            if (!this.ambientWizards) return;
+            if (!this.ambientCreatures) return;
             s.destroy();
-            const idx = this.ambientWizards.indexOf(w);
+            const idx = this.ambientCreatures.indexOf(c);
             if (idx >= 0) {
-              this.ambientWizards[idx] = this.spawnAmbientWizard(types, width, height, false);
+              const nextCatalog = catalogs?.length
+                ? Phaser.Utils.Array.GetRandom(catalogs)
+                : c.catalog;
+              this.ambientCreatures[idx] = this.spawnAmbientCreature(
+                nextCatalog,
+                width,
+                height,
+                false
+              );
             }
           },
         });
