@@ -161,6 +161,11 @@ export class Match {
     return !this.players.has(sourceId);
   }
 
+  /** PvP pausa o combate na escolha de magia; PvE deixa escolher ao vivo. */
+  pausesForSpellChoice() {
+    return this.pvpEnabled;
+  }
+
   /** Com a flag off, bots escolhem na hora (não travam a partida). */
   autoResolveBotLevelUpsIfDisabled() {
     if (this.botLevelUpChoiceEnabled) return;
@@ -1193,7 +1198,11 @@ export class Match {
 
   /** Escolhe automaticamente se o tempo da tela de magia expirou. */
   resolveLevelUpTimeouts() {
-    if (CONFIG.LEVELUP_CHOICE_TIMEOUT <= 0 || this.phase !== 'levelup') return;
+    if (CONFIG.LEVELUP_CHOICE_TIMEOUT <= 0) return;
+    const livePve =
+      !this.pausesForSpellChoice() &&
+      (this.phase === 'playing' || this.phase === 'intermission' || this.phase === 'countdown');
+    if (this.phase !== 'levelup' && !livePve) return;
     for (const p of [...this.players.values()]) {
       if (!p.alive || p.pendingLevelUps <= 0 || !p.spellChoices?.length) continue;
       if (p.choiceDeadlineAt == null || this.matchTime < p.choiceDeadlineAt) continue;
@@ -1278,9 +1287,14 @@ export class Match {
       if (!player.spellChoices) {
         this.assignSpellChoices(player);
       }
-      this.phase = 'levelup';
-      this.autoResolveBotLevelUpsIfDisabled();
-      this.maybeResumeFromLevelUp();
+      if (this.pausesForSpellChoice()) {
+        this.phase = 'levelup';
+        this.autoResolveBotLevelUpsIfDisabled();
+        this.maybeResumeFromLevelUp();
+      } else {
+        // PvE: combate segue; bots resolvem sem travar a partida
+        this.autoResolveBotLevelUpsIfDisabled();
+      }
     }
   }
 
@@ -1588,8 +1602,9 @@ export class Match {
       }
     }
 
-    // Round só termina de verdade depois que ninguém tem pontos de habilidade pendentes
-    if (this.playersNeedingSpellChoices().length > 0) {
+    // PvP: round só segue depois que todos gastarem pontos de habilidade.
+    // PvE: não pausa — escolhas ficam pendentes para o próximo round / auto-timeout.
+    if (this.pausesForSpellChoice() && this.playersNeedingSpellChoices().length > 0) {
       if (this.round >= CONFIG.MAX_ROUNDS) {
         this.beginPostRoundLevelUp({
           type: 'endMatch',
@@ -2731,6 +2746,10 @@ export class Match {
     if (this.phase === 'intermission') {
       this.intermissionTimer -= dt;
       this.matchTime += dt;
+      if (!this.pausesForSpellChoice()) {
+        this.ensureSpellChoicesForPending();
+        this.resolveLevelUpTimeouts();
+      }
       if (this.intermissionTimer <= 0) {
         if (this.round >= CONFIG.MAX_ROUNDS) {
           this.endMatch(this.leadingPlayer());
@@ -2746,7 +2765,7 @@ export class Match {
     if (this.phase === 'ended') return;
 
     if (this.phase === 'levelup') {
-      // Pausa: combate travado até todos escolherem ou o timeout expirar
+      // Pausa (PvP): combate travado até todos escolherem ou o timeout expirar
       this.matchTime += dt;
       // Garante deadline (e choiceTimeLeft no cliente) se algum pacote ficou sem timer
       this.ensureSpellChoicesForPending();
@@ -2763,6 +2782,12 @@ export class Match {
 
     this.matchTime += dt;
     this.roundTime += dt;
+
+    // PvE: escolha ao vivo — mantém deadlines e auto-escolhe se expirar
+    if (!this.pausesForSpellChoice()) {
+      this.ensureSpellChoicesForPending();
+      this.resolveLevelUpTimeouts();
+    }
 
     if (this.roundTime >= CONFIG.ROUND_DURATION) {
       const alive = [...this.players.values()].filter((p) => p.alive);

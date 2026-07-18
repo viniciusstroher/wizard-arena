@@ -126,23 +126,32 @@ export class BotController {
   update(dt) {
     const player = this.match.players.get(this.playerId);
     if (!player || !player.alive) return;
-    if (this.match.phase === 'levelup' && player.spellChoices?.length && player.pendingLevelUps > 0) {
-      // Flag off: resolve na hora (Match.autoResolveBotLevelUpsIfDisabled também cobre).
-      if (!this.match.botLevelUpChoiceEnabled) {
-        this.pickRandomSpell(player);
-        return;
-      }
+    if (player.spellChoices?.length && player.pendingLevelUps > 0) {
+      const livePveChoice =
+        !this.match.pvpEnabled &&
+        (this.match.phase === 'playing' ||
+          this.match.phase === 'intermission' ||
+          this.match.phase === 'countdown');
+      const pausedChoice = this.match.phase === 'levelup';
 
-      // Flag on: espera um tempo “pensando” e escolhe aleatório; humanos ficam na tela de espera.
-      if (this.levelUpChoiceSetId !== player.choiceSetId) {
-        this.levelUpChoiceSetId = player.choiceSetId;
-        this.levelUpThinkTimer = 1.8 + Math.random() * 2.4; // ~1.8–4.2s
+      if (pausedChoice || livePveChoice) {
+        // Flag off: resolve na hora (Match.autoResolveBotLevelUpsIfDisabled também cobre).
+        if (!this.match.botLevelUpChoiceEnabled) {
+          this.pickRandomSpell(player);
+        } else {
+          // Flag on: espera um tempo “pensando” e escolhe aleatório.
+          if (this.levelUpChoiceSetId !== player.choiceSetId) {
+            this.levelUpChoiceSetId = player.choiceSetId;
+            this.levelUpThinkTimer = 1.8 + Math.random() * 2.4; // ~1.8–4.2s
+          }
+          this.levelUpThinkTimer -= dt;
+          if (this.levelUpThinkTimer <= 0) {
+            this.pickRandomSpell(player);
+          }
+        }
+        // PvP pausado: bot não age até escolher. PvE: segue combatendo.
+        if (pausedChoice) return;
       }
-      this.levelUpThinkTimer -= dt;
-      if (this.levelUpThinkTimer <= 0) {
-        this.pickRandomSpell(player);
-      }
-      return;
     }
     if (this.match.phase !== 'playing') return;
 
