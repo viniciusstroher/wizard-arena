@@ -192,10 +192,10 @@ export class Match {
     }
   }
 
-  /** Pedras / móveis / conchas apenas dentro do círculo da arena. */
+  /** Pedras / móveis / conchas / cactos apenas dentro do círculo da arena. */
   generateRocks() {
     // Chance igual entre os tipos de chão.
-    const floors = ['grass', 'dirt', 'ice', 'wood', 'sea'];
+    const floors = ['grass', 'dirt', 'ice', 'wood', 'sea', 'desert'];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
     const dirtTypes = [
@@ -219,6 +219,11 @@ export class Match {
       { type: 'conch', radius: 18 },
       { type: 'clam', radius: 26 },
     ];
+    const desertTypes = [
+      { type: 'cactus_small', radius: 12 },
+      { type: 'cactus', radius: 18 },
+      { type: 'cactus_tall', radius: 26 },
+    ];
     const types =
       this.floorType === 'ice'
         ? iceTypes
@@ -226,7 +231,9 @@ export class Match {
           ? woodTypes
           : this.floorType === 'sea'
             ? seaTypes
-            : dirtTypes;
+            : this.floorType === 'desert'
+              ? desertTypes
+              : dirtTypes;
     const count =
       CONFIG.ROCK_MIN + Math.floor(Math.random() * (CONFIG.ROCK_MAX - CONFIG.ROCK_MIN + 1));
     const rocks = [];

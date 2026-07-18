@@ -2077,6 +2077,9 @@ export class GameScene extends Phaser.Scene {
       shell: ['shell_shell_0', 'shell_shell_1', 'shell_shell_2'],
       conch: ['shell_conch_0', 'shell_conch_1', 'shell_conch_2'],
       clam: ['shell_clam_0', 'shell_clam_1', 'shell_clam_2'],
+      cactus_small: ['cactus_small_0', 'cactus_small_1', 'cactus_small_2'],
+      cactus: ['cactus_med_0', 'cactus_med_1', 'cactus_med_2'],
+      cactus_tall: ['cactus_tall_0', 'cactus_tall_1', 'cactus_tall_2'],
     };
 
     const hashId = (id) => {
@@ -2095,21 +2098,27 @@ export class GameScene extends Phaser.Scene {
         const key = list[h % list.length];
         if (!this.textures.exists(key)) continue;
         const isFurniture = ['chair', 'crate', 'table', 'cabinet'].includes(rock.type);
+        const isCactus = ['cactus_small', 'cactus', 'cactus_tall'].includes(rock.type);
         const isBoulder =
           rock.type === 'boulder' ||
           rock.type === 'ice_boulder' ||
           rock.type === 'cabinet' ||
-          rock.type === 'clam';
+          rock.type === 'clam' ||
+          rock.type === 'cactus_tall';
         const isRock =
           rock.type === 'rock' ||
           rock.type === 'ice_rock' ||
           rock.type === 'table' ||
-          rock.type === 'conch';
+          rock.type === 'conch' ||
+          rock.type === 'cactus';
         const baseScale = isBoulder ? 1.2 : isRock ? 1.08 : rock.type === 'crate' ? 1.04 : 1;
         const scaleJitter = 0.9 + ((h >>> 8) % 25) / 100;
-        const rot = isFurniture
-          ? (((h >>> 3) % 5) - 2) * 0.015
-          : (((h >>> 3) % 21) - 10) * 0.02;
+        // Cactos ficam retos; móveis quase retos; pedras/conchas giram um pouco
+        const rot = isCactus
+          ? (((h >>> 3) % 5) - 2) * 0.012
+          : isFurniture
+            ? (((h >>> 3) % 5) - 2) * 0.015
+            : (((h >>> 3) % 21) - 10) * 0.02;
         s = this.add
           .image(rock.x, rock.y, key)
           .setDepth(5)
@@ -2207,7 +2216,9 @@ export class GameScene extends Phaser.Scene {
             ? 'arena_wood'
             : a.floorType === 'sea'
               ? 'arena_sea'
-              : 'arena_brick';
+              : a.floorType === 'desert'
+                ? 'arena_desert'
+                : 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }

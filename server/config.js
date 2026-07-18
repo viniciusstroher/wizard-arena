@@ -43,12 +43,12 @@ export const CONFIG = {
   /** Velocidade de movimento de jogadores/bots (px/s). */
   PLAYER_SPEED: envNumber('PLAYER_SPEED', 189),
   /** Multiplicador de velocidade por tipo de chão da arena. */
-  FLOOR_SPEED_MUL: { dirt: 1, grass: 1, ice: 0.75, wood: 1.2, sea: 1 },
+  FLOOR_SPEED_MUL: { dirt: 1, grass: 1, ice: 0.75, wood: 1.2, sea: 1, desert: 0.7 },
   /**
    * Multiplicador de inércia por chão (valores maiores = mais deslize).
    * Fundo do mar desliza bem mais que o padrão.
    */
-  FLOOR_INERTIA_MUL: { dirt: 1, grass: 1, ice: 1, wood: 1, sea: 2.8 },
+  FLOOR_INERTIA_MUL: { dirt: 1, grass: 1, ice: 1, wood: 1, sea: 2.8, desert: 1 },
   PLAYER_RADIUS: 16,
   /** Raio de coleta do saco de loot no chão. */
   LOOT_BAG_RADIUS: 14,

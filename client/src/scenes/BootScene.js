@@ -139,10 +139,12 @@ export class BootScene extends Phaser.Scene {
     this.createArenaIceTexture();
     this.createArenaWoodTexture();
     this.createArenaSeaTexture();
+    this.createArenaDesertTexture();
     this.createLavaTextures();
     this.createRockSprites();
     this.createFurnitureSprites();
     this.createShellSprites();
+    this.createCactusSprites();
     this.createTreeSprites();
     this.createBloodSprites();
     this.createBonesSprites();
@@ -2405,6 +2407,317 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('arena_sea', tw, th);
     g.destroy();
     this.textures.get('arena_sea').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createArenaDesertTexture() {
+    // Tile 64×64 seamless — areia dourada com dunas e pedrinhas
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+
+    const tones = [
+      0xc4a06a, // areia base
+      0xd8b878, // areia clara
+      0xa88850, // areia escura
+      0x8a6c3a, // sombra de duna
+      0xe8d0a0, // highlight
+      0xb89860, // tom médio
+      0xf0e0b8, // brilho quente
+      0x9a7848, // grão escuro
+      0xccc090, // areia pálida
+      0x705830, // pedra/sombra
+    ];
+
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+
+    const wrap = (v, m) => ((v % m) + m) % m;
+
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 17, tw), wrap(y + 9, th));
+        const n3 = valueAt(wrap(x + 31, tw), wrap(y + 21, th));
+        const h = hash(x, y);
+
+        let tone;
+        if (n1 < 0.2) tone = tones[3];
+        else if (n1 < 0.38) tone = tones[2];
+        else if (n1 < 0.55) tone = tones[0];
+        else if (n1 < 0.72) tone = tones[5];
+        else if (n1 < 0.88) tone = tones[1];
+        else tone = tones[4];
+
+        // Faixas de duna
+        if (n2 > 0.82) tone = tones[4];
+        if (n2 < 0.18) tone = tones[3];
+        if (n3 > 0.86 && n1 > 0.3 && n1 < 0.7) tone = tones[8];
+        if (n3 > 0.92) tone = tones[6];
+
+        if ((h & 31) === 0) tone = tones[5];
+        if ((h & 47) === 7) tone = tones[1];
+        if ((h & 63) === 13) tone = tones[7];
+
+        // Grãos
+        if ((h & 127) === 21) tone = tones[6];
+        if ((h & 127) === 42) tone = tones[9];
+        if (n2 > 0.9 && (h & 7) === 3) tone = tones[4];
+
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    const patches = [
+      { x: 12, y: 16, r: 7, c: 0xd8b878 },
+      { x: 40, y: 24, r: 6, c: 0x8a6c3a },
+      { x: 26, y: 48, r: 8, c: 0xe8d0a0 },
+      { x: 52, y: 50, r: 5, c: 0xa88850 },
+      { x: 54, y: 12, r: 4, c: 0xc4a06a },
+      { x: 16, y: 56, r: 5, c: 0xf0e0b8 },
+    ];
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.55 : 0.85);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    const pebbles = [
+      [10, 18], [11, 19], [28, 8], [45, 30], [46, 31], [33, 52],
+      [60, 40], [3, 35], [18, 38], [50, 12], [7, 48], [38, 42],
+    ];
+    for (const [px, py] of pebbles) {
+      g.fillStyle(0x8a6c3a, 1);
+      g.fillRect(px, py, 2, 1);
+      g.fillStyle(0xb89860, 1);
+      g.fillRect(px, py, 1, 1);
+    }
+
+    g.generateTexture('arena_desert', tw, th);
+    g.destroy();
+    this.textures.get('arena_desert').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  createCactusSprites() {
+    // D=sombra, L=verde escuro, M=verde médio, H=highlight, S=areia/base, F=flor
+    const green = { D: 0x1a3a18, L: 0x2e6b28, M: 0x4a9a3a, H: 0x7ec85a, S: 0xa88850, F: 0xe878a0 };
+    const sage = { D: 0x243828, L: 0x3a6a40, M: 0x5a9a58, H: 0x8ccc78, S: 0xb89860, F: 0xf0a060 };
+    const olive = { D: 0x2a3a10, L: 0x4a6820, M: 0x6a9030, H: 0x9cbc50, S: 0xc4a06a, F: 0xffd060 };
+
+    // Cacto pequeno (barrel / stub)
+    makePixelTexture(
+      this,
+      'cactus_small_0',
+      [
+        '..........',
+        '...HHH....',
+        '..HMMMH...',
+        '..HMMMM...',
+        '..LMMMM...',
+        '..LMMML...',
+        '...LLL....',
+        '...SSS....',
+        '..........',
+        '..........',
+      ],
+      green,
+      3
+    );
+    makePixelTexture(
+      this,
+      'cactus_small_1',
+      [
+        '..........',
+        '....HH....',
+        '...HMMH...',
+        '...HMMM...',
+        '...LMMM...',
+        '...LMML...',
+        '....LL....',
+        '...SSS....',
+        '..........',
+        '..........',
+      ],
+      sage,
+      3
+    );
+    makePixelTexture(
+      this,
+      'cactus_small_2',
+      [
+        '..........',
+        '...HFH....',
+        '..HMMMH...',
+        '..HMMMM...',
+        '..LMMMM...',
+        '..LMMML...',
+        '...LLL....',
+        '...SSS....',
+        '..........',
+        '..........',
+      ],
+      olive,
+      3
+    );
+
+    // Cacto médio (com um braço)
+    makePixelTexture(
+      this,
+      'cactus_med_0',
+      [
+        '..............',
+        '.....HH.......',
+        '....HMMH......',
+        '....HMMM......',
+        '..HH.LMMM.....',
+        '.HMMHLMMM.....',
+        '.HMMMLMMM.....',
+        '..LL.LMMM.....',
+        '.....LMML.....',
+        '......LL......',
+        '.....SSS......',
+        '..............',
+      ],
+      green,
+      3
+    );
+    makePixelTexture(
+      this,
+      'cactus_med_1',
+      [
+        '..............',
+        '......HH......',
+        '.....HMMH.....',
+        '.....HMMM.....',
+        '.....LMMM.HH..',
+        '.....LMMM.HMM.',
+        '.....LMMMLHMM.',
+        '.....LMMM.LL..',
+        '.....LMML.....',
+        '......LL......',
+        '.....SSS......',
+        '..............',
+      ],
+      sage,
+      3
+    );
+    makePixelTexture(
+      this,
+      'cactus_med_2',
+      [
+        '..............',
+        '.....HFH......',
+        '....HMMH......',
+        '....HMMM......',
+        '..HH.LMMM.....',
+        '.HMMHLMMM.....',
+        '.HMMMLMMM.....',
+        '..LL.LMML.....',
+        '.....LML......',
+        '......LL......',
+        '.....SSS......',
+        '..............',
+      ],
+      olive,
+      3
+    );
+
+    // Cacto alto (dois braços)
+    makePixelTexture(
+      this,
+      'cactus_tall_0',
+      [
+        '................',
+        '.......HH.......',
+        '......HMMH......',
+        '......HMMM......',
+        '..HH..LMMM......',
+        '.HMMH.LMMM......',
+        '.HMMMHLMMM.HH...',
+        '..LL.MLMMM.HMM..',
+        '.....MLMMM.HMM..',
+        '.....MLMMM.LL...',
+        '.....MLMML......',
+        '......LLL.......',
+        '......SSS.......',
+        '................',
+      ],
+      green,
+      3
+    );
+    makePixelTexture(
+      this,
+      'cactus_tall_1',
+      [
+        '................',
+        '.......HH.......',
+        '......HMMH......',
+        '......HMMM......',
+        '......LMMM..HH..',
+        '..HH..LMMM.HMMH.',
+        '.HMMH.LMMM.HMMM.',
+        '.HMMMHLMMM..LL..',
+        '..LL.MLMMM......',
+        '.....MLMML......',
+        '.....MLML.......',
+        '......LLL.......',
+        '......SSS.......',
+        '................',
+      ],
+      sage,
+      3
+    );
+    makePixelTexture(
+      this,
+      'cactus_tall_2',
+      [
+        '................',
+        '.......HF.......',
+        '......HMMH......',
+        '......HMMM......',
+        '..HH..LMMM......',
+        '.HMMH.LMMM.HH...',
+        '.HMMMHLMMM.HMM..',
+        '..LL.MLMMM.HMM..',
+        '.....MLMMM.LL...',
+        '.....MLMML......',
+        '......LML.......',
+        '......LLL.......',
+        '......SSS.......',
+        '................',
+      ],
+      olive,
+      3
+    );
   }
 
   /** Title decoration: blue mana potion flask. */
