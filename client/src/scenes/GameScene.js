@@ -2479,6 +2479,8 @@ export class GameScene extends Phaser.Scene {
       lich: 'lich',
       fire_elemental: 'elemental de fogo',
       demon: 'demônio',
+      grim_reaper: 'ceifador',
+      bruxo: 'bruxo',
     };
     return labels[type] || type;
   }

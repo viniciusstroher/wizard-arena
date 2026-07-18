@@ -305,6 +305,8 @@ export class LobbyScene extends Phaser.Scene {
           'lich',
           'fire_elemental',
           'demon',
+          'grim_reaper',
+          'bruxo',
         ],
       },
     ]

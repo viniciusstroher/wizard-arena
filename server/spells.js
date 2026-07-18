@@ -149,7 +149,24 @@ export const SPELLS = {
     radius: 12,
     color: 0x4a0080,
   },
-  /** Exclusiva de dragon / fire_elemental — não entra no pool de jogadores. */
+  /** Exclusiva do grim_reaper — onda radial de caveiras. */
+  skull_wave: {
+    id: 'skull_wave',
+    name: 'Skull Wave',
+    description: 'Onda radial de caveiras amaldiçoadas. Uso exclusivo do Ceifador.',
+    type: 'basic',
+    playerUsable: false,
+    cooldown: 2.4,
+    manaCost: 0,
+    damage: 18,
+    range: 220,
+    speed: 300,
+    radius: 11,
+    /** Quantidade padrão de caveiras na onda. */
+    skullCount: 10,
+    color: 0x4a0080,
+  },
+  /** Exclusiva de dragon / fire_elemental / bruxo — não entra no pool de jogadores. */
   firebreath: {
     id: 'firebreath',
     name: 'Firebreath',

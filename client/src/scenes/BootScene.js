@@ -3089,5 +3089,73 @@ export class BootScene extends Phaser.Scene {
         L: 0x5a1020,
       }
     );
+
+    // Grim Reaper — capuz negro + foice + olhos violeta
+    registerMonsterSprite(
+      this,
+      'grim_reaper',
+      [
+        '................',
+        '....HHHHHH......',
+        '...HNNNNNNH..B..',
+        '..HNSSSSSNH.BB..',
+        '..HNSVVVSNH.BB..',
+        '..HNSSSSSNH.B...',
+        '..HNNNNNNNH.B...',
+        '..HPPPPPPPH.B...',
+        '..HPPPPPPPH.B...',
+        '..HP.PPPP.PH....',
+        '..LL......LL....',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        H: 0x1a0a28,
+        N: 0x0d0618,
+        S: 0xc8c0d0,
+        V: 0xaa44ff,
+        P: 0x2a1040,
+        L: 0x1a0a28,
+        B: 0x6e6e78,
+      }
+    );
+
+    // Bruxo — chapéu pontudo + orbe de fogo
+    registerMonsterSprite(
+      this,
+      'bruxo',
+      [
+        '................',
+        '......HH........',
+        '.....HRRH.......',
+        '....HRRRRH......',
+        '...HRRWWWRH..F..',
+        '...HRRBEBRH.FOF.',
+        '....HRRRRH...F..',
+        '....HPPPPPH.....',
+        '...HPPPPPPPH....',
+        '...HP.PPP.PH....',
+        '...LL......LL...',
+        '................',
+        '................',
+        '................',
+        '................',
+        '................',
+      ],
+      {
+        H: 0x3d1a0a,
+        R: 0x6b2d12,
+        W: 0xd4a574,
+        B: 0x1a1a1a,
+        E: 0xff4422,
+        P: 0x5a2810,
+        L: 0x2a1208,
+        F: 0xff6622,
+        O: 0xffee66,
+      }
+    );
   }
 }

@@ -1908,6 +1908,48 @@ export class Match {
         novaCooldown: 4.5,
         weight: boss,
       },
+      // Ceifador — onda radial de caveiras
+      grim_reaper: {
+        hpMul: 2.6,
+        speedMul: 0.7,
+        dmgMul: 1.35,
+        radius: 18,
+        color: 0x2a0044,
+        attack: 'caster',
+        spells: ['skull_wave'],
+        range: 220,
+        preferRange: 140,
+        projectileSpeed: 300,
+        projectileRadius: 11,
+        projectileColor: 0x4a0080,
+        attackCooldown: 2.4,
+        skullCount: 10,
+        weight: boss,
+      },
+      // Bruxo — bolas de fogo, firebreath e rastro de fogo no chão
+      bruxo: {
+        hpMul: 1.9,
+        speedMul: 1.05,
+        dmgMul: 1.25,
+        radius: 15,
+        color: 0xff5522,
+        attack: 'caster',
+        spells: ['firebreath', 'firebolt'],
+        range: 260,
+        preferRange: 150,
+        projectileSpeed: 450,
+        projectileRadius: 9,
+        projectileColor: 0xff5533,
+        attackCooldown: 1.2,
+        fireTrail: true,
+        fireTrailInterval: 0.32,
+        fireTrailRadius: 34,
+        fireTrailLife: 2.6,
+        fireTrailBurnDamage: 2,
+        fireTrailBurnTick: 1,
+        fireTrailBurnDuration: 3,
+        weight: common,
+      },
     };
   }
 
@@ -2030,6 +2072,15 @@ export class Match {
       novaRadius: def.novaRadius || 110,
       novaCooldown: def.novaCooldown || 4,
       novaCd: 0,
+      skullCount: def.skullCount || 0,
+      fireTrail: !!def.fireTrail,
+      fireTrailInterval: def.fireTrailInterval || 0.32,
+      fireTrailRadius: def.fireTrailRadius || 34,
+      fireTrailLife: def.fireTrailLife || 2.6,
+      fireTrailBurnDamage: def.fireTrailBurnDamage ?? 2,
+      fireTrailBurnTick: def.fireTrailBurnTick || 1,
+      fireTrailBurnDuration: def.fireTrailBurnDuration || 3,
+      trailAcc: 0,
       radius: def.radius,
       color: def.color,
       knockbackTimer: 0,
@@ -2403,9 +2454,81 @@ export class Match {
         monster.attackCd = monster.attackCooldown || stats.cooldown || 1.8;
         break;
       }
+      case 'skull_wave': {
+        const n = Math.max(4, monster.skullCount || stats.skullCount || 10);
+        const speed = monster.projectileSpeed || stats.speed || 300;
+        const range = monster.range || stats.range || 220;
+        const life = range / speed;
+        const dmg = Math.round(monster.damage * 0.95);
+        const radius = monster.projectileRadius || stats.radius || 11;
+        const color = monster.projectileColor || stats.color || 0x4a0080;
+        for (let i = 0; i < n; i++) {
+          const ang = (i / n) * Math.PI * 2;
+          const ox = Math.cos(ang) * 14;
+          const oy = Math.sin(ang) * 14;
+          this.projectiles.push({
+            entityId: eid(),
+            ownerId: monster.entityId,
+            team: 'monster',
+            kind: 'skull_bolt',
+            spellId: 'skull_bolt',
+            x: monster.x + ox,
+            y: monster.y + oy,
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed,
+            damage: dmg,
+            radius,
+            life,
+            color,
+          });
+        }
+        this.spawnSpellImpact(monster.x, monster.y, 'skull_bolt', color, 36);
+        for (let i = 0; i < 4; i++) {
+          const ang = (i / 4) * Math.PI * 2 + Math.random() * 0.4;
+          const len = 22 + Math.random() * 16;
+          this.effects.push({
+            type: 'lightning',
+            x1: monster.x,
+            y1: monster.y,
+            x2: monster.x + Math.cos(ang) * len,
+            y2: monster.y + Math.sin(ang) * len,
+            life: 0.32,
+            maxLife: 0.32,
+            color: 0x2a0044,
+            seed: (Math.random() * 1e9) | 0,
+            branches: 3,
+            dark: true,
+          });
+        }
+        monster.attackCd = monster.attackCooldown || stats.cooldown || 2.4;
+        break;
+      }
       default:
         return;
     }
+  }
+
+  /** Rastro de fogo deixado pelo bruxo ao se mover. */
+  dropFireTrail(monster) {
+    if (!monster?.fireTrail || !monster.alive) return;
+    const groundLife = Math.max(0.5, Number(monster.fireTrailLife) || 2.6);
+    const burnDmg = Math.max(1, Math.round(Number(monster.fireTrailBurnDamage) || 2));
+    const burnTick = Math.max(0.05, Number(monster.fireTrailBurnTick) || 1);
+    const burnDuration = Math.max(0.5, Number(monster.fireTrailBurnDuration) || 3);
+    this.aoes.push({
+      entityId: eid(),
+      ownerId: monster.entityId,
+      x: monster.x,
+      y: monster.y,
+      radius: monster.fireTrailRadius || 34,
+      damage: burnDmg,
+      tick: burnTick,
+      burnDuration,
+      life: groundLife,
+      maxLife: groundLife,
+      color: monster.projectileColor || monster.color || 0xff6622,
+      spellId: 'flame_nova',
+    });
   }
 
   /** Empurra o alvo na direção da trajetória do projétil (magias em área não usam isto). */
@@ -3112,6 +3235,8 @@ export class Match {
               spell = 'electric_bolt';
             } else if (spells.includes('arc_lightning') && nearestD <= lightningR) {
               spell = 'arc_lightning';
+            } else if (spells.includes('skull_wave') && nearestD <= shootRange) {
+              spell = 'skull_wave';
             } else if (spells.includes('ice_shard') && nearestD <= shootRange) {
               spell = 'ice_shard';
             } else if (spells.includes('firebolt') && nearestD <= shootRange) {
@@ -3134,6 +3259,18 @@ export class Match {
       m.y += m.vy * dt;
       this.resolveRockCollision(m, mRadius);
       this.clampMonsterToArena(m);
+
+      if (m.fireTrail && m.alive) {
+        const moving = Math.hypot(m.vx, m.vy) > 18;
+        if (moving) {
+          m.trailAcc = (m.trailAcc || 0) + dt;
+          const interval = Math.max(0.12, Number(m.fireTrailInterval) || 0.32);
+          if (m.trailAcc >= interval) {
+            m.trailAcc = 0;
+            this.dropFireTrail(m);
+          }
+        }
+      }
     }
 
     // Projectiles
