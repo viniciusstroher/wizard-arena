@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
+import { GalleryModal } from '../ui/GalleryModal.js';
 import {
   RESOLUTIONS,
   applyResolution,
@@ -30,6 +31,7 @@ export class LobbyScene extends Phaser.Scene {
     this.adminModalOpen = false;
     this.adminModal = null;
     this.adminChecksDom = null;
+    this.galleryModal = null;
 
     this.drawBackground();
     this.createAmbientCreatures();
@@ -41,6 +43,9 @@ export class LobbyScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.closeSettingsModal();
       this.closeAdminModal();
+      this.closeControlsModal();
+      this.galleryModal?.destroy();
+      this.galleryModal = null;
       this.messageBoard?.destroy();
       this.messageBoard = null;
       this.stopLobbyMusic();
@@ -657,13 +662,21 @@ export class LobbyScene extends Phaser.Scene {
     this.setButtonEnabled(this.botsBtn, false);
     this.setButtonEnabled(this.removeBotsBtn, false);
 
+    this.galleryBtn = this.makeButton(
+      panelX - halfW / 2 - 6,
+      btnStartY + step * 3,
+      'Galeria',
+      0x443866,
+      () => this.openGalleryModal(),
+      halfW
+    );
     this.controlsBtn = this.makeButton(
-      panelX,
+      panelX + halfW / 2 + 6,
       btnStartY + step * 3,
       'Comandos',
       0x443866,
       () => this.openControlsModal(),
-      btnW
+      halfW
     );
 
     this.settingsBtn = this.makeButton(
@@ -689,6 +702,7 @@ export class LobbyScene extends Phaser.Scene {
       this.readyBtn,
       this.botsBtn,
       this.removeBotsBtn,
+      this.galleryBtn,
       this.controlsBtn,
       this.settingsBtn,
       this.adminBtn,
@@ -700,6 +714,14 @@ export class LobbyScene extends Phaser.Scene {
     this.controlsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
     this.settingsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
     this.adminModal = this.add.container(0, 0).setDepth(400).setVisible(false);
+    this.galleryModal = new GalleryModal(this, {
+      onOpen: () => this.setLobbyDomVisible(false),
+      onClose: () => {
+        if (!this.settingsModalOpen && !this.adminModalOpen && !this.controlsModalOpen) {
+          this.setLobbyDomVisible(true);
+        }
+      },
+    });
 
     this.hint = this.add
       .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos/bots', {
@@ -733,10 +755,19 @@ export class LobbyScene extends Phaser.Scene {
     this.messageBoard?.setDomVisible(visible);
   }
 
+  openGalleryModal() {
+    if (this.galleryModal?.isOpen()) return;
+    if (this.settingsModalOpen) this.closeSettingsModal();
+    if (this.adminModalOpen) this.closeAdminModal();
+    if (this.controlsModalOpen) this.closeControlsModal();
+    this.galleryModal?.show();
+  }
+
   openSettingsModal() {
     if (this.settingsModalOpen) return;
     if (this.controlsModalOpen) this.closeControlsModal();
     if (this.adminModalOpen) this.closeAdminModal();
+    if (this.galleryModal?.isOpen()) this.galleryModal.hide();
     this.settingsModalOpen = true;
 
     this.setLobbyDomVisible(false);
@@ -884,7 +915,7 @@ export class LobbyScene extends Phaser.Scene {
       this.settingsModal.setVisible(false);
     }
     this.volumeValueText = null;
-    if (!this.controlsModalOpen && !this.adminModalOpen) {
+    if (!this.controlsModalOpen && !this.adminModalOpen && !this.galleryModal?.isOpen()) {
       this.setLobbyDomVisible(true);
     }
   }
@@ -893,6 +924,7 @@ export class LobbyScene extends Phaser.Scene {
     if (this.adminModalOpen) return;
     if (!this.joined) return;
     if (this.settingsModalOpen) this.closeSettingsModal();
+    if (this.galleryModal?.isOpen()) this.galleryModal.hide();
     if (this.controlsModalOpen) this.closeControlsModal();
     this.adminModalOpen = true;
 
@@ -1039,7 +1071,7 @@ export class LobbyScene extends Phaser.Scene {
       this.adminModal.removeAll(true);
       this.adminModal.setVisible(false);
     }
-    if (!this.controlsModalOpen && !this.settingsModalOpen) {
+    if (!this.controlsModalOpen && !this.settingsModalOpen && !this.galleryModal?.isOpen()) {
       this.setLobbyDomVisible(true);
     }
   }
@@ -1069,6 +1101,7 @@ export class LobbyScene extends Phaser.Scene {
     if (this.controlsModalOpen) return;
     if (this.settingsModalOpen) this.closeSettingsModal();
     if (this.adminModalOpen) this.closeAdminModal();
+    if (this.galleryModal?.isOpen()) this.galleryModal.hide();
     this.controlsModalOpen = true;
 
     // DOM fica acima do canvas — esconde inputs enquanto o modal está aberto
@@ -1148,7 +1181,7 @@ export class LobbyScene extends Phaser.Scene {
     this.controlsModalOpen = false;
     this.controlsModal.removeAll(true);
     this.controlsModal.setVisible(false);
-    if (!this.settingsModalOpen && !this.adminModalOpen) {
+    if (!this.settingsModalOpen && !this.adminModalOpen && !this.galleryModal?.isOpen()) {
       this.setLobbyDomVisible(true);
     }
   }
