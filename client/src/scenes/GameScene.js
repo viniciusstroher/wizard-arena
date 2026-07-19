@@ -936,12 +936,13 @@ export class GameScene extends Phaser.Scene {
         }
       )
       .setOrigin(0.5);
+    const lootGained = me?.loot || 0;
     const goldGained = me?.gold || 0;
     const goldLine = this.add
       .text(
         width / 2,
         height / 2 - panelH / 2 + 90,
-        `Você ganhou ${goldGained} gold`,
+        `Você ganhou ${lootGained} loot · ${goldGained} gold`,
         {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '15px',
