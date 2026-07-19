@@ -41,6 +41,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.passwordPrompt = null;
     this.lobbyAgeEls = [];
     this._lobbyAgeAcc = 0;
+    this.alreadyInLobby = null;
 
     drawMenuBackground(this, { subtitle: 'Salas' });
     createAmbientCreatures(this);
@@ -64,13 +65,15 @@ export class MatchmakingScene extends Phaser.Scene {
     this.buildLobbyList(width, height, uiDepth);
 
     this.bindSocket();
-    this.socket.emit('subscribe_lobbies');
+    this.socket.emit('subscribe_lobbies', { characterId: this.character.id });
+    this.socket.emit('check_character_seat', { characterId: this.character.id });
 
     this.events.once('shutdown', () => {
       this.socket.emit('unsubscribe_lobbies');
       this.socket.off('lobbies_list');
       this.socket.off('lobby_created');
       this.socket.off('error_msg');
+      this.socket.off('character_seat');
       this.destroyPasswordPrompt();
       this.maxSelectDom?.destroy();
       this.passInputDom?.destroy();
@@ -196,12 +199,29 @@ export class MatchmakingScene extends Phaser.Scene {
     this.socket.off('lobbies_list');
     this.socket.off('lobby_created');
     this.socket.off('error_msg');
+    this.socket.off('character_seat');
 
     this.socket.on('lobbies_list', (payload) => {
       const list = Array.isArray(payload?.lobbies) ? payload.lobbies : [];
       // Só salas ainda em lobby (partida iniciada some da listagem).
       this.lobbies = list.filter((l) => !l?.phase || l.phase === 'lobby');
+      if (payload?.alreadyInLobby) {
+        this.setAlreadyInLobby(payload.alreadyInLobby);
+      } else if (payload && 'alreadyInLobby' in payload) {
+        this.setAlreadyInLobby(null);
+      }
       this.renderLobbyList();
+    });
+
+    this.socket.on('character_seat', (payload) => {
+      if (payload?.seated) {
+        this.setAlreadyInLobby({
+          matchId: payload.matchId,
+          phase: payload.phase,
+        });
+      } else {
+        this.setAlreadyInLobby(null);
+      }
     });
 
     this.socket.on('lobby_created', (payload) => {
@@ -214,13 +234,43 @@ export class MatchmakingScene extends Phaser.Scene {
       const code = payload?.code;
       const message =
         code === 'already_in_lobby'
-          ? 'Usuário já está em um lobby.'
+          ? 'Você já está em uma sala.'
           : payload?.message || 'Erro';
       this.statusText.setText(message);
+      if (code === 'already_in_lobby') {
+        this.socket.emit('check_character_seat', { characterId: this.character.id });
+      }
     });
   }
 
+  setAlreadyInLobby(seat) {
+    const wasSeated = Boolean(this.alreadyInLobby);
+    this.alreadyInLobby = seat || null;
+    if (this.alreadyInLobby) {
+      this.statusText.setColor('#ffb36b');
+      this.statusText.setText(
+        'Você já está em uma sala em outra aba/navegador. Saia de lá antes de criar ou entrar em outra.'
+      );
+      return;
+    }
+    if (wasSeated && !this.bannerMessage) {
+      this.statusText.setColor('#c4b5e0');
+      this.statusText.setText('Lobbies em tempo real');
+    }
+  }
+
+  blockIfAlreadyInLobby() {
+    if (!this.alreadyInLobby) {
+      this.socket.emit('check_character_seat', { characterId: this.character.id });
+      return false;
+    }
+    this.statusText.setColor('#ff6b6b');
+    this.statusText.setText('Você já está em uma sala.');
+    return true;
+  }
+
   createLobby() {
+    if (this.blockIfAlreadyInLobby()) return;
     const password = String(this.passInputEl?.value || '').trim();
     if (password && !/^\d{4}$/.test(password)) {
       this.statusText.setColor('#ff6b6b');
@@ -349,6 +399,7 @@ export class MatchmakingScene extends Phaser.Scene {
   }
 
   onJoinClick(lobby) {
+    if (this.blockIfAlreadyInLobby()) return;
     if (lobby.hasPassword) {
       this.openPasswordPrompt(lobby.id);
       return;
@@ -412,6 +463,10 @@ export class MatchmakingScene extends Phaser.Scene {
     ok.style.cssText =
       'padding: 10px 16px; border: none; border-radius: 6px; background: #2ecc71; color: #fff; cursor: pointer;';
     ok.addEventListener('click', () => {
+      if (this.blockIfAlreadyInLobby()) {
+        this.destroyPasswordPrompt();
+        return;
+      }
       const password = input.value.trim();
       if (!/^\d{4}$/.test(password)) {
         err.textContent = 'Senha inválida (4 dígitos).';

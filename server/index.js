@@ -70,6 +70,23 @@ function isCharacterSeatedElsewhere(characterId, socketId) {
   return Boolean(seatedSocketId && seatedSocketId !== socketId);
 }
 
+const ALREADY_IN_LOBBY_MSG = 'Você já está em uma sala.';
+
+function seatStatusForCharacter(characterId, socketId) {
+  const match = findActiveMatchByCharacterId(characterId);
+  if (!match) return null;
+  const seatedSocketId = findSocketIdByCharacterId(match, characterId);
+  if (!seatedSocketId || seatedSocketId === socketId) return null;
+  return { matchId: match.id, phase: match.phase };
+}
+
+function emitAlreadyInLobby(socket) {
+  socket.emit('error_msg', {
+    message: ALREADY_IN_LOBBY_MSG,
+    code: 'already_in_lobby',
+  });
+}
+
 function lobbyListItem(match) {
   const humans = [...match.players.values()].filter((p) => !p.isBot);
   const host = humans[0] || [...match.players.values()][0];
@@ -158,13 +175,30 @@ function appearanceFromPayload(payload = {}) {
 io.on('connection', (socket) => {
   socket.emit('connected', { id: socket.id });
 
-  socket.on('subscribe_lobbies', () => {
+  socket.on('subscribe_lobbies', (payload = {}) => {
     socket.join(LOBBY_BROWSER);
-    socket.emit('lobbies_list', { lobbies: listOpenLobbies() });
+    const characterId = normalizeCharacterId(payload?.characterId);
+    socket.data.browserCharacterId = characterId;
+    socket.emit('lobbies_list', {
+      lobbies: listOpenLobbies(),
+      alreadyInLobby: seatStatusForCharacter(characterId, socket.id),
+    });
   });
 
   socket.on('unsubscribe_lobbies', () => {
     socket.leave(LOBBY_BROWSER);
+    socket.data.browserCharacterId = null;
+  });
+
+  socket.on('check_character_seat', (payload = {}) => {
+    const characterId = normalizeCharacterId(payload?.characterId);
+    const seat = seatStatusForCharacter(characterId, socket.id);
+    socket.emit('character_seat', {
+      characterId,
+      seated: Boolean(seat),
+      matchId: seat?.matchId || null,
+      phase: seat?.phase || null,
+    });
   });
 
   socket.on('create_lobby', (payload = {}) => {
@@ -178,11 +212,15 @@ io.on('connection', (socket) => {
     }
 
     const appearance = appearanceFromPayload(payload);
-    if (isCharacterSeatedElsewhere(appearance.characterId, socket.id)) {
+    if (!appearance.characterId) {
       socket.emit('error_msg', {
-        message: 'Usuário já está em um lobby.',
-        code: 'already_in_lobby',
+        message: 'Personagem inválido. Recarregue a página.',
+        code: 'bad_character',
       });
+      return;
+    }
+    if (isCharacterSeatedElsewhere(appearance.characterId, socket.id)) {
+      emitAlreadyInLobby(socket);
       return;
     }
 
@@ -248,11 +286,15 @@ io.on('connection', (socket) => {
     }
 
     const appearance = appearanceFromPayload(payload);
-    if (isCharacterSeatedElsewhere(appearance.characterId, socket.id)) {
+    if (!appearance.characterId) {
       socket.emit('error_msg', {
-        message: 'Usuário já está em um lobby.',
-        code: 'already_in_lobby',
+        message: 'Personagem inválido. Recarregue a página.',
+        code: 'bad_character',
       });
+      return;
+    }
+    if (isCharacterSeatedElsewhere(appearance.characterId, socket.id)) {
+      emitAlreadyInLobby(socket);
       return;
     }
 

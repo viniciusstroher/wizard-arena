@@ -512,7 +512,7 @@ export class LobbyScene extends Phaser.Scene {
         lobby_not_found: 'Lobby não existe.',
         bad_password: 'Senha incorreta.',
         match_started: 'Partida já iniciada.',
-        already_in_lobby: 'Usuário já está em um lobby.',
+        already_in_lobby: 'Você já está em uma sala.',
       };
       if (code && redirectCodes[code]) {
         this.leavingToMenu = true;

@@ -679,7 +679,7 @@ export class Match {
         if (!p.isBot && p.characterId === characterId && sid !== socket.id) {
           return {
             ok: false,
-            error: 'Usuário já está em um lobby.',
+            error: 'Você já está em uma sala.',
             code: 'already_in_lobby',
           };
         }
