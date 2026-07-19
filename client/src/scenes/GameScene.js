@@ -16,7 +16,7 @@ import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
-const ARENA_BORDER_FX_ENABLED = false;
+const ARENA_BORDER_FX_ENABLED = true;
 
 export class GameScene extends Phaser.Scene {
   constructor() {
