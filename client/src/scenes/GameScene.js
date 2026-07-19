@@ -88,9 +88,6 @@ export class GameScene extends Phaser.Scene {
     this.aimCursor = null;
     /** Ordenação do placar: 'damage' | 'kills' */
     this.scoreboardSort = 'damage';
-    /** Timestamp até quando o ping de spawn (círculo vermelho) fica ativo. */
-    this.spawnPingUntil = 0;
-    this.spawnPingGraphics = null;
     /** Labels de magia não-projétil acima de jogadores/bots/mobs. */
     this.spellCastLabels = [];
     /** Spotlight de abertura de round (preto + foco no jogador). */
@@ -120,8 +117,6 @@ export class GameScene extends Phaser.Scene {
     // Acima do chão/rochas, abaixo dos jogadores — AoEs (veneno/fogo) bem visíveis
     this.aoeGraphics = this.add.graphics().setDepth(12);
     this.effectGraphics = this.add.graphics().setDepth(14);
-    // Acima dos jogadores: ping de posição no início do round
-    this.spawnPingGraphics = this.add.graphics().setDepth(30);
     this.createMoveDust();
     this.createLavaBurn();
     this.createArenaFireWall();
@@ -1391,8 +1386,6 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'round_start') {
         this.playRoundStartSound();
-        // Continua o ping um pouco após o round começar
-        this.startSpawnPing();
         this.clearFloorDebris();
         this.syncBattleMusic();
         this.beginRoundSpotlightReveal();
@@ -1417,8 +1410,6 @@ export class GameScene extends Phaser.Scene {
       this.playRoundEndSound();
     }
     if (state.phase === 'countdown' && prevPhase !== 'countdown') {
-      // Ping já no countdown, antes do round começar
-      this.startSpawnPing(10000);
       this.beginRoundSpotlight();
       if (prevPhase && prevPhase !== 'lobby') {
         this.clearFloorDebris();
@@ -1519,16 +1510,11 @@ export class GameScene extends Phaser.Scene {
     this.renderEffects();
     this.renderLootBags();
     this.renderCoins();
-    this.renderSpawnPing();
     this.updateRoundSpotlight();
     this.updateSpellCastLabels();
     this.updateHud();
     this.updateLevelUpUi();
     this.handleBanners();
-  }
-
-  startSpawnPing(durationMs = 2800) {
-    this.spawnPingUntil = this.time.now + durationMs;
   }
 
   /** Overlay preto com furo no jogador local (abertura de round). */
@@ -1657,39 +1643,6 @@ export class GameScene extends Phaser.Scene {
       rim.lineStyle(2.2, 0x88aacc, 0.55 * a);
       rim.strokeEllipse(hx, hy, rx * 2, ry * 2);
     }
-  }
-
-  /** Círculo vermelho piscando na posição do jogador local (countdown + início do round). */
-  renderSpawnPing() {
-    const g = this.spawnPingGraphics;
-    if (!g) return;
-    g.clear();
-    const inCountdown = this.state?.phase === 'countdown';
-    const timed = this.time.now <= this.spawnPingUntil;
-    if (!inCountdown && !timed) return;
-    const me = this.me();
-    if (!me) return;
-
-    // No countdown não esmaece; após o round, fade nos últimos 400ms
-    const fade = inCountdown
-      ? 1
-      : Math.min(1, Math.max(0, (this.spawnPingUntil - this.time.now) / 400));
-    // Pisca ~4x/s
-    const blink = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time.now / 90));
-    const alpha = blink * fade;
-    const pulse = 1 + 0.08 * Math.sin(this.time.now / 70);
-    const r = 28 * pulse;
-
-    g.fillStyle(0xff2200, 0.22 * alpha);
-    g.fillCircle(me.x, me.y, r);
-    g.lineStyle(4, 0xff1100, 0.95 * alpha);
-    g.strokeCircle(me.x, me.y, r);
-    g.lineStyle(2, 0xffccaa, 0.7 * alpha);
-    g.strokeCircle(me.x, me.y, r * 0.72);
-    // Cruzinha no centro
-    g.lineStyle(2.5, 0xffffff, 0.85 * alpha);
-    g.lineBetween(me.x - 10, me.y, me.x + 10, me.y);
-    g.lineBetween(me.x, me.y - 10, me.x, me.y + 10);
   }
 
   heldMoveDir() {
