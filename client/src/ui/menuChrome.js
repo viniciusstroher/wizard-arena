@@ -240,6 +240,15 @@ export function drawMenuBackground(scene, { title = 'WIZARD ARENA', subtitle = n
       .setOrigin(0.5)
       .setDepth(2);
   }
+
+  scene.add
+    .text(width - 16, height - 14, `v${__APP_VERSION__}`, {
+      fontFamily: 'Trebuchet MS, sans-serif',
+      fontSize: '12px',
+      color: '#5a5270',
+    })
+    .setOrigin(1, 1)
+    .setDepth(5);
 }
 
 export function makeMenuButton(scene, x, y, label, color, onClick, width = 280) {
