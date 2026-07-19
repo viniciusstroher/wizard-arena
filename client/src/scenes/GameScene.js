@@ -1624,17 +1624,16 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) this.cycleSpellSlot();
     }
 
-    // Slot selecionado: sempre tenta castar; o servidor respeita o cooldown.
-    // Heal / Blink / Escudo usam hotkeys dedicadas (H / B / E), não castSlot.
+    // Slot selecionado + escudo/heal: sempre tentam castar; o servidor respeita CD/estado.
+    // Blink continua manual (B / clique).
     const castSlot = this.selectedSpellSlot;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
-    // Escudo (E) / Heal (H) / Blink (B): só tecla dedicada ou clique no slot
-    const barrier =
-      !!this.pendingBarrier || Phaser.Input.Keyboard.JustDown(this.cursors.barrier);
+    // Escudo / Heal: autocast (tecla/clique ainda funcionam, mas não são necessários).
     this.pendingBarrier = false;
-    const mend = !!this.pendingMend || Phaser.Input.Keyboard.JustDown(this.cursors.mend);
     this.pendingMend = false;
+    const barrier = true;
+    const mend = true;
     const blink = !!this.pendingBlink || Phaser.Input.Keyboard.JustDown(this.cursors.blink);
     this.pendingBlink = false;
 
@@ -5024,14 +5023,14 @@ export class GameScene extends Phaser.Scene {
     dashSlot.bg.setStrokeStyle(2, dashing ? 0xffffff : dashCd > 0 ? 0x665544 : 0xd4c48a);
     dashSlot.bg.setFillStyle(dashing ? 0x2a2250 : 0x1a1430, 0.95);
 
-    // Slot depois do dash (5): escudo inato (E, lv2+)
+    // Slot depois do dash (5): escudo inato (E, lv1+)
     const barrierSlot = this.spellSlots[5];
-    const barrierUnlocked = (me.level || 1) >= 2;
+    const barrierUnlocked = (me.level || 1) >= 1;
     const barrierCd = me.barrierCooldown || 0;
     const shielded = !!me.alive && (me.shield || 0) > 0;
     this.setSpellSlotIcon(barrierSlot, 'barrier');
     if (!barrierUnlocked) {
-      barrierSlot.name.setText('lv2');
+      barrierSlot.name.setText('lv1');
       barrierSlot.cd.setText('');
       barrierSlot.icon.setAlpha(0.3);
       barrierSlot.lock?.setVisible(true).setAlpha(1);
@@ -5046,13 +5045,13 @@ export class GameScene extends Phaser.Scene {
       barrierSlot.bg.setFillStyle(shielded ? 0x1a2848 : 0x1a1430, 0.95);
     }
 
-    // Slot depois do escudo (6): heal inato (H, lv3+)
+    // Slot depois do escudo (6): heal inato (H, lv1+)
     const mendSlot = this.spellSlots[6];
-    const mendUnlocked = (me.level || 1) >= 3;
+    const mendUnlocked = (me.level || 1) >= 1;
     const mendCd = me.mendCooldown || 0;
     this.setSpellSlotIcon(mendSlot, 'mend');
     if (!mendUnlocked) {
-      mendSlot.name.setText('lv3');
+      mendSlot.name.setText('lv1');
       mendSlot.cd.setText('');
       mendSlot.icon.setAlpha(0.3);
       mendSlot.lock?.setVisible(true).setAlpha(1);

@@ -38,7 +38,8 @@ Para PvP real: abra duas abas/navegadores, entre com nomes diferentes e dê Read
 | WASD | Mover |
 | Mouse | Mirar |
 | 1–4 / Tab | Selecionar magia (autocast ao sair do cooldown) |
-| E / H / B | Escudo / Heal / Blink |
+| E / H | Escudo / Heal (autocast ao sair do cooldown) |
+| B | Blink |
 
 ## Regras
 

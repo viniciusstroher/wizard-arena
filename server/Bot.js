@@ -322,12 +322,12 @@ export class BotController {
 
     const level = player.level || 1;
 
-    // Escudo inato (lv2+): sempre que possível (ainda mais útil sob meteoro)
+    // Escudo inato (lv1+): sempre que possível (ainda mais útil sob meteoro)
     const barrier =
-      level >= 2 && (player.barrierCooldown || 0) <= 0 && (player.shield || 0) <= 0;
+      level >= 1 && (player.barrierCooldown || 0) <= 0 && (player.shield || 0) <= 0;
 
-    // Heal inato (lv3+): sempre que possível (ferido e fora de CD)
-    const mend = level >= 3 && (player.mendCooldown || 0) <= 0 && player.hp < player.maxHp;
+    // Heal inato (lv1+): sempre que possível (ferido e fora de CD)
+    const mend = level >= 1 && (player.mendCooldown || 0) <= 0 && player.hp < player.maxHp;
 
     // Blink inato (lv5+): prioriza fuga/cura; no combate usa sempre que possível
     const blink = level >= 5 && (player.blinkCooldown || 0) <= 0;

@@ -711,10 +711,10 @@ export class Match {
         mend: false,
         blink: false,
       },
-      /** Escudo inato (E) — liberado no nível 2. */
+      /** Escudo inato (E) — disponível desde o nível 1. */
       barrierCooldown: 0,
       barrierBuffer: 0,
-      /** Heal inato (H) — liberado no nível 3. */
+      /** Heal inato (H) — disponível desde o nível 1. */
       mendCooldown: 0,
       mendBuffer: 0,
       /** Blink inato (B) — liberado no nível 5. */
@@ -1528,7 +1528,7 @@ export class Match {
     }
   }
 
-  /** Escudo inato (E) — liberado no nível 2. */
+  /** Escudo inato (E) — disponível desde o nível 1. */
   tryCastBarrier(player) {
     const wants = player.input?.barrier || (player.barrierBuffer || 0) > 0;
     if (!wants) return;
@@ -1569,7 +1569,7 @@ export class Match {
     });
   }
 
-  /** Heal inato (H) — liberado no nível 3. */
+  /** Heal inato (H) — disponível desde o nível 1. */
   tryCastMend(player) {
     const wants = player.input?.mend || (player.mendBuffer || 0) > 0;
     if (!wants) return;
