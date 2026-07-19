@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ensureCharacter, saveCharacter, WIZARD_COLORS } from '../character.js';
+import { deleteCharacter, ensureCharacter, saveCharacter, WIZARD_COLORS } from '../character.js';
 import { fetchCharacterMatches } from '../api.js';
 import { navigate } from '../router.js';
 import { ensureMenuMusic } from '../audio/menuMusic.js';
@@ -136,23 +136,108 @@ export class CharacterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
-    makeMenuButton(this, editorX - 90, height / 2 + 250, 'Voltar', 0x443866, () => {
+    const btnY = height / 2 + 250;
+    makeMenuButton(this, editorX - 120, btnY, 'Voltar', 0x443866, () => {
       navigate('/');
-    }, 160).setDepth(uiDepth);
+    }, 130).setDepth(uiDepth);
 
-    makeMenuButton(this, editorX + 90, height / 2 + 250, 'Salvar', 0x2ecc71, () => {
+    makeMenuButton(this, editorX + 20, btnY, 'Salvar', 0x2ecc71, () => {
       this.save();
-    }, 160).setDepth(uiDepth);
+    }, 130).setDepth(uiDepth);
+
+    makeMenuButton(this, editorX + 160, btnY, 'Deletar', 0xc0392b, () => {
+      this.confirmDeleteProfile();
+    }, 130).setDepth(uiDepth);
 
     this.buildHistoryPanel(historyX, height / 2 + 20, uiDepth);
 
     this.events.once('shutdown', () => {
+      this.destroyDeletePrompt();
       this.nameInput?.destroy();
       this.nameInput = null;
       this.historyDom?.destroy();
       this.historyDom = null;
       destroyAmbientCreatures(this);
     });
+  }
+
+  confirmDeleteProfile() {
+    this.destroyDeletePrompt();
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = [
+      'position: relative',
+      'width: 360px',
+      'padding: 22px 20px',
+      'background: #161228',
+      'border: 2px solid #c0392b',
+      'border-radius: 12px',
+      'font-family: Trebuchet MS, sans-serif',
+      'color: #f0e8ff',
+      'text-align: center',
+      'box-shadow: 0 12px 40px rgba(0,0,0,0.55)',
+    ].join(';');
+
+    const title = document.createElement('div');
+    title.textContent = 'Deletar personagem?';
+    title.style.cssText = 'font-family: Georgia, serif; font-size: 20px; margin-bottom: 10px;';
+
+    const hint = document.createElement('div');
+    hint.textContent =
+      'Isso apaga o personagem deste navegador. O histórico no servidor não é removido.';
+    hint.style.cssText =
+      'font-size: 13px; color: #9a8bb8; margin-bottom: 18px; line-height: 1.4;';
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display: flex; gap: 10px; justify-content: center;';
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancelar';
+    cancel.style.cssText =
+      'padding: 10px 16px; border: none; border-radius: 6px; background: #443866; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
+    cancel.addEventListener('click', () => this.destroyDeletePrompt());
+
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.textContent = 'Deletar';
+    ok.style.cssText =
+      'padding: 10px 16px; border: none; border-radius: 6px; background: #c0392b; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
+    ok.addEventListener('click', () => {
+      deleteCharacter();
+      this.destroyDeletePrompt();
+      window.location.reload();
+    });
+
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    wrap.appendChild(title);
+    wrap.appendChild(hint);
+    wrap.appendChild(actions);
+
+    const dim = document.createElement('div');
+    dim.style.cssText = [
+      'position: fixed',
+      'inset: 0',
+      'background: rgba(0,0,0,0.55)',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'z-index: 9999',
+    ].join(';');
+    dim.appendChild(wrap);
+    dim.addEventListener('click', (e) => {
+      if (e.target === dim) this.destroyDeletePrompt();
+    });
+    document.body.appendChild(dim);
+    this.deletePrompt = dim;
+  }
+
+  destroyDeletePrompt() {
+    if (this.deletePrompt) {
+      this.deletePrompt.remove();
+      this.deletePrompt = null;
+    }
   }
 
   buildHistoryPanel(x, y, depth) {

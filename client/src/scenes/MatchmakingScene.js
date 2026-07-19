@@ -160,7 +160,7 @@ export class MatchmakingScene extends Phaser.Scene {
       this.leaderboardModal?.close();
       this.leaderboardModal = openLeaderboardModal();
     }, 220).setDepth(uiDepth);
-    makeMenuButton(this, x, y + 210, '← Home', 0x443866, () => {
+    makeMenuButton(this, x, y + 210, 'Voltar', 0x443866, () => {
       navigate('/');
     }, 220).setDepth(uiDepth);
   }

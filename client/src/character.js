@@ -147,3 +147,13 @@ export function saveCharacter(character) {
   localStorage.setItem('wa_name', data.name);
   return { ok: true, character: data };
 }
+
+/** Remove apenas o personagem do localStorage (não apaga histórico no servidor). */
+export function deleteCharacter() {
+  try {
+    localStorage.removeItem(CHARACTER_KEY);
+    localStorage.removeItem('wa_name');
+  } catch {
+    // ignore
+  }
+}
