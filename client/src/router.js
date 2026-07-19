@@ -50,6 +50,8 @@ export function navigate(path, { replace = false } = {}) {
   window.dispatchEvent(new CustomEvent('wa:navigate', { detail: getRoute(url.pathname) }));
 }
 
+const ROUTE_SCENES = ['Home', 'Character', 'Matchmaking', 'Lobby', 'Game'];
+
 /** Troca a cena Phaser conforme a rota atual. */
 export function goToRoute(game, route = getRoute(), data = {}) {
   if (!game?.scene) return;
@@ -59,11 +61,20 @@ export function goToRoute(game, route = getRoute(), data = {}) {
       ? { matchId: route.matchId, ...data }
       : { ...data };
 
-  // Evita reiniciar a mesma tela (ex.: popstate / navigate duplicado)
+  // game.scene.start() NÃO encerra a cena atual (diferente de this.scene.start).
+  // Sem stop explícito, Character/Home ficam ativas juntas e o "Voltar" parece não funcionar.
+  for (const s of ROUTE_SCENES) {
+    if (s === key) continue;
+    if (game.scene.isActive(s) || game.scene.isSleeping(s) || game.scene.isPaused(s)) {
+      game.scene.stop(s);
+    }
+  }
+
   if (game.scene.isActive(key)) {
     if (key === 'Lobby') {
       const lobby = game.scene.getScene('Lobby');
       if (lobby?.matchId === payload.matchId) return;
+      game.scene.stop('Lobby');
     } else if (key !== 'Game') {
       return;
     }
