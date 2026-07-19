@@ -3042,6 +3042,558 @@ export function createMonsterTypeDefs(CONFIG) {
       range: 302, preferRange: 175, projectileSpeed: 440, projectileRadius: 10, projectileColor: 0xc9a227, attackCooldown: 1.10, novaRadius: 145, novaCooldown: 4.5,
       weight: boss, isBoss: true, difficulty: 'apocalypse',
     },
+
+    // ─── Expansão 5 +100 (variantes) ───────────────────────
+    // Normals (48) — jovens / recrutas
+    orc_recruit: {
+      hpMul: 0.65, speedMul: 0.85, dmgMul: 0.80, radius: 11, color: 0x3d8b4a,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: common, difficulty: 'normal',
+    },
+    goblin_scout: {
+      hpMul: 0.73, speedMul: 0.92, dmgMul: 0.87, radius: 12, color: 0xa8c734,
+      attack: 'ranged', projectile: 'arrow',
+      range: 195, preferRange: 130, projectileSpeed: 250, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.25,
+      weight: common, difficulty: 'normal',
+    },
+    slime_spawn: {
+      hpMul: 0.81, speedMul: 0.99, dmgMul: 0.94, radius: 13, color: 0x44ff66,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: common, difficulty: 'hard',
+    },
+    wolf_pup: {
+      hpMul: 0.89, speedMul: 1.06, dmgMul: 1.01, radius: 14, color: 0x8b7355,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: common, difficulty: 'normal',
+    },
+    skeleton_recruit: {
+      hpMul: 0.97, speedMul: 1.13, dmgMul: 1.08, radius: 15, color: 0xe8e0d0,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'normal',
+    },
+    bat_hatchling: {
+      hpMul: 1.05, speedMul: 1.20, dmgMul: 1.15, radius: 16, color: 0x4a3728,
+      attack: 'melee', attackCooldown: 1.22,
+      weight: common, difficulty: 'normal',
+    },
+    imp_whelp: {
+      hpMul: 1.13, speedMul: 1.27, dmgMul: 0.80, radius: 17, color: 0xff4422,
+      attack: 'ranged', projectile: 'fireball',
+      range: 195, preferRange: 140, projectileSpeed: 230, projectileRadius: 6, projectileColor: 0xff6622, attackCooldown: 1.35,
+      weight: common, difficulty: 'hard',
+    },
+    elf_apprentice: {
+      hpMul: 1.21, speedMul: 1.34, dmgMul: 0.87, radius: 11, color: 0x6bbf59,
+      attack: 'ranged', projectile: 'arrow',
+      range: 205, preferRange: 150, projectileSpeed: 250, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.45,
+      weight: common, difficulty: 'normal',
+    },
+    zombie_thrall: {
+      hpMul: 1.29, speedMul: 0.85, dmgMul: 0.94, radius: 12, color: 0x6b8f5a,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: common, difficulty: 'normal',
+    },
+    mummy_servant: {
+      hpMul: 0.65, speedMul: 0.92, dmgMul: 1.01, radius: 13, color: 0xd4c48a,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: common, difficulty: 'normal',
+    },
+    ghoul_scavenger: {
+      hpMul: 0.73, speedMul: 0.99, dmgMul: 1.08, radius: 14, color: 0x8fbc8f,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'hard',
+    },
+    kobold_miner: {
+      hpMul: 0.81, speedMul: 1.06, dmgMul: 1.15, radius: 15, color: 0xc97840,
+      attack: 'ranged', projectile: 'arrow',
+      range: 195, preferRange: 150, projectileSpeed: 330, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.45,
+      weight: common, difficulty: 'normal',
+    },
+    bandit_thug: {
+      hpMul: 0.89, speedMul: 1.13, dmgMul: 0.80, radius: 16, color: 0x8b5a2b,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: common, difficulty: 'normal',
+    },
+    pirate_deckhand: {
+      hpMul: 0.97, speedMul: 1.20, dmgMul: 0.87, radius: 17, color: 0x2f4f6f,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: common, difficulty: 'normal',
+    },
+    cyclops_youth: {
+      hpMul: 1.05, speedMul: 1.27, dmgMul: 0.94, radius: 11, color: 0xc4a35a,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: common, difficulty: 'hard',
+    },
+    minotaur_calf: {
+      hpMul: 1.13, speedMul: 1.34, dmgMul: 1.01, radius: 12, color: 0x8b4513,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: common, difficulty: 'normal',
+    },
+    harpy_fledgling: {
+      hpMul: 1.21, speedMul: 0.85, dmgMul: 1.08, radius: 13, color: 0xd4a0c8,
+      attack: 'ranged', projectile: 'orb',
+      range: 195, preferRange: 120, projectileSpeed: 310, projectileRadius: 6, projectileColor: 0x88ddff, attackCooldown: 1.15,
+      weight: common, difficulty: 'normal',
+    },
+    scorpion_nymph: {
+      hpMul: 1.29, speedMul: 0.92, dmgMul: 1.15, radius: 14, color: 0xc45c26,
+      attack: 'melee', attackCooldown: 1.22,
+      weight: common, difficulty: 'normal',
+    },
+    cultist_initiate: {
+      hpMul: 0.65, speedMul: 0.99, dmgMul: 0.80, radius: 15, color: 0x5c2d6e,
+      attack: 'caster', spells: ['firebolt'],
+      range: 210, preferRange: 122, projectileSpeed: 420, projectileRadius: 8, projectileColor: 0x5c2d6e, attackCooldown: 1.10,
+      weight: common, difficulty: 'hard',
+    },
+    gargoyle_shard: {
+      hpMul: 0.73, speedMul: 1.06, dmgMul: 0.87, radius: 16, color: 0x6e6e78,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: common, difficulty: 'normal',
+    },
+    pixie_spark: {
+      hpMul: 0.81, speedMul: 1.13, dmgMul: 0.94, radius: 17, color: 0xff88cc,
+      attack: 'caster', spells: ['hex_bolt'],
+      range: 226, preferRange: 131, projectileSpeed: 360, projectileRadius: 8, projectileColor: 0xff88cc, attackCooldown: 1.20,
+      weight: common, difficulty: 'normal',
+    },
+    gnoll_pup: {
+      hpMul: 0.89, speedMul: 1.20, dmgMul: 1.01, radius: 11, color: 0xb8860b,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: common, difficulty: 'normal',
+    },
+    ratman_squeaker: {
+      hpMul: 0.97, speedMul: 1.27, dmgMul: 1.08, radius: 12, color: 0x7a6a5a,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'hard',
+    },
+    crab_hatchling: {
+      hpMul: 1.05, speedMul: 1.34, dmgMul: 1.15, radius: 13, color: 0xd35400,
+      attack: 'melee', attackCooldown: 1.22,
+      weight: common, difficulty: 'normal',
+    },
+    wasp_drone: {
+      hpMul: 1.13, speedMul: 0.85, dmgMul: 0.80, radius: 14, color: 0xf0c040,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: common, difficulty: 'normal',
+    },
+    toad_tadpole: {
+      hpMul: 1.21, speedMul: 0.92, dmgMul: 0.87, radius: 15, color: 0x4a7c59,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: common, difficulty: 'normal',
+    },
+    dwarf_squire: {
+      hpMul: 1.29, speedMul: 0.99, dmgMul: 0.94, radius: 16, color: 0xb87333,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: common, difficulty: 'hard',
+    },
+    wraith_shade: {
+      hpMul: 0.65, speedMul: 1.06, dmgMul: 1.01, radius: 17, color: 0x8866ff,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: common, difficulty: 'normal',
+    },
+    frogman_poliwog: {
+      hpMul: 0.73, speedMul: 1.13, dmgMul: 1.08, radius: 11, color: 0x3d9970,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'normal',
+    },
+    porcupine_kit: {
+      hpMul: 0.81, speedMul: 1.20, dmgMul: 1.15, radius: 12, color: 0x8b7355,
+      attack: 'ranged', projectile: 'orb',
+      range: 225, preferRange: 130, projectileSpeed: 330, projectileRadius: 6, projectileColor: 0x88ddff, attackCooldown: 1.25,
+      weight: common, difficulty: 'normal',
+    },
+    raven_chick: {
+      hpMul: 0.89, speedMul: 1.27, dmgMul: 0.80, radius: 13, color: 0x2c3e50,
+      attack: 'ranged', projectile: 'arrow',
+      range: 185, preferRange: 140, projectileSpeed: 230, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.35,
+      weight: common, difficulty: 'hard',
+    },
+    boar_piglet: {
+      hpMul: 0.97, speedMul: 1.34, dmgMul: 0.87, radius: 14, color: 0x566573,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: common, difficulty: 'normal',
+    },
+    owl_fledgling: {
+      hpMul: 1.05, speedMul: 0.85, dmgMul: 0.94, radius: 15, color: 0x1c2833,
+      attack: 'ranged', projectile: 'orb',
+      range: 205, preferRange: 120, projectileSpeed: 270, projectileRadius: 6, projectileColor: 0x88ddff, attackCooldown: 1.15,
+      weight: common, difficulty: 'normal',
+    },
+    fox_kit: {
+      hpMul: 1.13, speedMul: 0.92, dmgMul: 1.01, radius: 16, color: 0xe67e22,
+      attack: 'caster', spells: ['hex_bolt'],
+      range: 210, preferRange: 122, projectileSpeed: 420, projectileRadius: 8, projectileColor: 0xe67e22, attackCooldown: 1.10,
+      weight: common, difficulty: 'normal',
+    },
+    shark_pup: {
+      hpMul: 1.21, speedMul: 0.99, dmgMul: 1.08, radius: 17, color: 0x5d8aa8,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'hard',
+    },
+    hive_larva: {
+      hpMul: 1.29, speedMul: 1.06, dmgMul: 1.15, radius: 11, color: 0xf1c40f,
+      attack: 'melee', attackCooldown: 1.22,
+      weight: common, difficulty: 'normal',
+    },
+    yeti_whelp: {
+      hpMul: 0.65, speedMul: 1.13, dmgMul: 0.80, radius: 12, color: 0xe8eef5,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: common, difficulty: 'normal',
+    },
+    spiderling: {
+      hpMul: 0.73, speedMul: 1.20, dmgMul: 0.87, radius: 13, color: 0x2d1b2e,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: common, difficulty: 'normal',
+    },
+    snake_hatchling: {
+      hpMul: 0.81, speedMul: 1.27, dmgMul: 0.94, radius: 14, color: 0x3d8b40,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: common, difficulty: 'hard',
+    },
+    desert_jackal_pup: {
+      hpMul: 0.89, speedMul: 1.34, dmgMul: 1.01, radius: 15, color: 0xc2a05a,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: common, difficulty: 'normal',
+    },
+    troll_runt: {
+      hpMul: 0.97, speedMul: 0.85, dmgMul: 1.08, radius: 16, color: 0x5a6e4a,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'normal',
+    },
+    slug_nymph: {
+      hpMul: 1.05, speedMul: 0.92, dmgMul: 1.15, radius: 17, color: 0x556b2f,
+      attack: 'melee', attackCooldown: 1.22,
+      weight: common, difficulty: 'normal',
+    },
+    ice_imp_spark: {
+      hpMul: 1.13, speedMul: 0.99, dmgMul: 0.80, radius: 11, color: 0x7ec8e3,
+      attack: 'caster', spells: ['ice_shard'],
+      range: 210, preferRange: 122, projectileSpeed: 400, projectileRadius: 8, projectileColor: 0x7ec8e3, attackCooldown: 1.10,
+      weight: common, difficulty: 'hard',
+    },
+    scarab_larva: {
+      hpMul: 1.21, speedMul: 1.06, dmgMul: 0.87, radius: 12, color: 0x1a5c3a,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: common, difficulty: 'normal',
+    },
+    bone_shardling: {
+      hpMul: 1.29, speedMul: 1.13, dmgMul: 0.94, radius: 13, color: 0xd5d0c0,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: common, difficulty: 'normal',
+    },
+    ember_spark: {
+      hpMul: 0.65, speedMul: 1.20, dmgMul: 1.01, radius: 14, color: 0xe67e22,
+      attack: 'ranged', projectile: 'fireball',
+      range: 185, preferRange: 130, projectileSpeed: 290, projectileRadius: 6, projectileColor: 0xff6622, attackCooldown: 1.25,
+      weight: common, difficulty: 'normal',
+    },
+    ash_rat_pup: {
+      hpMul: 0.73, speedMul: 1.27, dmgMul: 1.08, radius: 15, color: 0x6e2c00,
+      attack: 'melee', attackCooldown: 1.12,
+      weight: common, difficulty: 'hard',
+    },
+    coral_crab_hatch: {
+      hpMul: 0.81, speedMul: 1.34, dmgMul: 1.15, radius: 16, color: 0xe74c3c,
+      attack: 'melee', attackCooldown: 1.22,
+      weight: common, difficulty: 'normal',
+    },
+
+    // Elites (32) — chefes / capitães
+    orc_war_chief: {
+      hpMul: 2.20, speedMul: 0.68, dmgMul: 1.53, radius: 15, color: 0x3d8b4a,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    goblin_raid_captain: {
+      hpMul: 2.30, speedMul: 0.75, dmgMul: 1.58, radius: 16, color: 0xa8c734,
+      attack: 'ranged', projectile: 'arrow',
+      range: 225, preferRange: 130, projectileSpeed: 250, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.25,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    slime_overseer: {
+      hpMul: 2.40, speedMul: 0.82, dmgMul: 1.38, radius: 17, color: 0x44ff66,
+      attack: 'caster', spells: ['acid_bolt'],
+      range: 256, preferRange: 148, projectileSpeed: 360, projectileRadius: 8, projectileColor: 0x44ff66, attackCooldown: 1.20,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    wolf_alpha: {
+      hpMul: 2.50, speedMul: 0.89, dmgMul: 1.43, radius: 18, color: 0x8b7355,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    skeleton_captain: {
+      hpMul: 2.60, speedMul: 0.96, dmgMul: 1.48, radius: 19, color: 0xe8e0d0,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    bat_matriarch: {
+      hpMul: 2.70, speedMul: 1.03, dmgMul: 1.53, radius: 20, color: 0x4a3728,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    imp_taskmaster: {
+      hpMul: 1.90, speedMul: 1.10, dmgMul: 1.58, radius: 21, color: 0xff4422,
+      attack: 'caster', spells: ['firebolt'],
+      range: 256, preferRange: 148, projectileSpeed: 440, projectileRadius: 8, projectileColor: 0xff4422, attackCooldown: 1.10,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    elf_blademaster: {
+      hpMul: 2.00, speedMul: 1.17, dmgMul: 1.38, radius: 22, color: 0x6bbf59,
+      attack: 'ranged', projectile: 'arrow',
+      range: 185, preferRange: 150, projectileSpeed: 250, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.45,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    zombie_warlord: {
+      hpMul: 2.10, speedMul: 0.68, dmgMul: 1.43, radius: 15, color: 0x6b8f5a,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    mummy_pharaoh_guard: {
+      hpMul: 2.20, speedMul: 0.75, dmgMul: 1.48, radius: 16, color: 0xd4c48a,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    ghoul_packleader: {
+      hpMul: 2.30, speedMul: 0.82, dmgMul: 1.53, radius: 17, color: 0x8fbc8f,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    kobold_trapmaster: {
+      hpMul: 2.40, speedMul: 0.89, dmgMul: 1.58, radius: 18, color: 0xc97840,
+      attack: 'ranged', projectile: 'arrow',
+      range: 225, preferRange: 150, projectileSpeed: 330, projectileRadius: 4, projectileColor: 0xd4c4a0, attackCooldown: 1.45,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    bandit_kingpin: {
+      hpMul: 2.50, speedMul: 0.96, dmgMul: 1.38, radius: 19, color: 0x8b5a2b,
+      attack: 'melee', attackCooldown: 0.62,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    pirate_captain: {
+      hpMul: 2.60, speedMul: 1.03, dmgMul: 1.43, radius: 20, color: 0x2f4f6f,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    cyclops_champion: {
+      hpMul: 2.70, speedMul: 1.10, dmgMul: 1.48, radius: 21, color: 0xc4a35a,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    minotaur_arena_lord: {
+      hpMul: 1.90, speedMul: 1.17, dmgMul: 1.53, radius: 22, color: 0x8b4513,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    harpy_stormcaller: {
+      hpMul: 2.00, speedMul: 0.68, dmgMul: 1.58, radius: 15, color: 0xd4a0c8,
+      attack: 'caster', spells: ['electric_storm', 'arc_lightning', 'electric_bolt'],
+      range: 240, preferRange: 139, projectileSpeed: 440, projectileRadius: 8, projectileColor: 0xd4a0c8, attackCooldown: 1.15, novaRadius: 105, novaCooldown: 4,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    scorpion_broodmother: {
+      hpMul: 2.10, speedMul: 0.75, dmgMul: 1.38, radius: 16, color: 0xc45c26,
+      attack: 'melee', attackCooldown: 0.62,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    cultist_hierophant: {
+      hpMul: 2.20, speedMul: 0.82, dmgMul: 1.43, radius: 17, color: 0x5c2d6e,
+      attack: 'caster', spells: ['hex_bolt'],
+      range: 256, preferRange: 148, projectileSpeed: 380, projectileRadius: 8, projectileColor: 0x5c2d6e, attackCooldown: 1.10,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    gargoyle_sentinel: {
+      hpMul: 2.30, speedMul: 0.89, dmgMul: 1.48, radius: 18, color: 0x6e6e78,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    pixie_queen_guard: {
+      hpMul: 2.40, speedMul: 0.96, dmgMul: 1.53, radius: 19, color: 0xff88cc,
+      attack: 'caster', spells: ['hex_bolt'],
+      range: 240, preferRange: 139, projectileSpeed: 420, projectileRadius: 8, projectileColor: 0xff88cc, attackCooldown: 1.20,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    gnoll_packlord: {
+      hpMul: 2.50, speedMul: 1.03, dmgMul: 1.58, radius: 20, color: 0xb8860b,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    ratman_warlord: {
+      hpMul: 2.60, speedMul: 1.10, dmgMul: 1.38, radius: 21, color: 0x7a6a5a,
+      attack: 'melee', attackCooldown: 0.62,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    crab_shellbreaker: {
+      hpMul: 2.70, speedMul: 1.17, dmgMul: 1.43, radius: 22, color: 0xd35400,
+      attack: 'melee', attackCooldown: 0.72,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    wasp_hivequeen_guard: {
+      hpMul: 1.90, speedMul: 0.68, dmgMul: 1.48, radius: 15, color: 0xf0c040,
+      attack: 'caster', spells: ['poison_cloud', 'acid_bolt', 'firebolt'],
+      range: 240, preferRange: 139, projectileSpeed: 400, projectileRadius: 8, projectileColor: 0xf0c040, attackCooldown: 1.10, novaRadius: 105, novaCooldown: 4,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    toad_bog_king: {
+      hpMul: 2.00, speedMul: 0.75, dmgMul: 1.53, radius: 16, color: 0x4a7c59,
+      attack: 'caster', spells: ['poison_cloud', 'acid_bolt', 'firebolt'],
+      range: 248, preferRange: 144, projectileSpeed: 420, projectileRadius: 8, projectileColor: 0x4a7c59, attackCooldown: 1.15, novaRadius: 105, novaCooldown: 4,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    dwarf_warcaptain: {
+      hpMul: 2.10, speedMul: 0.82, dmgMul: 1.58, radius: 17, color: 0xb87333,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    wraith_reaper: {
+      hpMul: 2.20, speedMul: 0.89, dmgMul: 1.38, radius: 18, color: 0x8866ff,
+      attack: 'caster', spells: ['bone_volley', 'hex_bolt', 'ice_shard'],
+      range: 264, preferRange: 153, projectileSpeed: 360, projectileRadius: 8, projectileColor: 0x8866ff, attackCooldown: 1.10, skullCount: 7,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    frost_mage_adept: {
+      hpMul: 2.30, speedMul: 0.96, dmgMul: 1.43, radius: 19, color: 0x5dade2,
+      attack: 'caster', spells: ['frost_breath', 'ice_shard', 'crystal_bolt'],
+      range: 240, preferRange: 139, projectileSpeed: 380, projectileRadius: 8, projectileColor: 0x5dade2, attackCooldown: 1.15,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    death_knight_vanguard: {
+      hpMul: 2.40, speedMul: 1.03, dmgMul: 1.48, radius: 20, color: 0x3a3a5c,
+      attack: 'melee', attackCooldown: 0.82,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    shadow_assassin_master: {
+      hpMul: 2.50, speedMul: 1.10, dmgMul: 1.53, radius: 21, color: 0x1c1c28,
+      attack: 'melee', attackCooldown: 0.92,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    stone_golem_warden: {
+      hpMul: 2.60, speedMul: 1.17, dmgMul: 1.58, radius: 22, color: 0x7f8c8d,
+      attack: 'melee', attackCooldown: 1.02,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+
+    // Bosses (20) — reis / imperadores
+    orc_warchief_king: {
+      hpMul: 4.90, speedMul: 0.44, dmgMul: 1.68, radius: 46, color: 0x3d8b4a,
+      attack: 'caster', spells: ['infernal_judgment', 'magma_surge', 'firebreath', 'solar_judgment'],
+      range: 270, preferRange: 157, projectileSpeed: 360, projectileRadius: 10, projectileColor: 0x3d8b4a, attackCooldown: 1.20, novaRadius: 125, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'nightmare',
+    },
+    goblin_warlord_king: {
+      hpMul: 5.00, speedMul: 0.50, dmgMul: 1.73, radius: 47, color: 0xa8c734,
+      attack: 'caster', spells: ['cataclysm_beam', 'electric_storm', 'soul_lance', 'electric_bolt'],
+      range: 278, preferRange: 161, projectileSpeed: 380, projectileRadius: 10, projectileColor: 0xa8c734, attackCooldown: 1.10, novaRadius: 130, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    slime_emperor: {
+      hpMul: 5.10, speedMul: 0.56, dmgMul: 1.78, radius: 48, color: 0x44ff66,
+      attack: 'caster', spells: ['plague_burst', 'poison_cloud', 'acid_bolt', 'thorn_nova'],
+      range: 286, preferRange: 166, projectileSpeed: 400, projectileRadius: 10, projectileColor: 0x44ff66, attackCooldown: 1.15, novaRadius: 135, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'hard',
+    },
+    wolf_dire_king: {
+      hpMul: 5.20, speedMul: 0.62, dmgMul: 1.83, radius: 49, color: 0x8b7355,
+      attack: 'caster', spells: ['shadow_eclipse', 'entropy_pulse', 'hex_bolt', 'void_collapse'],
+      range: 294, preferRange: 171, projectileSpeed: 420, projectileRadius: 10, projectileColor: 0x8b7355, attackCooldown: 1.20, novaRadius: 140, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    skeleton_bone_king: {
+      hpMul: 4.60, speedMul: 0.68, dmgMul: 1.58, radius: 43, color: 0xe8e0d0,
+      attack: 'caster', spells: ['death_knell', 'bone_volley', 'skull_wave', 'soul_rend'],
+      range: 302, preferRange: 175, projectileSpeed: 440, projectileRadius: 10, projectileColor: 0xe8e0d0, attackCooldown: 1.10, skullCount: 12,
+      weight: boss, isBoss: true, difficulty: 'nightmare',
+    },
+    imp_hell_overlord: {
+      hpMul: 4.70, speedMul: 0.44, dmgMul: 1.63, radius: 44, color: 0xff4422,
+      attack: 'caster', spells: ['infernal_judgment', 'magma_surge', 'firebreath', 'solar_judgment'],
+      range: 270, preferRange: 157, projectileSpeed: 360, projectileRadius: 10, projectileColor: 0xff4422, attackCooldown: 1.15, novaRadius: 125, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    elf_forest_sovereign: {
+      hpMul: 4.80, speedMul: 0.50, dmgMul: 1.68, radius: 45, color: 0x6bbf59,
+      attack: 'caster', spells: ['plague_burst', 'poison_cloud', 'acid_bolt', 'thorn_nova'],
+      range: 278, preferRange: 161, projectileSpeed: 380, projectileRadius: 10, projectileColor: 0x6bbf59, attackCooldown: 1.20, novaRadius: 130, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'hard',
+    },
+    zombie_plague_king: {
+      hpMul: 4.90, speedMul: 0.56, dmgMul: 1.73, radius: 46, color: 0x6b8f5a,
+      attack: 'caster', spells: ['plague_burst', 'poison_cloud', 'acid_bolt', 'thorn_nova'],
+      range: 286, preferRange: 166, projectileSpeed: 400, projectileRadius: 10, projectileColor: 0x6b8f5a, attackCooldown: 1.10, novaRadius: 135, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    mummy_pharaoh: {
+      hpMul: 5.00, speedMul: 0.62, dmgMul: 1.78, radius: 47, color: 0xd4c48a,
+      attack: 'caster', spells: ['solar_judgment', 'magma_surge', 'flame_nova', 'firebolt'],
+      range: 294, preferRange: 171, projectileSpeed: 420, projectileRadius: 10, projectileColor: 0xd4c48a, attackCooldown: 1.15, novaRadius: 140, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'nightmare',
+    },
+    cyclops_mountain_king: {
+      hpMul: 5.10, speedMul: 0.68, dmgMul: 1.83, radius: 48, color: 0xc4a35a,
+      attack: 'caster', spells: ['cataclysm_beam', 'electric_storm', 'soul_lance', 'electric_bolt'],
+      range: 302, preferRange: 175, projectileSpeed: 440, projectileRadius: 10, projectileColor: 0xc4a35a, attackCooldown: 1.20, novaRadius: 145, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    minotaur_labyrinth_king: {
+      hpMul: 5.20, speedMul: 0.44, dmgMul: 1.58, radius: 49, color: 0x8b4513,
+      attack: 'caster', spells: ['rift_lance', 'entropy_pulse', 'hex_bolt', 'void_collapse'],
+      range: 270, preferRange: 157, projectileSpeed: 360, projectileRadius: 10, projectileColor: 0x8b4513, attackCooldown: 1.10, novaRadius: 125, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'hard',
+    },
+    harpy_sky_empress: {
+      hpMul: 4.60, speedMul: 0.50, dmgMul: 1.63, radius: 43, color: 0xd4a0c8,
+      attack: 'caster', spells: ['electric_storm', 'cataclysm_beam', 'electric_bolt', 'solar_judgment'],
+      range: 278, preferRange: 161, projectileSpeed: 380, projectileRadius: 10, projectileColor: 0xd4a0c8, attackCooldown: 1.15, novaRadius: 130, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    cultist_dark_messiah: {
+      hpMul: 4.70, speedMul: 0.56, dmgMul: 1.68, radius: 44, color: 0x5c2d6e,
+      attack: 'caster', spells: ['shadow_eclipse', 'entropy_pulse', 'hex_bolt', 'void_collapse'],
+      range: 286, preferRange: 166, projectileSpeed: 400, projectileRadius: 10, projectileColor: 0x5c2d6e, attackCooldown: 1.20, novaRadius: 135, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'nightmare',
+    },
+    gargoyle_cathedral_lord: {
+      hpMul: 4.80, speedMul: 0.62, dmgMul: 1.73, radius: 45, color: 0x6e6e78,
+      attack: 'caster', spells: ['cataclysm_beam', 'electric_storm', 'soul_lance', 'electric_bolt'],
+      range: 294, preferRange: 171, projectileSpeed: 420, projectileRadius: 10, projectileColor: 0x6e6e78, attackCooldown: 1.10, novaRadius: 140, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    gnoll_war_khan: {
+      hpMul: 4.90, speedMul: 0.68, dmgMul: 1.78, radius: 46, color: 0xb8860b,
+      attack: 'caster', spells: ['infernal_judgment', 'magma_surge', 'firebreath', 'solar_judgment'],
+      range: 302, preferRange: 175, projectileSpeed: 440, projectileRadius: 10, projectileColor: 0xb8860b, attackCooldown: 1.15, novaRadius: 145, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'hard',
+    },
+    pirate_sea_emperor: {
+      hpMul: 5.00, speedMul: 0.44, dmgMul: 1.83, radius: 47, color: 0x2f4f6f,
+      attack: 'caster', spells: ['tidal_crush', 'abyss_nova', 'frost_breath', 'ice_shard'],
+      range: 270, preferRange: 157, projectileSpeed: 360, projectileRadius: 10, projectileColor: 0x2f4f6f, attackCooldown: 1.20, novaRadius: 125, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    bandit_crime_emperor: {
+      hpMul: 5.10, speedMul: 0.50, dmgMul: 1.58, radius: 48, color: 0x8b5a2b,
+      attack: 'caster', spells: ['rift_lance', 'entropy_pulse', 'hex_bolt', 'void_collapse'],
+      range: 278, preferRange: 161, projectileSpeed: 380, projectileRadius: 10, projectileColor: 0x8b5a2b, attackCooldown: 1.10, novaRadius: 130, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'nightmare',
+    },
+    dwarf_forge_king: {
+      hpMul: 5.20, speedMul: 0.56, dmgMul: 1.63, radius: 49, color: 0xb87333,
+      attack: 'caster', spells: ['solar_judgment', 'magma_surge', 'flame_nova', 'firebolt'],
+      range: 286, preferRange: 166, projectileSpeed: 400, projectileRadius: 10, projectileColor: 0xb87333, attackCooldown: 1.15, novaRadius: 135, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
+    ratman_underking: {
+      hpMul: 4.60, speedMul: 0.62, dmgMul: 1.68, radius: 43, color: 0x7a6a5a,
+      attack: 'caster', spells: ['plague_burst', 'poison_cloud', 'acid_bolt', 'thorn_nova'],
+      range: 294, preferRange: 171, projectileSpeed: 420, projectileRadius: 10, projectileColor: 0x7a6a5a, attackCooldown: 1.20, novaRadius: 140, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'hard',
+    },
+    scorpion_dune_emperor: {
+      hpMul: 4.70, speedMul: 0.68, dmgMul: 1.73, radius: 44, color: 0xc45c26,
+      attack: 'caster', spells: ['solar_judgment', 'magma_surge', 'flame_nova', 'firebolt'],
+      range: 302, preferRange: 175, projectileSpeed: 440, projectileRadius: 10, projectileColor: 0xc45c26, attackCooldown: 1.10, novaRadius: 145, novaCooldown: 4.5,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
   };
 
   // Habitats RPG — em quais terrenos cada monstro pode aparecer.
