@@ -153,6 +153,20 @@ export class Match {
     this.maxPlayers = Number.isFinite(max)
       ? Math.min(CONFIG.MAX_PLAYERS, Math.max(1, max))
       : CONFIG.MAX_PLAYERS;
+    const roundsOpt = [5, 10, 15, 20];
+    const durationOpt = [60, 120, 180];
+    const rounds = Math.floor(Number(options.maxRounds));
+    this.maxRounds = roundsOpt.includes(rounds)
+      ? rounds
+      : roundsOpt.includes(CONFIG.MAX_ROUNDS)
+        ? CONFIG.MAX_ROUNDS
+        : 10;
+    const duration = Math.floor(Number(options.roundDuration));
+    this.roundDuration = durationOpt.includes(duration)
+      ? duration
+      : durationOpt.includes(CONFIG.ROUND_DURATION)
+        ? CONFIG.ROUND_DURATION
+        : 120;
     this.password = options.password ? String(options.password) : null;
     this.onLobbyListChange =
       typeof options.onLobbyListChange === 'function' ? options.onLobbyListChange : null;
@@ -204,7 +218,7 @@ export class Match {
     this.createdAt = new Date();
     this.startedAt = null;
     this.endReason = null;
-    this.maxRoundsSaved = CONFIG.MAX_ROUNDS;
+    this.maxRoundsSaved = this.maxRounds;
     this._persisted = false;
     this.tickAcc = 0;
     this.running = false;
@@ -2204,7 +2218,7 @@ export class Match {
 
     // Escolhas pendentes não pausam o fim do round — ficam para o próximo / auto-timeout.
 
-    if (this.round >= CONFIG.MAX_ROUNDS) {
+    if (this.round >= this.maxRounds) {
       const cleared = [...this.players.values()].some((p) => p.alive);
       // Passou todos os níveis = success; wipe no último nível = fail.
       this.endMatch(this.leadingPlayer() || winner, {
@@ -2235,7 +2249,7 @@ export class Match {
     this.winnerId = winner?.id || null;
     this.matchResult = result === 'success' ? 'success' : 'fail';
     this.endReason = reason || null;
-    this.maxRoundsSaved = CONFIG.MAX_ROUNDS;
+    this.maxRoundsSaved = this.maxRounds;
     if (!this.startedAt) this.startedAt = new Date();
     this.pushEvent({
       type: 'match_end',
@@ -3869,7 +3883,7 @@ export class Match {
       this.ensureSpellChoicesForPending();
       this.resolveLevelUpTimeouts();
       if (this.intermissionTimer <= 0) {
-        if (this.round >= CONFIG.MAX_ROUNDS) {
+        if (this.round >= this.maxRounds) {
           this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
         } else {
           this.startCountdown();
@@ -3906,7 +3920,7 @@ export class Match {
     this.resolveLevelUpTimeouts();
 
     // Round de boss não tem limite de tempo — só acaba ao matar o boss (ou todos morrerem).
-    if (!this.bossRound && this.roundTime >= CONFIG.ROUND_DURATION) {
+    if (!this.bossRound && this.roundTime >= this.roundDuration) {
       const alive = [...this.players.values()].filter((p) => p.alive);
       if (alive.length === 1) {
         this.finishRound(alive[0]);
@@ -4499,6 +4513,8 @@ export class Match {
       phase: this.phase,
       minPlayers: CONFIG.MIN_PLAYERS,
       maxPlayers: this.maxPlayers,
+      maxRounds: this.maxRounds,
+      roundDuration: this.roundDuration,
       hasPassword: Boolean(this.password),
       botAiEnabled: this.botAiEnabled,
       monsterSpawnEnabled: this.monsterSpawnEnabled,
@@ -4591,16 +4607,16 @@ export class Match {
       matchId: this.id,
       phase: this.phase,
       round: this.round,
-      maxRounds: CONFIG.MAX_ROUNDS,
+      maxRounds: this.maxRounds,
       matchTime: +this.matchTime.toFixed(2),
-      matchDuration: CONFIG.MATCH_DURATION,
+      matchDuration: this.maxRounds * this.roundDuration,
       roundTime: +this.roundTime.toFixed(2),
       roundDuration: (() => {
         const boss =
           this.phase === 'countdown'
             ? this.isBossAppearRound(this.round + 1)
             : this.bossRound;
-        return boss ? 0 : CONFIG.ROUND_DURATION;
+        return boss ? 0 : this.roundDuration;
       })(),
       bossRound:
         this.phase === 'countdown'
