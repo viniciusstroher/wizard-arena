@@ -42,7 +42,10 @@ const LIST_W = 280;
 const LIST_PAD = 10;
 const LIST_INNER_W = LIST_W - LIST_PAD * 2;
 const PREVIEW_W = 340;
-const PREVIEW_H = 200;
+const PREVIEW_H = 260;
+/** Margem interna ao encaixar o sprite do monstro no painel de preview. */
+const MONSTER_PREVIEW_PAD_X = 28;
+const MONSTER_PREVIEW_PAD_Y = 20;
 
 /**
  * Modal da galeria no lobby: abas Monstros / Magias / Terrenos com lista + preview.
@@ -1355,9 +1358,30 @@ export class GalleryModal {
     if (!this.previewRoot) return;
 
     const tex = this._monsterTexture(entry.id);
-    const sprite = this.scene.add.sprite(0, 8, tex).setScale(3.6);
+    const frame = this.scene.textures.get(tex)?.get();
+    const tw = Math.max(1, frame?.width || 32);
+    const th = Math.max(1, frame?.height || 32);
+    const scale = Math.min(
+      (PREVIEW_W - MONSTER_PREVIEW_PAD_X * 2) / tw,
+      (PREVIEW_H - MONSTER_PREVIEW_PAD_Y * 2) / th
+    );
+
+    const displayH = th * scale;
+    const spriteY = 4;
+    const feetY = spriteY + displayH * 0.5 - 2;
+    // Sombra leve no chão para ancorar o sprite ampliado.
+    const shadow = this.scene.add.ellipse(
+      0,
+      feetY,
+      tw * scale * 0.7,
+      Math.max(10, displayH * 0.08),
+      0x000000,
+      0.35
+    );
+    const sprite = this.scene.add.sprite(0, spriteY, tex).setScale(scale);
+    this.previewRoot.add(shadow);
     this.previewRoot.add(sprite);
-    this.previewSprites.push(sprite);
+    this.previewSprites.push(shadow, sprite);
 
     const idleKey = `monster_${entry.id}_idle`;
     const walkKey = `monster_${entry.id}_walk`;
