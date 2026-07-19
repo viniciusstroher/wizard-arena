@@ -56,10 +56,6 @@ export class MatchmakingScene extends Phaser.Scene {
     this.buildCreatePanel(width, height, uiDepth);
     this.buildLobbyList(width, height, uiDepth);
 
-    makeMenuButton(this, 100, height - 40, '← Home', 0x443866, () => {
-      navigate('/');
-    }, 140).setDepth(uiDepth);
-
     this.bindSocket();
     this.socket.emit('subscribe_lobbies');
 
@@ -149,6 +145,9 @@ export class MatchmakingScene extends Phaser.Scene {
     makeMenuButton(this, x, y + 90, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
       uiDepth
     );
+    makeMenuButton(this, x, y + 150, '← Home', 0x443866, () => {
+      navigate('/');
+    }, 220).setDepth(uiDepth);
   }
 
   buildLobbyList(width, height, uiDepth) {

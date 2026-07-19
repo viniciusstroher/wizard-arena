@@ -61,6 +61,14 @@ export function goToRoute(game, route = getRoute(), data = {}) {
       ? { matchId: route.matchId, ...data }
       : { ...data };
 
+  // Partida em andamento usa a URL da sala (`/matchmaking/<id>`), mas a cena ativa é Game.
+  // Não derrubar a GameScene nem reiniciar o Lobby enquanto o jogo estiver ativo.
+  const gameActive =
+    game.scene.isActive('Game') || game.scene.isSleeping('Game') || game.scene.isPaused('Game');
+  if (gameActive && route.name === 'room') {
+    return;
+  }
+
   // game.scene.start() NÃO encerra a cena atual (diferente de this.scene.start).
   // Sem stop explícito, Character/Home ficam ativas juntas e o "Voltar" parece não funcionar.
   for (const s of ROUTE_SCENES) {
@@ -75,7 +83,7 @@ export function goToRoute(game, route = getRoute(), data = {}) {
       const lobby = game.scene.getScene('Lobby');
       if (lobby?.matchId === payload.matchId) return;
       game.scene.stop('Lobby');
-    } else if (key !== 'Game') {
+    } else {
       return;
     }
   }

@@ -51,6 +51,7 @@ export class LobbyScene extends Phaser.Scene {
     this.adminChecksDom = null;
     this.galleryModal = null;
     this.leavingToMenu = false;
+    this.enteringGame = false;
 
     if (!this.matchId) {
       navigate('/matchmaking', { replace: true });
@@ -88,7 +89,8 @@ export class LobbyScene extends Phaser.Scene {
       this.messageBoard?.destroy();
       this.messageBoard = null;
       this.destroyAmbientCreatures();
-      if (!this.leavingToMenu && this.joined) {
+      // Ao ir para a GameScene o Lobby encerra — não sair da partida.
+      if (!this.leavingToMenu && !this.enteringGame && this.joined) {
         this.socket.emit('leave_lobby');
       }
     });
@@ -1078,7 +1080,9 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   enterGame() {
+    if (this.enteringGame) return;
     if (this.scene.isActive('Game') || this.scene.isSleeping('Game')) return;
+    this.enteringGame = true;
     stopMenuMusic();
     this.scene.start('Game', { playerId: this.socket.id });
   }
