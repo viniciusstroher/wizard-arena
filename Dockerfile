@@ -1,6 +1,6 @@
-# Ubuntu 24.04 (noble) ships GLIBC >= 2.38, which sqlite3@6 prebuilds require.
-# Nixpacks' older glibc causes: version `GLIBC_2.38' not found (node_sqlite3.node)
-FROM node:22-noble-slim
+# Debian 13 (trixie) has GLIBC >= 2.38, which sqlite3@6 prebuilds require.
+# (There is no official node:*-noble image; bookworm is only GLIBC 2.36.)
+FROM node:22-trixie-slim
 
 WORKDIR /app
 
