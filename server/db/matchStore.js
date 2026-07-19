@@ -101,7 +101,7 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
   const { Match, MatchPlayer } = models;
   const id = String(characterId || '').trim();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    return { matches: [], total: 0 };
+    return { matches: [], total: 0, wins: 0, losses: 0 };
   }
 
   const take = Math.min(50, Math.max(1, Number(limit) || 30));
@@ -122,6 +122,30 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
   });
 
   const total = await MatchPlayer.count({ where: { characterId: id, isBot: false } });
+  const [wins, losses] = await Promise.all([
+    MatchPlayer.count({
+      where: { characterId: id, isBot: false },
+      include: [
+        {
+          model: Match,
+          as: 'match',
+          required: true,
+          where: { result: 'success' },
+        },
+      ],
+    }),
+    MatchPlayer.count({
+      where: { characterId: id, isBot: false },
+      include: [
+        {
+          model: Match,
+          as: 'match',
+          required: true,
+          where: { result: 'fail' },
+        },
+      ],
+    }),
+  ]);
   const matchIds = rows.map((r) => r.matchId);
   const peers =
     matchIds.length === 0
@@ -174,6 +198,8 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
       };
     }),
     total,
+    wins,
+    losses,
   };
 }
 

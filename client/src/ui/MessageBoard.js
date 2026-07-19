@@ -33,7 +33,8 @@ export class MessageBoard {
     this.boardW = 300;
     this.boardH = 168;
     this.x = 16;
-    this.y = scene.scale.height - 275;
+    // Acima da barra de magias (2 linhas) na batalha; mesmo offset no lobby.
+    this.y = scene.scale.height - 340;
     this.lineH = 14;
     this.maxLog = 80;
     this.textMaxW = this.boardW - 20;

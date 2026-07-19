@@ -242,7 +242,7 @@ export class CharacterScene extends Phaser.Scene {
 
   buildHistoryPanel(x, y, depth) {
     this.add
-      .text(x, y - 280, 'Histórico de partidas', {
+      .text(x, y - 292, 'Histórico de partidas', {
         fontFamily: 'Georgia, serif',
         fontSize: '22px',
         color: '#f4e8ff',
@@ -250,8 +250,26 @@ export class CharacterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(depth);
 
+    this.historyWinsText = this.add
+      .text(x - 70, y - 258, 'Vitórias: —', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#2ecc71',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+
+    this.historyLossesText = this.add
+      .text(x + 70, y - 258, 'Derrotas: —', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#ff6b6b',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+
     this.historyStatus = this.add
-      .text(x, y - 248, 'Carregando...', {
+      .text(x, y - 232, 'Carregando...', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#9a8bb8',
@@ -262,7 +280,7 @@ export class CharacterScene extends Phaser.Scene {
     const listEl = document.createElement('div');
     listEl.style.cssText = [
       'width: 460px',
-      'height: 460px',
+      'height: 440px',
       'overflow-y: auto',
       'box-sizing: border-box',
       'padding: 8px',
@@ -275,17 +293,24 @@ export class CharacterScene extends Phaser.Scene {
       'scrollbar-color: #6b5cff #1a1430',
     ].join(';');
     this.historyEl = listEl;
-    this.historyDom = this.add.dom(x, y + 10, listEl).setOrigin(0.5).setDepth(depth);
+    this.historyDom = this.add.dom(x, y + 20, listEl).setOrigin(0.5).setDepth(depth);
     this.loadHistory();
   }
 
   async loadHistory() {
     if (!this.historyEl) return;
     this.historyEl.innerHTML = '';
+    this.historyWinsText?.setText('Vitórias: —');
+    this.historyLossesText?.setText('Derrotas: —');
     this.historyStatus?.setText('Carregando...').setColor('#9a8bb8');
     try {
       const data = await fetchCharacterMatches(this.character.id, { limit: 40 });
       const matches = data.matches || [];
+      const wins = Number(data.wins) || 0;
+      const losses = Number(data.losses) || 0;
+      this.historyWinsText?.setText(`Vitórias: ${wins}`);
+      this.historyLossesText?.setText(`Derrotas: ${losses}`);
+
       if (!matches.length) {
         this.historyStatus?.setText('Nenhuma partida registrada ainda');
         const empty = document.createElement('div');
