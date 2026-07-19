@@ -16,6 +16,12 @@ import {
   createMenuFlames,
   updateMenuFlames,
 } from '../ui/menuChrome.js';
+import {
+  ensureMenuMusic,
+  getMenuMusicVolume,
+  setMenuMusicVolume,
+  stopMenuMusic,
+} from '../audio/menuMusic.js';
 
 export class LobbyScene extends Phaser.Scene {
   constructor() {
@@ -34,9 +40,7 @@ export class LobbyScene extends Phaser.Scene {
     this.joined = false;
     this.ready = false;
     this.lobby = null;
-    this.lobbyMusic = null;
-    this.lobbyMusicVolume = this.loadLobbyMusicVolume();
-    this.saveLobbyMusicVolume(this.lobbyMusicVolume);
+    this.lobbyMusicVolume = getMenuMusicVolume();
     this.settingsModalOpen = false;
     this.settingsModal = null;
     this.volumeSlider = null;
@@ -72,7 +76,7 @@ export class LobbyScene extends Phaser.Scene {
     this.buildUI();
     this.createChatBoard();
     this.bindSocket();
-    this.startLobbyMusic();
+    ensureMenuMusic(this);
     this.joinLobby();
 
     this.events.once('shutdown', () => {
@@ -83,7 +87,6 @@ export class LobbyScene extends Phaser.Scene {
       this.galleryModal = null;
       this.messageBoard?.destroy();
       this.messageBoard = null;
-      this.stopLobbyMusic();
       this.destroyAmbientCreatures();
       if (!this.leavingToMenu && this.joined) {
         this.socket.emit('leave_lobby');
@@ -91,45 +94,8 @@ export class LobbyScene extends Phaser.Scene {
     });
   }
 
-  loadLobbyMusicVolume() {
-    return 0.25;
-  }
-
   saveLobbyMusicVolume(vol) {
-    this.lobbyMusicVolume = Phaser.Math.Clamp(vol, 0, 1);
-    localStorage.setItem('wa_lobby_music_vol', String(this.lobbyMusicVolume));
-    if (this.lobbyMusic) this.lobbyMusic.setVolume(this.lobbyMusicVolume);
-  }
-
-  startLobbyMusic() {
-    const tracks = ['lobby_music_a', 'lobby_music_b'].filter((key) =>
-      this.cache.audio.exists(key)
-    );
-    if (!tracks.length) return;
-    this.stopLobbyMusic();
-    const key = tracks[Math.floor(Math.random() * tracks.length)];
-    this.lobbyMusic = this.sound.add(key, {
-      loop: true,
-      volume: this.lobbyMusicVolume,
-    });
-    const play = () => {
-      if (this.lobbyMusic && !this.lobbyMusic.isPlaying) {
-        this.lobbyMusic.play();
-      }
-    };
-    if (this.sound.locked) {
-      this.sound.once('unlocked', play);
-    } else {
-      play();
-    }
-  }
-
-  stopLobbyMusic() {
-    if (this.lobbyMusic) {
-      this.lobbyMusic.stop();
-      this.lobbyMusic.destroy();
-      this.lobbyMusic = null;
-    }
+    this.lobbyMusicVolume = setMenuMusicVolume(vol);
   }
 
   drawBackground() {
@@ -1113,7 +1079,7 @@ export class LobbyScene extends Phaser.Scene {
 
   enterGame() {
     if (this.scene.isActive('Game') || this.scene.isSleeping('Game')) return;
-    this.stopLobbyMusic();
+    stopMenuMusic();
     this.scene.start('Game', { playerId: this.socket.id });
   }
 

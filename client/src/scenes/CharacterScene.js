@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ensureCharacter, saveCharacter, WIZARD_COLORS } from '../character.js';
 import { navigate } from '../router.js';
+import { ensureMenuMusic } from '../audio/menuMusic.js';
 import {
   drawMenuBackground,
   makeMenuButton,
@@ -20,6 +21,7 @@ export class CharacterScene extends Phaser.Scene {
     this.errorText = null;
 
     drawMenuBackground(this, { subtitle: 'Personagem' });
+    ensureMenuMusic(this);
 
     const { width, height } = this.scale;
     const panelX = width / 2;

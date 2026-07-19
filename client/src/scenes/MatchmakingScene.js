@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ensureCharacter } from '../character.js';
 import { getSocket } from '../net/socket.js';
 import { navigate } from '../router.js';
+import { ensureMenuMusic } from '../audio/menuMusic.js';
 import {
   drawMenuBackground,
   makeMenuButton,
@@ -36,6 +37,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.passwordPrompt = null;
 
     drawMenuBackground(this, { subtitle: 'Salas' });
+    ensureMenuMusic(this);
 
     const { width, height } = this.scale;
     const uiDepth = 10;

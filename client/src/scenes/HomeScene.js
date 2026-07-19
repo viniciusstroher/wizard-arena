@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ensureCharacter } from '../character.js';
 import { navigate } from '../router.js';
+import { ensureMenuMusic } from '../audio/menuMusic.js';
 import { drawMenuBackground, makeMenuButton, updateMenuFlames } from '../ui/menuChrome.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 
@@ -12,6 +13,7 @@ export class HomeScene extends Phaser.Scene {
   create() {
     this.character = ensureCharacter();
     drawMenuBackground(this, { subtitle: 'Arena de magos' });
+    ensureMenuMusic(this);
 
     const { width, height } = this.scale;
     const panelX = width / 2;

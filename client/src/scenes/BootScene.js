@@ -98,6 +98,7 @@ export class BootScene extends Phaser.Scene {
     // this.load.audio('battle_music', '/assets/pao-queijo-escuridao.mp3');
     this.load.audio('battle_music_a', '/assets/Gaita da Batalha.mp3');
     this.load.audio('battle_music_b', '/assets/Marcha dos Orcs.mp3');
+    this.load.audio('boss_music', '/assets/Trono Despedaçado.mp3');
   }
 
   create() {

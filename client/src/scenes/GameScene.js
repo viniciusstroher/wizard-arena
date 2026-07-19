@@ -12,6 +12,7 @@ import {
   getLavaStatusEffect,
   PLAYER_RADIUS,
 } from '../catalog/statusEffects.js';
+import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
@@ -80,6 +81,8 @@ export class GameScene extends Phaser.Scene {
     this.pendingDash = null;
     this.lastHurtSoundAt = 0;
     this.battleMusic = null;
+    /** Key da faixa de combate atual (`battle_music_*` ou `boss_music`). */
+    this.battleMusicKey = null;
     this.aimCursor = null;
     /** Ordenação do placar: 'damage' | 'kills' */
     this.scoreboardSort = 'damage';
@@ -247,17 +250,23 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  startBattleMusic() {
-    const tracks = ['battle_music_a', 'battle_music_b'].filter((key) =>
-      this.cache.audio.exists(key)
-    );
-    if (!tracks.length) return;
+  /** @param {boolean} [boss] toca Trono Despedaçado na boss fight */
+  startBattleMusic(boss = false) {
+    stopMenuMusic();
+    let key = null;
+    if (boss && this.cache.audio.exists('boss_music')) {
+      key = 'boss_music';
+    } else {
+      const tracks = ['battle_music_a', 'battle_music_b'].filter((k) =>
+        this.cache.audio.exists(k)
+      );
+      if (!tracks.length) return;
+      key = tracks[Math.floor(Math.random() * tracks.length)];
+    }
+    if (this.battleMusic?.isPlaying && this.battleMusicKey === key) return;
     this.stopBattleMusic();
-    const volRaw = localStorage.getItem('wa_lobby_music_vol');
-    const volN = Number(volRaw);
-    // Usa o volume ajustado no lobby nesta sessão; senão 25%
-    const volume = Number.isFinite(volN) ? Phaser.Math.Clamp(volN, 0, 1) : 0.25;
-    const key = tracks[Math.floor(Math.random() * tracks.length)];
+    const volume = getMenuMusicVolume();
+    this.battleMusicKey = key;
     this.battleMusic = this.sound.add(key, {
       loop: true,
       volume,
@@ -274,12 +283,27 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Troca para boss music / volta às faixas normais conforme o estado. */
+  syncBattleMusic() {
+    const wantBoss =
+      !!this.state?.bossRound &&
+      (this.state.phase === 'playing' || this.state.phase === 'levelup');
+    if (wantBoss) {
+      if (this.battleMusicKey !== 'boss_music') this.startBattleMusic(true);
+      return;
+    }
+    if (this.battleMusicKey === 'boss_music' || !this.battleMusic) {
+      this.startBattleMusic(false);
+    }
+  }
+
   stopBattleMusic() {
     if (this.battleMusic) {
       this.battleMusic.stop();
       this.battleMusic.destroy();
       this.battleMusic = null;
     }
+    this.battleMusicKey = null;
   }
 
   createHud() {
@@ -1282,7 +1306,11 @@ export class GameScene extends Phaser.Scene {
 
   onState(state) {
     const prevPhase = this.state?.phase;
+    const prevBossRound = !!this.state?.bossRound;
     this.state = state;
+    if (prevBossRound !== !!state.bossRound || prevPhase !== state.phase) {
+      this.syncBattleMusic();
+    }
     let roundEnded = false;
     for (const ev of state.events || []) {
       const msg = this.formatGameEvent(ev);
@@ -1342,6 +1370,7 @@ export class GameScene extends Phaser.Scene {
         // Continua o ping um pouco após o round começar
         this.startSpawnPing();
         this.clearFloorDebris();
+        this.syncBattleMusic();
         if (ev.bossRound) this.showBossFightAlert();
       }
       if (ev.type === 'kiko_laugh') {
