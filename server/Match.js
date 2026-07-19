@@ -2307,12 +2307,16 @@ export class Match {
       'poison_cloud',
       'electric_storm',
       'firebreath',
+      'frost_breath',
       'skull_wave',
+      'bone_volley',
+      'magma_surge',
       'void_collapse',
       'abyss_nova',
       'frost_apocalypse',
       'plague_burst',
       'shadow_eclipse',
+      'entropy_pulse',
       'cataclysm_beam',
     ]);
     let spells = Array.isArray(def.spells) ? [...def.spells] : null;
@@ -2763,8 +2767,6 @@ export class Match {
     const shootRange = monster.range || 180;
     const novaR = monster.novaRadius || 110;
     const lightningR = spellStats('arc_lightning')?.range || 160;
-    const breathRange = spellStats('firebreath')?.range || 170;
-    const boltRange = spellStats('electric_bolt')?.range || 240;
     const canArea = !!(monster.isElite || monster.isBoss);
     const bossNovaSpells = [
       'shadow_eclipse',
@@ -2772,12 +2774,15 @@ export class Match {
       'void_collapse',
       'frost_apocalypse',
       'plague_burst',
+      'entropy_pulse',
     ];
     const bossSingleSpells = [
       'death_knell',
       'infernal_judgment',
       'soul_rend',
       'blood_pact',
+      'soul_lance',
+      'solar_judgment',
     ];
 
     const bossNovaReady =
@@ -2821,18 +2826,34 @@ export class Match {
     }
     if (
       canArea &&
+      spells.includes('magma_surge') &&
+      nearestD <= this.areaSpellReach(monster, 'magma_surge', novaR) &&
+      (monster.novaCd || 0) <= 0
+    ) {
+      return 'magma_surge';
+    }
+    if (
+      canArea &&
       spells.includes('poison_cloud') &&
       nearestD <= this.areaSpellReach(monster, 'poison_cloud', novaR) &&
       (monster.novaCd || 0) <= 0
     ) {
       return 'poison_cloud';
     }
-    if (canArea && spells.includes('firebreath') && nearestD <= breathRange) {
+    if (canArea && spells.includes('frost_breath') && nearestD <= (spellStats('frost_breath')?.range || 165)) {
+      return 'frost_breath';
+    }
+    if (canArea && spells.includes('firebreath') && nearestD <= (spellStats('firebreath')?.range || 170)) {
       return 'firebreath';
     }
-    if (spells.includes('electric_bolt') && nearestD <= boltRange) return 'electric_bolt';
+    if (spells.includes('hex_bolt') && nearestD <= (spellStats('hex_bolt')?.range || 245)) return 'hex_bolt';
+    if (spells.includes('electric_bolt') && nearestD <= (spellStats('electric_bolt')?.range || 240)) {
+      return 'electric_bolt';
+    }
     if (spells.includes('arc_lightning') && nearestD <= lightningR) return 'arc_lightning';
+    if (canArea && spells.includes('bone_volley') && nearestD <= shootRange) return 'bone_volley';
     if (canArea && spells.includes('skull_wave') && nearestD <= shootRange) return 'skull_wave';
+    if (spells.includes('acid_bolt') && nearestD <= shootRange) return 'acid_bolt';
     if (spells.includes('ice_shard') && nearestD <= shootRange) return 'ice_shard';
     if (spells.includes('firebolt') && nearestD <= shootRange) return 'firebolt';
     return null;
@@ -2847,12 +2868,16 @@ export class Match {
       'poison_cloud',
       'electric_storm',
       'firebreath',
+      'frost_breath',
       'skull_wave',
+      'bone_volley',
+      'magma_surge',
       'void_collapse',
       'abyss_nova',
       'frost_apocalypse',
       'plague_burst',
       'shadow_eclipse',
+      'entropy_pulse',
       'cataclysm_beam',
     ]);
     if (AREA_SPELLS.has(spellId) && !monster.isElite && !monster.isBoss) return false;
@@ -2878,17 +2903,18 @@ export class Match {
         monster.attackCd = monster.attackCooldown || 1.4;
         break;
       }
-      case 'electric_bolt': {
+      case 'electric_bolt':
+      case 'hex_bolt': {
         const range = stats.range || 240;
         if (!target || dist(monster, target) > range) return false;
-        const dmg = Math.round(monster.damage * 1.1);
+        const dmg = Math.round(monster.damage * (spellId === 'hex_bolt' ? 1.2 : 1.1));
         this.damageEntity(target, dmg, monster.entityId, true, true);
         this.pushSkyLightning(target.x, target.y, stats.color, {
-          spellId: 'electric_bolt',
-          branches: 5,
+          spellId,
+          branches: spellId === 'hex_bolt' ? 6 : 5,
           skyHeight: 320 + Math.random() * 60,
         });
-        this.spawnSpellImpact(target.x, target.y, 'electric_bolt', stats.color, 30);
+        this.spawnSpellImpact(target.x, target.y, spellId, stats.color, 30);
         monster.attackCd = monster.attackCooldown || stats.cooldown || 1.35;
         break;
       }
@@ -2942,7 +2968,8 @@ export class Match {
         break;
       }
       case 'firebolt':
-      case 'ice_shard': {
+      case 'ice_shard':
+      case 'acid_bolt': {
         if (!target) return false;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
@@ -2950,11 +2977,12 @@ export class Match {
         const speed = monster.projectileSpeed || stats.speed || 480;
         const range = monster.range || stats.range || 300;
         const isIce = spellId === 'ice_shard';
+        const isAcid = spellId === 'acid_bolt';
         this.projectiles.push({
           entityId: eid(),
           ownerId: monster.entityId,
           team: 'monster',
-          kind: isIce ? 'ice_shard' : 'fireball',
+          kind: isIce ? 'ice_shard' : isAcid ? 'orb' : 'fireball',
           spellId,
           x: monster.x,
           y: monster.y,
@@ -2966,24 +2994,29 @@ export class Match {
           color: monster.projectileColor || stats.color,
           slow: isIce ? stats.slow || 0.45 : 0,
           slowDuration: isIce ? stats.slowDuration || 5 : 0,
+          poisonDamage: isAcid ? stats.poisonDamage || 3 : 0,
+          poisonTick: isAcid ? stats.poisonTick || 1 : 0,
+          poisonDuration: isAcid ? stats.poisonDuration || 4 : 0,
         });
-        monster.attackCd = monster.attackCooldown || (isIce ? 1.25 : 1.1);
+        monster.attackCd = monster.attackCooldown || (isIce ? 1.25 : isAcid ? 1.2 : 1.1);
         break;
       }
-      case 'flame_nova': {
+      case 'flame_nova':
+      case 'magma_surge': {
         const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 110);
         this.applyFlameNova(
           monster,
           monster.entityId,
           { ...stats, radius },
-          Math.round(monster.damage * 1.15),
+          Math.round(monster.damage * (spellId === 'magma_surge' ? 1.25 : 1.15)),
           false
         );
         monster.attackCd = (monster.attackCooldown || 1.1) * 1.2;
-        monster.novaCd = monster.novaCooldown || 4;
+        monster.novaCd = monster.novaCooldown || stats.cooldown || 4;
         break;
       }
-      case 'firebreath': {
+      case 'firebreath':
+      case 'frost_breath': {
         if (!target) return false;
         const range = stats.range || 170;
         const dx = target.x - monster.x;
@@ -2994,25 +3027,23 @@ export class Match {
         const dirY = dy / len;
         const halfAngle = ((stats.coneAngle || 38) * Math.PI) / 180;
         const cosMin = Math.cos(halfAngle);
-        const dmg = Math.round(monster.damage * 1.35);
+        const dmg = Math.round(monster.damage * (spellId === 'frost_breath' ? 1.2 : 1.35));
         for (const p of this.players.values()) {
           if (!p.alive) continue;
           const pdx = p.x - monster.x;
           const pdy = p.y - monster.y;
           const pd = Math.hypot(pdx, pdy);
           if (pd > range) continue;
-          if (pd < 0.001) {
+          if (pd < 0.001 || (pdx / pd) * dirX + (pdy / pd) * dirY >= cosMin) {
             this.damageEntity(p, dmg, monster.entityId, true, true);
-            continue;
-          }
-          const dot = (pdx / pd) * dirX + (pdy / pd) * dirY;
-          if (dot >= cosMin) {
-            this.damageEntity(p, dmg, monster.entityId, true, true);
+            if (spellId === 'frost_breath') {
+              this.applyMonsterSlow(p, stats.slow || 0.4, stats.slowDuration || 2.8);
+            }
           }
         }
         this.effects.push({
           type: 'firebreath',
-          spellId: 'firebreath',
+          spellId,
           x: monster.x,
           y: monster.y,
           dirX,
@@ -3026,7 +3057,8 @@ export class Match {
         monster.attackCd = monster.attackCooldown || stats.cooldown || 1.8;
         break;
       }
-      case 'skull_wave': {
+      case 'skull_wave':
+      case 'bone_volley': {
         const n = Math.max(4, monster.skullCount || stats.skullCount || 10);
         const speed = monster.projectileSpeed || stats.speed || 300;
         const range = monster.range || stats.range || 220;
@@ -3066,10 +3098,10 @@ export class Match {
             y2: monster.y + Math.sin(ang) * len,
             life: 0.32,
             maxLife: 0.32,
-            color: 0x2a0044,
+            color: spellId === 'bone_volley' ? 0xece5d0 : 0x2a0044,
             seed: (Math.random() * 1e9) | 0,
             branches: 3,
-            dark: true,
+            dark: spellId !== 'bone_volley',
           });
         }
         monster.attackCd = monster.attackCooldown || stats.cooldown || 2.4;
@@ -3114,7 +3146,8 @@ export class Match {
       }
       case 'soul_rend':
       case 'death_knell':
-      case 'blood_pact': {
+      case 'blood_pact':
+      case 'soul_lance': {
         if (!monster.isBoss || !target) return false;
         const range = stats.range || 220;
         if (dist(monster, target) > range) return false;
@@ -3139,7 +3172,8 @@ export class Match {
         monster.attackCd = monster.attackCooldown || 1.2;
         break;
       }
-      case 'infernal_judgment': {
+      case 'infernal_judgment':
+      case 'solar_judgment': {
         if (!monster.isBoss || !target) return false;
         const range = stats.range || 260;
         if (dist(monster, target) > range) return false;
@@ -3150,7 +3184,7 @@ export class Match {
           maxHpPercent: pct,
         });
         this.pushSkyLightning(target.x, target.y, stats.color, {
-          spellId: 'infernal_judgment',
+          spellId,
           branches: 6,
           skyHeight: 340 + Math.random() * 40,
         });
@@ -3172,7 +3206,8 @@ export class Match {
       case 'abyss_nova':
       case 'frost_apocalypse':
       case 'plague_burst':
-      case 'shadow_eclipse': {
+      case 'shadow_eclipse':
+      case 'entropy_pulse': {
         if (!monster.isBoss) return false;
         const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 120);
         const cx = target ? target.x : monster.x;
@@ -4034,7 +4069,15 @@ export class Match {
           const boltRange = spellStats('electric_bolt')?.range || 240;
           const canArea = !!(m.isElite || m.isBoss);
           const hasLongFiller = spells.some((id) =>
-            ['firebolt', 'ice_shard', 'electric_bolt', 'skull_wave'].includes(id)
+            [
+              'firebolt',
+              'ice_shard',
+              'acid_bolt',
+              'electric_bolt',
+              'hex_bolt',
+              'skull_wave',
+              'bone_volley',
+            ].includes(id)
           );
           // Mantém preferência dentro do alcance real das magias (evita idle no mid-range).
           const castReach = Math.max(
@@ -4060,12 +4103,14 @@ export class Match {
           } else if (
             canArea &&
             (spells.includes('flame_nova') ||
+              spells.includes('magma_surge') ||
               spells.includes('electric_storm') ||
               spells.includes('abyss_nova') ||
               spells.includes('void_collapse') ||
               spells.includes('shadow_eclipse') ||
               spells.includes('frost_apocalypse') ||
               spells.includes('plague_burst') ||
+              spells.includes('entropy_pulse') ||
               spells.includes('poison_cloud')) &&
             nearestD < novaR * 0.45 &&
             (m.novaCd || 0) > 0
@@ -4144,6 +4189,15 @@ export class Match {
               if (proj.slow) {
                 p.slow = Math.max(p.slow, proj.slow);
                 p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
+              }
+              if (proj.poisonDamage) {
+                this.applyPoison(
+                  p,
+                  proj.ownerId,
+                  proj.poisonDamage,
+                  proj.poisonTick || 1,
+                  proj.poisonDuration || 4
+                );
               }
               hit = true;
               break;
