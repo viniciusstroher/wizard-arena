@@ -40,7 +40,7 @@ export class CharacterScene extends Phaser.Scene {
     const previewKey = updateWizardPreviewTexture(this, this.selectedColor, this.selectedSkin);
     this.preview = this.add
       .sprite(panelX, height / 2 - 210, previewKey)
-      .setScale(4)
+      .setScale(4.4)
       .setDepth(uiDepth);
 
     this.tweens.add({
@@ -118,7 +118,7 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   buildSkinPicker(centerX, y, depth) {
-    const gap = 96;
+    const gap = 104;
     const totalW = (WIZARD_SKINS.length - 1) * gap;
     const startX = centerX - totalW / 2;
 
@@ -134,18 +134,18 @@ export class CharacterScene extends Phaser.Scene {
       );
 
       const frame = this.add
-        .rectangle(x, y, 72, 72, 0x1a1430, 0.85)
+        .rectangle(x, y, 80, 80, 0x1a1430, 0.85)
         .setStrokeStyle(2, 0xffffff, selected ? 0.95 : 0.2)
         .setDepth(depth)
         .setInteractive({ useHandCursor: true });
 
       const sprite = this.add
         .sprite(x, y - 4, key)
-        .setScale(1.55)
+        .setScale(1.35)
         .setDepth(depth + 1);
 
       const label = this.add
-        .text(x, y + 46, skin.name, {
+        .text(x, y + 52, skin.name, {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '11px',
           color: selected ? '#f4e8ff' : '#9a8bb8',

@@ -216,7 +216,7 @@ export class LobbyScene extends Phaser.Scene {
 
     const btnStartY = panelY + 70;
     const step = btnH + btnGap;
-    this.readyBtn = this.makeButton(panelX, btnStartY, 'Ready', 0x2ecc71, () => this.toggleReady(), btnW);
+    this.readyBtn = this.makeButton(panelX, btnStartY, 'Iniciar', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
     const halfW = (btnW - 12) / 2;
