@@ -60,7 +60,7 @@ export class HomeScene extends Phaser.Scene {
       navigate('/character');
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 5, 'Salas', 0x2ecc71, () => {
+    makeMenuButton(this, panelX, panelY + 5, 'Jogar !', 0x2ecc71, () => {
       navigate('/matchmaking');
     }).setDepth(10);
 
