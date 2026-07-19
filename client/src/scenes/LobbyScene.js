@@ -137,11 +137,13 @@ export class LobbyScene extends Phaser.Scene {
     const btnGap = 8;
     const uiDepth = 10;
 
-    this.add
+    this.titleText = this.add
       .text(panelX, panelY - 210, 'Lobby', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '22px',
         color: '#e8dfff',
+        align: 'center',
+        wordWrap: { width: 440 },
       })
       .setOrigin(0.5)
       .setDepth(uiDepth);
@@ -191,7 +193,7 @@ export class LobbyScene extends Phaser.Scene {
 
     const btnStartY = panelY + 70;
     const step = btnH + btnGap;
-    this.readyBtn = this.makeButton(panelX, btnStartY, 'Iniciar', 0x2ecc71, () => this.toggleReady(), btnW);
+    this.readyBtn = this.makeButton(panelX, btnStartY, 'Pronto', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
     const halfW = (btnW - 12) / 2;
@@ -503,7 +505,7 @@ export class LobbyScene extends Phaser.Scene {
       this.setButtonEnabled(this.adminBtn, true);
       this.refreshRemoveBotsBtn();
       this.messageBoard?.setChatEnabled(true);
-      this.statusText.setText('No lobby. Marque Ready quando estiver preparado.');
+      this.statusText.setText('Marque Pronto quando estiver preparado. Se todos estiverem prontos, a partida será iniciada automaticamente.');
     });
 
     this.socket.on('error_msg', (payload) => {
@@ -609,6 +611,11 @@ export class LobbyScene extends Phaser.Scene {
     }
     this.refreshRemoveBotsBtn();
     const readyCount = this.lobby.players.filter((p) => p.ready).length;
+    const host =
+      this.lobby.players.find((p) => !p.isBot) || this.lobby.players[0];
+    const roomName = host?.name ? `Sala de ${host.name}` : 'Lobby';
+    const mode = this.lobby.pvpEnabled ? 'PvP' : 'PvE';
+    this.titleText?.setText(`${roomName} · ${mode}`);
     this.statusText.setText(
       `${n}/${this.lobby.maxPlayers} jogadores · ${readyCount} ready · precisa ${this.lobby.minPlayers}+`
     );

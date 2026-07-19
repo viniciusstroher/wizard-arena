@@ -38,6 +38,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.socket = getSocket();
     this.lobbies = [];
     this.maxPlayers = 4;
+    this.pvpEnabled = false;
     this.passwordPrompt = null;
     this.lobbyAgeEls = [];
     this._lobbyAgeAcc = 0;
@@ -75,6 +76,7 @@ export class MatchmakingScene extends Phaser.Scene {
       this.socket.off('error_msg');
       this.socket.off('character_seat');
       this.destroyPasswordPrompt();
+      this.modeSelectDom?.destroy();
       this.maxSelectDom?.destroy();
       this.passInputDom?.destroy();
       this.listDom?.destroy();
@@ -85,27 +87,7 @@ export class MatchmakingScene extends Phaser.Scene {
   buildCreatePanel(width, height, uiDepth) {
     const x = width * 0.28;
     const y = height / 2 + 10;
-
-    this.add
-      .text(x, y - 160, 'Criar sala', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '22px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    this.add
-      .text(x, y - 110, 'Jogadores (1–8)', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '13px',
-        color: '#9a8bb8',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    const selectEl = document.createElement('select');
-    selectEl.style.cssText = [
+    const selectStyle = [
       'width: 220px',
       'height: 40px',
       'padding: 0 10px',
@@ -118,6 +100,53 @@ export class MatchmakingScene extends Phaser.Scene {
       'outline: none',
       'cursor: pointer',
     ].join(';');
+
+    this.add
+      .text(x, y - 175, 'Criar sala', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '22px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
+
+    this.add
+      .text(x, y - 130, 'Modo', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
+
+    const modeEl = document.createElement('select');
+    modeEl.style.cssText = selectStyle;
+    for (const [value, label] of [
+      ['false', 'PvE — vs monstros'],
+      ['true', 'PvP — jogadores se atacam'],
+    ]) {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      if ((value === 'true') === this.pvpEnabled) opt.selected = true;
+      modeEl.appendChild(opt);
+    }
+    modeEl.addEventListener('change', () => {
+      this.pvpEnabled = modeEl.value === 'true';
+    });
+    this.modeSelectDom = this.add.dom(x, y - 95, modeEl).setOrigin(0.5).setDepth(uiDepth);
+
+    this.add
+      .text(x, y - 50, 'Jogadores (1–8)', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
+
+    const selectEl = document.createElement('select');
+    selectEl.style.cssText = selectStyle;
     for (let i = 1; i <= 8; i++) {
       const opt = document.createElement('option');
       opt.value = String(i);
@@ -128,10 +157,10 @@ export class MatchmakingScene extends Phaser.Scene {
     selectEl.addEventListener('change', () => {
       this.maxPlayers = Number(selectEl.value) || 4;
     });
-    this.maxSelectDom = this.add.dom(x, y - 70, selectEl).setOrigin(0.5).setDepth(uiDepth);
+    this.maxSelectDom = this.add.dom(x, y - 15, selectEl).setOrigin(0.5).setDepth(uiDepth);
 
     this.add
-      .text(x, y - 20, 'Senha (opcional, 4 dígitos)', {
+      .text(x, y + 30, 'Senha (opcional, 4 dígitos)', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#9a8bb8',
@@ -151,13 +180,13 @@ export class MatchmakingScene extends Phaser.Scene {
       passEl.value = passEl.value.replace(/\D/g, '').slice(0, 4);
     });
     const passWrap = wrapPasswordInput(passEl, '220px');
-    this.passInputDom = this.add.dom(x, y + 20, passWrap).setOrigin(0.5).setDepth(uiDepth);
+    this.passInputDom = this.add.dom(x, y + 70, passWrap).setOrigin(0.5).setDepth(uiDepth);
     this.passInputEl = passEl;
 
-    makeMenuButton(this, x, y + 90, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
+    makeMenuButton(this, x, y + 135, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
       uiDepth
     );
-    makeMenuButton(this, x, y + 150, 'Voltar', 0x443866, () => {
+    makeMenuButton(this, x, y + 195, 'Voltar', 0x443866, () => {
       navigate('/');
     }, 220).setDepth(uiDepth);
   }
@@ -286,6 +315,7 @@ export class MatchmakingScene extends Phaser.Scene {
       skin: this.character.skin,
       maxPlayers: this.maxPlayers,
       password: password || null,
+      pvpEnabled: !!this.pvpEnabled,
     });
   }
 
@@ -359,8 +389,9 @@ export class MatchmakingScene extends Phaser.Scene {
 
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size: 12px; color: #9a8bb8; margin-top: 4px;';
+      const mode = lobby.pvpEnabled ? 'PvP' : 'PvE';
       const lock = lobby.hasPassword ? ' · 🔒 privada' : '';
-      meta.textContent = `${lobby.playerCount}/${lobby.maxPlayers} jogadores${lock}`;
+      meta.textContent = `${mode} · ${lobby.playerCount}/${lobby.maxPlayers} jogadores${lock}`;
 
       const created = document.createElement('div');
       created.style.cssText = 'font-size: 11px; color: #7a6e96; margin-top: 4px;';

@@ -99,6 +99,7 @@ function lobbyListItem(match) {
     playerCount: match.players.size,
     maxPlayers: match.maxPlayers,
     hasPassword: Boolean(match.password),
+    pvpEnabled: !!match.pvpEnabled,
     hostName: host?.name || 'Wizard',
     phase: match.phase,
     createdAt,
@@ -210,6 +211,8 @@ io.on('connection', (socket) => {
       socket.emit('error_msg', { message: 'Senha inválida. Use exatamente 4 dígitos.' });
       return;
     }
+    const pvpEnabled =
+      payload.pvpEnabled !== undefined ? !!payload.pvpEnabled : undefined;
 
     const appearance = appearanceFromPayload(payload);
     if (!appearance.characterId) {
@@ -228,6 +231,7 @@ io.on('connection', (socket) => {
     const match = new Match(id, io, {
       maxPlayers,
       password,
+      pvpEnabled,
       onLobbyListChange: broadcastLobbies,
     });
     matches.set(id, match);

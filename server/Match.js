@@ -216,15 +216,17 @@ export class Match {
     this.floorType = 'dirt';
     this.xpPassiveTimer = 0;
     this.hpRegenTimer = 0;
-    /** Overrides de admin (lobby); defaults vêm do .env. */
+    /** Overrides de admin (lobby); defaults vêm do .env (ou create_lobby). */
     this.botAiEnabled = CONFIG.BOT_AI_ENABLED;
     this.monsterSpawnEnabled = CONFIG.MONSTER_SPAWN_ENABLED;
     this.botLevelUpChoiceEnabled = CONFIG.BOT_LEVELUP_CHOICE_ENABLED;
-    this.pvpEnabled = CONFIG.PVP_ENABLED;
+    this.pvpEnabled =
+      options.pvpEnabled !== undefined ? !!options.pvpEnabled : CONFIG.PVP_ENABLED;
     this.generateRocks();
   }
 
   setAdminSettings(payload = {}) {
+    const prevPvp = this.pvpEnabled;
     if (payload.botAiEnabled !== undefined) {
       this.botAiEnabled = !!payload.botAiEnabled;
     }
@@ -238,6 +240,9 @@ export class Match {
       this.pvpEnabled = !!payload.pvpEnabled;
     }
     this.broadcastLobby();
+    if (this.pvpEnabled !== prevPvp) {
+      this.onLobbyListChange?.();
+    }
     return {
       ok: true,
       botAiEnabled: this.botAiEnabled,
