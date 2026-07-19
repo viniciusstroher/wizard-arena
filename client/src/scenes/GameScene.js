@@ -165,7 +165,8 @@ export class GameScene extends Phaser.Scene {
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
         const nextRound = (this.state?.round ?? 0) + 1;
-        this.bannerText.setText(`Round ${nextRound}\nComeça em ${ev.seconds}`);
+        const maxRounds = this.state?.maxRounds || '?';
+        this.bannerText.setText(`Round ${nextRound} de ${maxRounds}\nComeçando`);
         this.bannerText.setAlpha(1);
       } else if (ev.type === 'chat') {
         const name = ev.name || 'Jogador';
@@ -1024,12 +1025,21 @@ export class GameScene extends Phaser.Scene {
 
   formatGameEvent(ev) {
     switch (ev.type) {
-      case 'countdown':
-        return `Começa em ${ev.seconds}s`;
-      case 'round_start':
-        return ev.bossRound ? `BOSS FIGHT — Round ${ev.round}` : `Round ${ev.round} iniciado`;
-      case 'boss_fight':
-        return `BOSS FIGHT! Round ${ev.round}`;
+      case 'countdown': {
+        const next = (this.state?.round ?? 0) + 1;
+        const max = this.state?.maxRounds || '?';
+        return `Round ${next} de ${max} começando (${ev.seconds}s)`;
+      }
+      case 'round_start': {
+        const max = this.state?.maxRounds || '?';
+        return ev.bossRound
+          ? `BOSS FIGHT — Round ${ev.round} de ${max}`
+          : `Round ${ev.round} de ${max} iniciado`;
+      }
+      case 'boss_fight': {
+        const max = this.state?.maxRounds || '?';
+        return `BOSS FIGHT! Round ${ev.round} de ${max}`;
+      }
       case 'round_win':
         return `${this.playerName(ev.playerId)} venceu o round ${ev.round}`;
       case 'player_kill':
@@ -5335,12 +5345,13 @@ export class GameScene extends Phaser.Scene {
     if (!this.state || this.matchEndOpen) return;
     if (this.state.phase === 'countdown') {
       const nextRound = (this.state.round || 0) + 1;
+      const maxRounds = this.state.maxRounds || '?';
       const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
       const bossSoon = !!this.state.bossRound;
       this.bannerText.setText(
         bossSoon
-          ? `BOSS FIGHT\nRound ${nextRound} · ${sec}`
-          : `Round ${nextRound}\nComeça em ${sec}`
+          ? `BOSS FIGHT\nRound ${nextRound} de ${maxRounds} · ${sec}`
+          : `Round ${nextRound} de ${maxRounds}\nComeçando`
       );
       this.bannerText.setAlpha(1);
     } else if (this.state.phase === 'intermission') {
