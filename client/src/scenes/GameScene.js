@@ -755,6 +755,8 @@ export class GameScene extends Phaser.Scene {
       tabs: ['chat', 'events'],
       initialTab: 'chat',
       onSendChat: (text) => this.socket.emit('chat_message', { text }),
+      canCaptureEnter: () =>
+        !this.disconnectConfirmOpen && !this.matchEndOpen && !this.leaving,
     });
     this.messageBoard.pushEvent('Partida iniciada');
   }

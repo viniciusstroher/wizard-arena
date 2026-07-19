@@ -11,6 +11,7 @@ export class MessageBoard {
    *   tabs?: Array<'events'|'chat'>,
    *   initialTab?: 'events'|'chat',
    *   onSendChat?: (text: string) => void,
+   *   canCaptureEnter?: () => boolean,
    *   depth?: number,
    * }} [options]
    */
@@ -21,6 +22,7 @@ export class MessageBoard {
       ? options.initialTab
       : this.tabs[0];
     this.onSendChat = options.onSendChat || null;
+    this.canCaptureEnter = options.canCaptureEnter || null;
     this.depth = options.depth ?? 100;
 
     this.eventLog = [];
@@ -28,6 +30,8 @@ export class MessageBoard {
     this.eventScroll = 0;
     this.chatScroll = 0;
     this.chatEnabled = true;
+    this.chatOpen = false;
+    this._ignoreEnterUntil = 0;
     this.destroyed = false;
 
     this.boardW = 300;
@@ -134,7 +138,8 @@ export class MessageBoard {
     inputEl.maxLength = 100;
     inputEl.autocomplete = 'off';
     inputEl.spellcheck = false;
-    inputEl.placeholder = 'Digite e Enter…';
+    inputEl.readOnly = true;
+    inputEl.placeholder = 'Enter para conversar…';
     inputEl.style.cssText = [
       'width: 280px',
       'height: 26px',
@@ -147,6 +152,8 @@ export class MessageBoard {
       'background: #160f28',
       'color: #f0e8ff',
       'outline: none',
+      'pointer-events: none',
+      'caret-color: #f0e8ff',
     ].join(';');
 
     this.inputEl = inputEl;
@@ -161,39 +168,119 @@ export class MessageBoard {
         event.preventDefault();
         event.stopPropagation();
         this._submitChat();
+        return;
       }
       if (event.key === 'Escape') {
-        inputEl.blur();
+        event.preventDefault();
+        event.stopPropagation();
+        this.closeChat();
       }
     };
     this._onFocus = () => {
+      if (!this.chatOpen) {
+        inputEl.blur();
+        return;
+      }
       if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = false;
     };
     this._onBlur = () => {
+      this._lockChatInput();
       if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = true;
+    };
+    this._onSceneEnterKey = (event) => {
+      if (event?.repeat) return;
+      if (performance.now() < this._ignoreEnterUntil) return;
+      if (!this._canOpenChat()) return;
+      event?.preventDefault?.();
+      this.openChat();
     };
 
     inputEl.addEventListener('keydown', this._onInputKeyDown);
     inputEl.addEventListener('focus', this._onFocus);
     inputEl.addEventListener('blur', this._onBlur);
+    this.scene.input?.keyboard?.on('keydown-ENTER', this._onSceneEnterKey);
+  }
+
+  _canOpenChat() {
+    if (this.destroyed || !this.chatEnabled || this.chatOpen) return false;
+    if (this.activeTab !== 'chat') return false;
+    if (this.canCaptureEnter && !this.canCaptureEnter()) return false;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return false;
+    return true;
+  }
+
+  _lockChatInput() {
+    this.chatOpen = false;
+    if (!this.inputEl) return;
+    this.inputEl.readOnly = true;
+    this.inputEl.style.pointerEvents = 'none';
+    if (this.chatEnabled) {
+      this.inputEl.placeholder = 'Enter para conversar…';
+    }
+  }
+
+  openChat() {
+    if (this.destroyed || !this.chatEnabled || this.activeTab !== 'chat') return;
+    if (this.chatOpen) {
+      this.inputEl?.focus();
+      return;
+    }
+    if (this.canCaptureEnter && !this.canCaptureEnter()) return;
+
+    this.chatOpen = true;
+    if (this.inputEl) {
+      this.inputEl.readOnly = false;
+      this.inputEl.style.pointerEvents = 'auto';
+      this.inputEl.placeholder = 'Digite e Enter para enviar…';
+      this.inputEl.focus();
+    }
+    if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = false;
+  }
+
+  closeChat() {
+    if (!this.chatOpen && document.activeElement !== this.inputEl) {
+      this._lockChatInput();
+      return;
+    }
+    this._lockChatInput();
+    if (this.inputEl && document.activeElement === this.inputEl) {
+      this.inputEl.blur();
+    } else if (this.scene.input?.keyboard) {
+      this.scene.input.keyboard.enabled = true;
+    }
   }
 
   _submitChat() {
-    if (!this.chatEnabled || !this.onSendChat) return;
-    const text = (this.inputEl.value || '').trim().slice(0, 100);
-    if (!text) return;
-    this.inputEl.value = '';
-    this.onSendChat(text);
+    // Evita que o mesmo Enter reabra o chat via listener do Phaser.
+    this._ignoreEnterUntil = performance.now() + 200;
+    if (!this.chatEnabled) {
+      this.closeChat();
+      return;
+    }
+    const text = (this.inputEl?.value || '').trim().slice(0, 100);
+    if (text && this.onSendChat) {
+      this.inputEl.value = '';
+      this.onSendChat(text);
+    }
+    this.closeChat();
   }
 
   setChatEnabled(enabled) {
     this.chatEnabled = !!enabled;
+    if (!this.chatEnabled) this.closeChat();
     if (this.inputEl) {
       this.inputEl.disabled = !this.chatEnabled;
       this.inputEl.placeholder = this.chatEnabled
-        ? 'Digite e Enter…'
+        ? this.chatOpen
+          ? 'Digite e Enter para enviar…'
+          : 'Enter para conversar…'
         : 'Entre no lobby para conversar…';
       this.inputEl.style.opacity = this.chatEnabled ? '1' : '0.55';
+      if (!this.chatEnabled) {
+        this.inputEl.readOnly = true;
+        this.inputEl.style.pointerEvents = 'none';
+      }
     }
   }
 
@@ -354,25 +441,26 @@ export class MessageBoard {
   _syncInputVisibility() {
     const show = this.activeTab === 'chat';
     if (this.chatInput) this.chatInput.setVisible(show);
-    if (!show && this.inputEl && document.activeElement === this.inputEl) {
-      this.inputEl.blur();
-    }
+    if (!show) this.closeChat();
   }
 
   setDomVisible(visible) {
     if (this.chatInput) {
       this.chatInput.setVisible(visible && this.activeTab === 'chat');
     }
+    if (!visible) this.closeChat();
   }
 
   destroy() {
     this.destroyed = true;
+    this.scene.input?.keyboard?.off('keydown-ENTER', this._onSceneEnterKey);
     if (this.inputEl) {
       this.inputEl.removeEventListener('keydown', this._onInputKeyDown);
       this.inputEl.removeEventListener('focus', this._onFocus);
       this.inputEl.removeEventListener('blur', this._onBlur);
       if (document.activeElement === this.inputEl) this.inputEl.blur();
     }
+    this.chatOpen = false;
     if (this.scene.input?.keyboard) this.scene.input.keyboard.enabled = true;
 
     this.bg?.destroy();

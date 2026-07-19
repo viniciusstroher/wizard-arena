@@ -263,6 +263,7 @@ export class LobbyScene extends Phaser.Scene {
         if (!this.joined) return;
         this.socket.emit('chat_message', { text });
       },
+      canCaptureEnter: () => !this.adminModalOpen,
     });
     this.messageBoard.setChatEnabled(false);
     this.messageBoard.pushChat('Entre no lobby para conversar.');
