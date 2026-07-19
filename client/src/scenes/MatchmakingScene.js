@@ -339,14 +339,16 @@ export class MatchmakingScene extends Phaser.Scene {
         ? this.modeSelectEl.value === 'true'
         : !!this.pvpEnabled;
     this.pvpEnabled = pvpEnabled;
-    const maxRounds =
-      this.roundsSelectEl != null
-        ? Number(this.roundsSelectEl.value) || this.maxRounds
-        : this.maxRounds;
-    const roundDuration =
-      this.durationSelectEl != null
-        ? Number(this.durationSelectEl.value) || this.roundDuration
-        : this.roundDuration;
+    if (this.roundsSelectEl) {
+      this.maxRounds = Number(this.roundsSelectEl.value) || this.maxRounds;
+    }
+    if (this.durationSelectEl) {
+      this.roundDuration = Number(this.durationSelectEl.value) || this.roundDuration;
+    }
+    const maxRounds = [5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 10;
+    const roundDuration = [60, 120, 180].includes(this.roundDuration)
+      ? this.roundDuration
+      : 120;
     this.maxRounds = maxRounds;
     this.roundDuration = roundDuration;
     this.socket.emit('create_lobby', {
