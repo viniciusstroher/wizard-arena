@@ -977,7 +977,9 @@ export class GalleryModal {
       `Tipo: ${entry.tierLabel}`,
       `Ataque: ${entry.attackLabel}`,
     ];
-    if (entry.projectile) details.push(`Projétil: ${entry.projectile}`);
+    if (entry.projectile) {
+      details.push(`Projétil: ${entry.projectileLabel || entry.projectile.replace(/_/g, ' ')}`);
+    }
     if (entry.spellNames?.length) {
       details.push(`Magias: ${entry.spellNames.join(', ')}`);
     } else if (entry.attack === 'caster') {

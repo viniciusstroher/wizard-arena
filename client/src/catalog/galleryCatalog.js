@@ -278,6 +278,9 @@ export function getMonsterEntries() {
         attack: def.attack || 'melee',
         attackLabel: ATTACK_LABEL[def.attack] || def.attack || 'Corpo a corpo',
         projectile: def.projectile || null,
+        projectileLabel: def.projectile
+          ? spellDisplayName(def.projectile) || def.projectile.replace(/_/g, ' ')
+          : null,
         spells,
         spellNames: spells.map((s) => spellDisplayName(s)),
         color: def.color ?? 0xffffff,
@@ -341,7 +344,14 @@ function spellEntryFromDef(s) {
 }
 
 export function spellDisplayName(id) {
-  return SPELLS[id]?.name || ULTIMATES[id]?.name || id;
+  return (
+    SPELLS[id]?.name ||
+    ULTIMATES[id]?.name ||
+    String(id || '')
+      .split('_')
+      .filter(Boolean)
+      .join(' ')
+  );
 }
 
 export function spellColor(id) {

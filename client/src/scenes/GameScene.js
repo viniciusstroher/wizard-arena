@@ -1057,7 +1057,11 @@ export class GameScene extends Phaser.Scene {
       case 'damage': {
         // Zona/DoT contínuo: só números flutuantes (evita spam no painel)
         if (!ev.fromHit && !ev.sourceId) return null;
-        const target = ev.targetName || (ev.isPlayer ? this.playerName(ev.targetId) : 'Monstro');
+        let target = ev.targetName || (ev.isPlayer ? this.playerName(ev.targetId) : 'Monstro');
+        // Servidor às vezes manda o type (com _); mostra o rótulo legível
+        if (typeof target === 'string' && target.includes('_')) {
+          target = this.monsterLabel(target);
+        }
         if (ev.sourceId) {
           return `${this.playerName(ev.sourceId)} causou ${ev.amount} em ${target}`;
         }
