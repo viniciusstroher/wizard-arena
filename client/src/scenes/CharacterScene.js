@@ -1,7 +1,12 @@
 import Phaser from 'phaser';
 import { ensureCharacter, saveCharacter, WIZARD_COLORS } from '../character.js';
 import { navigate } from '../router.js';
-import { drawMenuBackground, makeMenuButton, styleDomInput } from '../ui/menuChrome.js';
+import {
+  drawMenuBackground,
+  makeMenuButton,
+  styleDomInput,
+  updateMenuFlames,
+} from '../ui/menuChrome.js';
 import { updateWizardPreviewTexture } from '../wizardSkin.js';
 
 export class CharacterScene extends Phaser.Scene {
@@ -133,5 +138,9 @@ export class CharacterScene extends Phaser.Scene {
     }
     this.errorText.setText('');
     navigate('/');
+  }
+
+  update() {
+    updateMenuFlames(this);
   }
 }

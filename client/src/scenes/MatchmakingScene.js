@@ -6,6 +6,7 @@ import {
   drawMenuBackground,
   makeMenuButton,
   styleDomInput,
+  updateMenuFlames,
 } from '../ui/menuChrome.js';
 
 export class MatchmakingScene extends Phaser.Scene {
@@ -388,5 +389,9 @@ export class MatchmakingScene extends Phaser.Scene {
       this.passwordPrompt.remove();
       this.passwordPrompt = null;
     }
+  }
+
+  update() {
+    updateMenuFlames(this);
   }
 }

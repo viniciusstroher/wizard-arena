@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ensureCharacter } from '../character.js';
 import { navigate } from '../router.js';
-import { drawMenuBackground, makeMenuButton } from '../ui/menuChrome.js';
+import { drawMenuBackground, makeMenuButton, updateMenuFlames } from '../ui/menuChrome.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 
 export class HomeScene extends Phaser.Scene {
@@ -50,5 +50,9 @@ export class HomeScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(5);
+  }
+
+  update() {
+    updateMenuFlames(this);
   }
 }

@@ -248,13 +248,17 @@ export class GameScene extends Phaser.Scene {
   }
 
   startBattleMusic() {
-    if (!this.cache.audio.exists('battle_music')) return;
+    const tracks = ['battle_music_a', 'battle_music_b'].filter((key) =>
+      this.cache.audio.exists(key)
+    );
+    if (!tracks.length) return;
     this.stopBattleMusic();
     const volRaw = localStorage.getItem('wa_lobby_music_vol');
     const volN = Number(volRaw);
     // Usa o volume ajustado no lobby nesta sessão; senão 25%
     const volume = Number.isFinite(volN) ? Phaser.Math.Clamp(volN, 0, 1) : 0.25;
-    this.battleMusic = this.sound.add('battle_music', {
+    const key = tracks[Math.floor(Math.random() * tracks.length)];
+    this.battleMusic = this.sound.add(key, {
       loop: true,
       volume,
     });
