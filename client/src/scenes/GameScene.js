@@ -1712,34 +1712,34 @@ export class GameScene extends Phaser.Scene {
 
   createArenaFireWall() {
     if (!ARENA_BORDER_FX_ENABLED) return;
-    // Parede circular de energia mágica — partículas ao longo da borda
+    // Parede circular de energia mágica — partículas suaves na borda
     this.arenaFireWall = this.add
       .particles(0, 0, 'particle', {
-        tint: [0x6b2cff, 0xaa66ff, 0x44ddff, 0x88eeff, 0xffffff],
-        speed: { min: 28, max: 72 },
+        tint: [0x4a2080, 0x6b40a8, 0x4488aa],
+        speed: { min: 10, max: 28 },
         angle: { min: 250, max: 290 },
-        scale: { start: 1.9, end: 0 },
-        alpha: { start: 0.9, end: 0 },
-        lifespan: { min: 340, max: 680 },
-        gravityY: -70,
+        scale: { start: 0.9, end: 0 },
+        alpha: { start: 0.35, end: 0 },
+        lifespan: { min: 700, max: 1200 },
+        gravityY: -25,
         frequency: -1,
         emitting: false,
-        blendMode: 'ADD',
+        blendMode: 'NORMAL',
       })
       .setDepth(2);
 
     this.arenaFireEmbers = this.add
       .particles(0, 0, 'particle', {
-        tint: [0x7b4dff, 0x66ccff, 0xc8a0ff, 0xe8f6ff],
-        speed: { min: 12, max: 48 },
+        tint: [0x5a3088, 0x5070a0, 0x8860b0],
+        speed: { min: 6, max: 18 },
         angle: { min: 210, max: 330 },
-        scale: { start: 1.05, end: 0 },
-        alpha: { start: 0.8, end: 0 },
-        lifespan: { min: 420, max: 920 },
-        gravityY: -25,
+        scale: { start: 0.55, end: 0 },
+        alpha: { start: 0.28, end: 0 },
+        lifespan: { min: 900, max: 1500 },
+        gravityY: -12,
         frequency: -1,
         emitting: false,
-        blendMode: 'ADD',
+        blendMode: 'NORMAL',
       })
       .setDepth(2.5);
   }
@@ -2681,39 +2681,40 @@ export class GameScene extends Phaser.Scene {
   drawArenaFireWall(a) {
     if (!ARENA_BORDER_FX_ENABLED) return;
     const t = this.time.now;
-    const pulse = 0.55 + 0.45 * Math.sin(t / 140);
-    const flicker = 0.7 + 0.3 * Math.sin(t / 80 + 1.1);
-    const spin = t * 0.00035;
+    // Ritmo lento e contraste baixo — menos “luz neon”
+    const pulse = 0.78 + 0.22 * Math.sin(t / 420);
+    const flicker = 0.82 + 0.18 * Math.sin(t / 360 + 1.1);
+    const spin = t * 0.00012;
 
     // Halo externo — campo de energia
-    this.arenaGraphics.lineStyle(26, 0x2a0860, 0.22 * flicker);
-    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 4);
-    this.arenaGraphics.lineStyle(18, 0x5a20c8, 0.28 * pulse);
+    this.arenaGraphics.lineStyle(18, 0x1a0840, 0.12 * flicker);
+    this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 3);
+    this.arenaGraphics.lineStyle(12, 0x3a1878, 0.14 * pulse);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius + 1);
-    this.arenaGraphics.lineStyle(12, 0x8844ff, 0.4 * flicker);
+    this.arenaGraphics.lineStyle(8, 0x5a3098, 0.18 * flicker);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius);
-    this.arenaGraphics.lineStyle(7, 0x44ddff, 0.55 * pulse);
+    this.arenaGraphics.lineStyle(4, 0x3a6a88, 0.2 * pulse);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius - 1);
-    this.arenaGraphics.lineStyle(2.5, 0xe8f6ff, 0.85 * flicker);
+    this.arenaGraphics.lineStyle(1.5, 0x88aacc, 0.28 * flicker);
     this.arenaGraphics.strokeCircle(a.x, a.y, a.radius - 2);
 
     // Arcos rotativos (anel mágico)
-    const arcs = 5;
+    const arcs = 4;
     for (let k = 0; k < arcs; k++) {
       const start = spin * (k % 2 === 0 ? 1 : -1) + (k / arcs) * Math.PI * 2;
-      const sweep = 0.55 + 0.15 * Math.sin(t * 0.008 + k);
-      this.arenaGraphics.lineStyle(3.2, k % 2 === 0 ? 0xaa66ff : 0x66e0ff, 0.55 * pulse);
+      const sweep = 0.45 + 0.1 * Math.sin(t * 0.0025 + k);
+      this.arenaGraphics.lineStyle(2.2, k % 2 === 0 ? 0x7a48b0 : 0x4a88a8, 0.22 * pulse);
       this.arenaGraphics.beginPath();
       this.arenaGraphics.arc(a.x, a.y, a.radius + 2, start, start + sweep, false);
       this.arenaGraphics.strokePath();
     }
 
     // Raios de energia radiais (parede)
-    const tongues = Math.max(40, Math.floor(a.radius * 0.7));
+    const tongues = Math.max(22, Math.floor(a.radius * 0.4));
     for (let i = 0; i < tongues; i++) {
-      const ang = (i / tongues) * Math.PI * 2 + spin * 0.35;
-      const wobble = 0.55 + 0.45 * Math.sin(t * 0.012 + i * 2.1);
-      const height = (11 + (i % 6) * 2.6 + 7 * Math.sin(t * 0.009 + i * 1.4)) * wobble;
+      const ang = (i / tongues) * Math.PI * 2 + spin * 0.25;
+      const wobble = 0.7 + 0.3 * Math.sin(t * 0.004 + i * 2.1);
+      const height = (6 + (i % 5) * 1.4 + 3.5 * Math.sin(t * 0.003 + i * 1.4)) * wobble;
       const baseR = a.radius - 1;
       const tipR = a.radius + height;
       const x0 = a.x + Math.cos(ang) * baseR;
@@ -2724,11 +2725,11 @@ export class GameScene extends Phaser.Scene {
       const x1 = a.x + Math.cos(ang) * tipR;
       const y1 = a.y + Math.sin(ang) * tipR;
 
-      this.arenaGraphics.lineStyle(5.2, 0x5a20c8, 0.32 * wobble);
+      this.arenaGraphics.lineStyle(3.5, 0x3a1878, 0.16 * wobble);
       this.arenaGraphics.lineBetween(x0, y0, x1, y1);
-      this.arenaGraphics.lineStyle(3.0, 0x44ddff, 0.55 * wobble);
+      this.arenaGraphics.lineStyle(2.0, 0x3a6a88, 0.22 * wobble);
       this.arenaGraphics.lineBetween(x0, y0, xM, yM);
-      this.arenaGraphics.lineStyle(1.5, 0xffffff, 0.8 * wobble);
+      this.arenaGraphics.lineStyle(1.0, 0x88aacc, 0.28 * wobble);
       this.arenaGraphics.lineBetween(
         x0,
         y0,
@@ -2737,19 +2738,19 @@ export class GameScene extends Phaser.Scene {
       );
     }
 
-    // Partículas de energia ao longo da circunferência
+    // Partículas de energia ao longo da circunferência (esparsas)
     if (!this.arenaFireWall) return;
-    const steps = Math.max(24, Math.floor((Math.PI * 2 * a.radius) / 22));
-    const frame = Math.floor(t / 33);
+    const steps = Math.max(16, Math.floor((Math.PI * 2 * a.radius) / 36));
+    const frame = Math.floor(t / 90);
     for (let i = 0; i < steps; i++) {
-      if ((i + frame) % 3 !== 0) continue;
+      if ((i + frame) % 5 !== 0) continue;
       const ang = (i / steps) * Math.PI * 2 + spin;
-      const jitter = Math.sin(t * 0.02 + i * 0.7) * 3;
+      const jitter = Math.sin(t * 0.006 + i * 0.7) * 2;
       const r = a.radius + jitter;
       const x = a.x + Math.cos(ang) * r;
       const y = a.y + Math.sin(ang) * r;
       this.arenaFireWall.emitParticleAt(x, y, 1);
-      if (this.arenaFireEmbers && (i + frame) % 6 === 0) {
+      if (this.arenaFireEmbers && (i + frame) % 10 === 0) {
         this.arenaFireEmbers.emitParticleAt(x, y, 1);
       }
     }

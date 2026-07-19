@@ -1277,44 +1277,44 @@ export class GalleryModal {
     g.clear();
 
     const t = this.scene.time.now;
-    const pulse = 0.55 + 0.45 * Math.sin(t / 140);
-    const flicker = 0.7 + 0.3 * Math.sin(t / 80 + 1.1);
-    const spin = t * 0.00035;
+    const pulse = 0.78 + 0.22 * Math.sin(t / 420);
+    const flicker = 0.82 + 0.18 * Math.sin(t / 360 + 1.1);
+    const spin = t * 0.00012;
     const r = arenaR;
 
-    g.lineStyle(14, 0x2a0860, 0.22 * flicker);
+    g.lineStyle(10, 0x1a0840, 0.12 * flicker);
     g.strokeCircle(0, 0, r + 3);
-    g.lineStyle(10, 0x5a20c8, 0.28 * pulse);
+    g.lineStyle(7, 0x3a1878, 0.14 * pulse);
     g.strokeCircle(0, 0, r + 1);
-    g.lineStyle(7, 0x8844ff, 0.4 * flicker);
+    g.lineStyle(5, 0x5a3098, 0.18 * flicker);
     g.strokeCircle(0, 0, r);
-    g.lineStyle(4, 0x44ddff, 0.55 * pulse);
+    g.lineStyle(3, 0x3a6a88, 0.2 * pulse);
     g.strokeCircle(0, 0, r - 1);
-    g.lineStyle(1.5, 0xe8f6ff, 0.85 * flicker);
+    g.lineStyle(1.2, 0x88aacc, 0.28 * flicker);
     g.strokeCircle(0, 0, r - 2);
 
-    const arcs = 5;
+    const arcs = 4;
     for (let k = 0; k < arcs; k++) {
       const start = spin * (k % 2 === 0 ? 1 : -1) + (k / arcs) * Math.PI * 2;
-      const sweep = 0.55 + 0.15 * Math.sin(t * 0.008 + k);
-      g.lineStyle(2.4, k % 2 === 0 ? 0xaa66ff : 0x66e0ff, 0.55 * pulse);
+      const sweep = 0.45 + 0.1 * Math.sin(t * 0.0025 + k);
+      g.lineStyle(1.8, k % 2 === 0 ? 0x7a48b0 : 0x4a88a8, 0.22 * pulse);
       g.beginPath();
       g.arc(0, 0, r + 2, start, start + sweep, false);
       g.strokePath();
     }
 
-    const tongues = 28;
+    const tongues = 18;
     for (let i = 0; i < tongues; i++) {
-      const ang = (i / tongues) * Math.PI * 2 + spin * 0.35;
-      const wobble = 0.55 + 0.45 * Math.sin(t * 0.012 + i * 2.1);
-      const height = (6 + (i % 5) * 1.4 + 4 * Math.sin(t * 0.009 + i * 1.4)) * wobble;
+      const ang = (i / tongues) * Math.PI * 2 + spin * 0.25;
+      const wobble = 0.7 + 0.3 * Math.sin(t * 0.004 + i * 2.1);
+      const height = (4 + (i % 4) * 1.0 + 2.5 * Math.sin(t * 0.003 + i * 1.4)) * wobble;
       const x0 = Math.cos(ang) * (r - 1);
       const y0 = Math.sin(ang) * (r - 1);
       const x1 = Math.cos(ang) * (r + height);
       const y1 = Math.sin(ang) * (r + height);
-      g.lineStyle(3.2, 0x5a20c8, 0.32 * wobble);
+      g.lineStyle(2.4, 0x3a1878, 0.16 * wobble);
       g.lineBetween(x0, y0, x1, y1);
-      g.lineStyle(1.8, 0x44ddff, 0.55 * wobble);
+      g.lineStyle(1.3, 0x3a6a88, 0.22 * wobble);
       g.lineBetween(x0, y0, Math.cos(ang) * (r + height * 0.55), Math.sin(ang) * (r + height * 0.55));
     }
   }
