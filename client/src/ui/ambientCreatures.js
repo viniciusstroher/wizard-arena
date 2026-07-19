@@ -40,7 +40,7 @@ function spawnAmbientCreature(scene, catalog, width, height, instant = false) {
   const tex = `${catalog.prefix}_${type}`;
   // z: 0 = longe (fundo), 1 = perto (ainda atrás do menu)
   const z = Phaser.Math.FloatBetween(0.08, 1);
-  const scale = Phaser.Math.Linear(0.55, 2.35, z);
+  const scale = Phaser.Math.Linear(0.72, 3.05, z);
   const alpha = Phaser.Math.Linear(0.12, 0.5, z);
   // Mais longe = mais escuro / azulado (atmosfera)
   const shade = Phaser.Math.Linear(0.35, 1, z);
@@ -102,10 +102,13 @@ function spawnAmbientCreature(scene, catalog, width, height, instant = false) {
     });
   }
 
+  const idleKey = `${tex}_idle`;
   const walkKey = `${tex}_walk`;
   if (scene.anims.exists(walkKey)) {
     sprite.play(walkKey);
     sprite.anims.timeScale = Phaser.Math.Linear(0.45, 0.95, z);
+  } else if (scene.anims.exists(idleKey)) {
+    sprite.play(idleKey);
   }
 
   return creature;

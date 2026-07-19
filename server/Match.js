@@ -2356,7 +2356,17 @@ export class Match {
       burnTick: 1,
       burnTickAcc: 0,
       burnOwnerId: null,
+      /** Pose visual sincronizada com o client (`attack` | null). */
+      pose: null,
+      poseTimer: 0,
     };
+  }
+
+  /** Dispara pose de ataque/cast no snapshot do monstro. */
+  flashMonsterPose(monster, pose = 'attack', duration = 0.34) {
+    if (!monster) return;
+    monster.pose = pose;
+    monster.poseTimer = duration;
   }
 
   /** Escudo inato de boss (mesma Barrier dos jogadores). */
@@ -3231,6 +3241,7 @@ export class Match {
       color: stats.color,
     });
     this.announceNonProjectileCast(monster, spellId, false);
+    this.flashMonsterPose(monster, 'attack', 0.38);
     return true;
   }
 
@@ -3297,6 +3308,7 @@ export class Match {
       color: monster.projectileColor || monster.color,
     });
     monster.attackCd = monster.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
+    this.flashMonsterPose(monster, 'attack', 0.32);
   }
 
   castSpell(player, slot) {
@@ -3870,6 +3882,10 @@ export class Match {
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
       m.attackCd = Math.max(0, m.attackCd - dt);
       m.novaCd = Math.max(0, (m.novaCd || 0) - dt);
+      if ((m.poseTimer || 0) > 0) {
+        m.poseTimer = Math.max(0, m.poseTimer - dt);
+        if (m.poseTimer <= 0) m.pose = null;
+      }
       if (m.isBoss) {
         m.blinkCooldown = Math.max(0, (m.blinkCooldown || 0) - dt);
         m.barrierCooldown = Math.max(0, (m.barrierCooldown || 0) - dt);
@@ -4047,6 +4063,7 @@ export class Match {
         } else if (m.attackCd <= 0) {
           this.damageEntity(nearest, m.damage, m.entityId, true, true);
           m.attackCd = m.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
+          this.flashMonsterPose(m, 'attack', 0.3);
         }
       }
 
@@ -4362,6 +4379,7 @@ export class Match {
         difficulty: m.difficulty || null,
         shield: m.shield || 0,
         maxShield: m.maxShield || 0,
+        pose: m.pose || null,
       })),
       projectiles: this.projectiles.map((p) => ({
         entityId: p.entityId,

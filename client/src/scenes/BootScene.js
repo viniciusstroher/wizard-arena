@@ -20,18 +20,48 @@ function makePixelTexture(scene, key, rows, palette, scale = 2) {
   scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
 }
 
-/** Offset lower-body pixels to fake a walk / limb cycle. side: -1 left, +1 right. */
-function makeWalkPose(rows, side) {
-  const h = rows.length;
-  const w = rows[0].length;
-  const src = rows.map((r) => r.split(''));
-  const dst = Array.from({ length: h }, () => Array(w).fill('.'));
+/** Copy grid into a mutable char matrix. */
+function gridToMatrix(rows) {
+  return rows.map((r) => r.split(''));
+}
+
+function matrixToGrid(matrix) {
+  return matrix.map((row) => row.join(''));
+}
+
+function blankMatrix(h, w) {
+  return Array.from({ length: h }, () => Array(w).fill('.'));
+}
+
+function findContentBounds(src) {
+  const h = src.length;
+  const w = src[0].length;
+  let first = h;
   let last = 0;
   for (let y = 0; y < h; y++) {
-    if (src[y].some((c) => c !== '.')) last = y;
+    if (src[y].some((c) => c !== '.')) {
+      if (y < first) first = y;
+      last = y;
+    }
   }
-  const fromRow = Math.max(0, last - 3);
-  const mid = Math.floor(w / 2);
+  if (first > last) return { first: 0, last: h - 1, mid: Math.floor(w / 2) };
+  return { first, last, mid: Math.floor(w / 2) };
+}
+
+/**
+ * Offset lower-body + arm pixels to fake a walk / limb cycle.
+ * side: -1 left, +1 right. intensity: 1 = normal, 2 = extended stride.
+ */
+function makeWalkPose(rows, side, intensity = 1) {
+  const src = gridToMatrix(rows);
+  const h = src.length;
+  const w = src[0].length;
+  const dst = blankMatrix(h, w);
+  const { first, last, mid } = findContentBounds(src);
+  const legFrom = Math.max(0, last - 3);
+  const armFrom = first + Math.floor((last - first) * 0.35);
+  const armTo = Math.max(armFrom, legFrom - 1);
+  const step = intensity >= 2 ? 2 : 1;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -39,30 +69,158 @@ function makeWalkPose(rows, side) {
       if (ch === '.') continue;
       let nx = x;
       let ny = y;
-      if (y >= fromRow) {
-        const left = x < mid;
+      const left = x < mid;
+      if (y >= legFrom) {
         if (side < 0) {
-          nx = x + (left ? -1 : 1);
+          nx = x + (left ? -step : step);
           ny = y + (left ? 1 : -1);
         } else {
-          nx = x + (left ? 1 : -1);
+          nx = x + (left ? step : -step);
           ny = y + (left ? -1 : 1);
         }
+      } else if (y >= armFrom && y <= armTo) {
+        // Braços em contrafase das pernas
+        if (side < 0) {
+          nx = x + (left ? step : -step);
+          ny = y + (left ? -1 : 0);
+        } else {
+          nx = x + (left ? -step : step);
+          ny = y + (left ? 0 : -1);
+        }
+      } else if (y <= first + 2) {
+        // Cabeça balança levemente
+        nx = x + (side < 0 ? -1 : 1);
       }
       if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
         dst[ny][nx] = ch;
+      } else if (dst[y][x] === '.') {
+        dst[y][x] = ch;
       }
     }
   }
-  return dst.map((row) => row.join(''));
+  return matrixToGrid(dst);
 }
 
-/** Idle + walk frames + Phaser anim for a monster type. */
+/** Respiração: sobe o tronco um pixel e alarga o peito. */
+function makeIdlePose(rows, phase = 1) {
+  const src = gridToMatrix(rows);
+  const h = src.length;
+  const w = src[0].length;
+  const dst = blankMatrix(h, w);
+  const { first, last, mid } = findContentBounds(src);
+  const chestTo = first + Math.floor((last - first) * 0.55);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ch = src[y][x];
+      if (ch === '.') continue;
+      let nx = x;
+      let ny = y;
+      if (phase === 1 && y >= first && y <= chestTo) {
+        ny = y - 1;
+        if (x === mid || x === mid - 1 || x === mid + 1) {
+          // peito ligeiramente mais cheio
+          const side = x < mid ? -1 : x > mid ? 1 : 0;
+          if (side !== 0 && dst[Math.max(0, ny)]?.[x + side] === '.') {
+            // preenchido abaixo no loop principal
+          }
+          nx = x + (x < mid ? -1 : x > mid ? 1 : 0);
+        }
+      } else if (phase === 2 && y >= first && y <= chestTo) {
+        ny = y;
+        nx = x;
+      }
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
+        dst[ny][nx] = ch;
+      } else if (y >= 0 && y < h && dst[y][x] === '.') {
+        dst[y][x] = ch;
+      }
+    }
+  }
+  return matrixToGrid(dst);
+}
+
+/** Avanço / windup de ataque — corpo e arma para a direita. */
+function makeAttackPose(rows) {
+  const src = gridToMatrix(rows);
+  const h = src.length;
+  const w = src[0].length;
+  const dst = blankMatrix(h, w);
+  const { first, last, mid } = findContentBounds(src);
+  const armFrom = first + Math.floor((last - first) * 0.3);
+  const armTo = first + Math.floor((last - first) * 0.7);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ch = src[y][x];
+      if (ch === '.') continue;
+      let nx = x + 1;
+      let ny = y;
+      if (y >= armFrom && y <= armTo && x >= mid) {
+        nx = x + 2;
+        ny = y - 1;
+      } else if (y < first + 3) {
+        nx = x + 1;
+        ny = y - 1;
+      }
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
+        dst[ny][nx] = ch;
+      } else if (dst[y][Math.min(w - 1, x + 1)] === '.') {
+        dst[y][Math.min(w - 1, x + 1)] = ch;
+      } else if (dst[y][x] === '.') {
+        dst[y][x] = ch;
+      }
+    }
+  }
+  return matrixToGrid(dst);
+}
+
+/** Recuo ao tomar dano — comprime e puxa para trás. */
+function makeHurtPose(rows) {
+  const src = gridToMatrix(rows);
+  const h = src.length;
+  const w = src[0].length;
+  const dst = blankMatrix(h, w);
+  const { first, last } = findContentBounds(src);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ch = src[y][x];
+      if (ch === '.') continue;
+      let nx = x - 1;
+      let ny = y;
+      if (y >= first && y <= last) {
+        ny = Math.min(h - 1, y + 1);
+      }
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
+        dst[ny][nx] = ch;
+      } else if (dst[y][x] === '.') {
+        dst[y][x] = ch;
+      }
+    }
+  }
+  return matrixToGrid(dst);
+}
+
+/** Idle + walk + attack + hurt frames e animações Phaser para um tipo de monstro. */
 function registerMonsterSprite(scene, type, idle, palette) {
   const base = `monster_${type}`;
+  const idleBreath = makeIdlePose(idle, 1);
+  const walkL = makeWalkPose(idle, -1, 1);
+  const walkR = makeWalkPose(idle, 1, 1);
+  const walkL2 = makeWalkPose(idleBreath, -1, 2);
+  const walkR2 = makeWalkPose(idleBreath, 1, 2);
+  const attack = makeAttackPose(idle);
+  const hurt = makeHurtPose(idle);
+
   makePixelTexture(scene, base, idle, palette);
-  makePixelTexture(scene, `${base}_wL`, makeWalkPose(idle, -1), palette);
-  makePixelTexture(scene, `${base}_wR`, makeWalkPose(idle, 1), palette);
+  makePixelTexture(scene, `${base}_i2`, idleBreath, palette);
+  makePixelTexture(scene, `${base}_wL`, walkL, palette);
+  makePixelTexture(scene, `${base}_wR`, walkR, palette);
+  makePixelTexture(scene, `${base}_wL2`, walkL2, palette);
+  makePixelTexture(scene, `${base}_wR2`, walkR2, palette);
+  makePixelTexture(scene, `${base}_atk`, attack, palette);
+  makePixelTexture(scene, `${base}_hurt`, hurt, palette);
 
   const walkKey = `${base}_walk`;
   if (!scene.anims.exists(walkKey)) {
@@ -71,11 +229,57 @@ function registerMonsterSprite(scene, type, idle, palette) {
       frames: [
         { key: base },
         { key: `${base}_wL` },
+        { key: `${base}_wL2` },
         { key: base },
         { key: `${base}_wR` },
+        { key: `${base}_wR2` },
       ],
-      frameRate: 8,
+      frameRate: 10,
       repeat: -1,
+    });
+  }
+
+  const idleKey = `${base}_idle`;
+  if (!scene.anims.exists(idleKey)) {
+    scene.anims.create({
+      key: idleKey,
+      frames: [
+        { key: base },
+        { key: `${base}_i2` },
+        { key: base },
+        { key: `${base}_i2` },
+      ],
+      frameRate: 3,
+      repeat: -1,
+    });
+  }
+
+  const attackKey = `${base}_attack`;
+  if (!scene.anims.exists(attackKey)) {
+    scene.anims.create({
+      key: attackKey,
+      frames: [
+        { key: `${base}_i2` },
+        { key: `${base}_atk` },
+        { key: `${base}_atk` },
+        { key: base },
+      ],
+      frameRate: 12,
+      repeat: 0,
+    });
+  }
+
+  const hurtKey = `${base}_hurt`;
+  if (!scene.anims.exists(hurtKey)) {
+    scene.anims.create({
+      key: hurtKey,
+      frames: [
+        { key: `${base}_hurt` },
+        { key: `${base}_hurt` },
+        { key: base },
+      ],
+      frameRate: 14,
+      repeat: 0,
     });
   }
 }
@@ -4458,25 +4662,25 @@ export class BootScene extends Phaser.Scene {
   }
 
   createMonsterSprites() {
-    // Imp — small red demon with horns
+    // Imp — small red demon with horns + claws + belly shade
     registerMonsterSprite(
       this,
       'imp',
       [
         '................',
         '....H......H....',
-        '...HH......HH...',
+        '...HYH....HYH...',
         '..HRRRRRRRRRRH..',
         '.HRRRRRRRRRRRRH.',
         '.HRRYBRRRBYRRRH.',
-        '.HRRRRRRRRRRRRH.',
-        '..HRRDDDDRRRH...',
-        '...HRRRRRRRH....',
+        '.HRRRWRRRRWRRRH.',
+        '..HRRDDDDDRRH...',
+        '...HRRDRDRRH....',
         '....HDDDDDH.....',
-        '...HRR...RRH....',
-        '..HRR.....RRH...',
-        '.HRR.......RRH..',
-        '................',
+        '...HRRC..CRRH...',
+        '..HRR......RRH..',
+        '.HRC........CRH.',
+        '.C............C.',
         '................',
         '................',
       ],
@@ -4486,28 +4690,30 @@ export class BootScene extends Phaser.Scene {
         D: 0xa93226,
         Y: 0xf1c40f,
         B: 0x1a1a1a,
+        W: 0xff8a7a,
+        C: 0xc0392b,
       }
     );
 
-    // Slime — round green blob
+    // Slime — round green blob with shine + drip
     registerMonsterSprite(
       this,
       'slime',
       [
-        '................',
         '................',
         '......GGGG......',
         '....GGLLLLGG....',
         '...GLLWWLLLLG...',
         '..GLLLWWLLLLLG..',
         '..GLLBBLLBBLLG..',
-        '..GLLLLLLLLLLG..',
+        '..GLLLLHLLLLLG..',
         '..GLLLLLLLLLLG..',
         '...GDLLLLLLDG...',
         '....GGDDDDGG....',
         '.....GGGGGG.....',
+        '.....G.GG.G.....',
         '......G..G......',
-        '................',
+        '.......GG.......',
         '................',
         '................',
       ],
@@ -4517,10 +4723,11 @@ export class BootScene extends Phaser.Scene {
         D: 0x1e8449,
         W: 0xd5f5e3,
         B: 0x1a1a1a,
+        H: 0x82e0aa,
       }
     );
 
-    // Wraith — floating purple spirit
+    // Wraith — floating purple spirit with veil trails
     registerMonsterSprite(
       this,
       'wraith',
@@ -4530,14 +4737,14 @@ export class BootScene extends Phaser.Scene {
         '....LPPPPPL.....',
         '...LPPWPPWPL....',
         '...LPPCPPCPL....',
-        '....LPPPPPL.....',
+        '....LPPHPPL.....',
         '.....LPPPL......',
         '....LPPPPPL.....',
         '...LPPPLPPPL....',
         '..LPP..P..PPL...',
-        '.LP.........PL..',
-        'LP...........PL.',
-        '................',
+        '.LP....P....PL..',
+        'LP.....L.....PL.',
+        'L.......L.....L.',
         '................',
         '................',
         '................',
@@ -4547,10 +4754,11 @@ export class BootScene extends Phaser.Scene {
         L: 0xbb8fce,
         W: 0xf5eef8,
         C: 0x5dade2,
+        H: 0xd2b4de,
       }
     );
 
-    // Goblin — small green skirmisher with big ears
+    // Goblin — small green skirmisher with big ears + dagger
     registerMonsterSprite(
       this,
       'goblin',
@@ -4560,14 +4768,14 @@ export class BootScene extends Phaser.Scene {
         '.EGG........GGE.',
         '..EGGGGGGGGGGE..',
         '..EGGWYGGYWGE...',
-        '...EGGGGGGGGE...',
-        '...EGGDMMDGGE...',
-        '....EGGGGGGE....',
-        '.....EG..GE.....',
+        '...EGGHGGGHGE...',
+        '...EGGDMMDGGE.S.',
+        '....EGGGGGGE.S..',
+        '.....EG..GE.S...',
         '....EGG..GGE....',
         '...EGG....GGE...',
-        '..EGG......GGE..',
-        '................',
+        '..EGD......DGE..',
+        '..E..........E..',
         '................',
         '................',
         '................',
@@ -4579,10 +4787,12 @@ export class BootScene extends Phaser.Scene {
         Y: 0xf1c40f,
         W: 0xf5f5dc,
         M: 0x8b4513,
+        H: 0xb4d96a,
+        S: 0xc0c0c0,
       }
     );
 
-    // Orc — bulky green bruiser with tusks
+    // Orc — bulky green bruiser with tusks + armor plates
     registerMonsterSprite(
       this,
       'orc',
@@ -4591,15 +4801,15 @@ export class BootScene extends Phaser.Scene {
         '....OOOOOOOO....',
         '...OOLLLLLLOO...',
         '..OOLWLLLWLOO...',
-        '..OOLLLLLLLOO...',
+        '..OOLHLHLHLHOO..',
         '..OOTLLLLLTTOO..',
-        '...OLLLLLLLO....',
+        '...OLLAALAALO...',
         '..OOLLLLLLLOO...',
         '.OOOLLLLLLLOOO..',
-        '.OOL......LOO...',
+        '.OOL.AA..AA.OO..',
         '.OO........OO...',
         'OO..........OO..',
-        'OO..........OO..',
+        'OD..........DO..',
         '................',
         '................',
         '................',
@@ -4609,10 +4819,13 @@ export class BootScene extends Phaser.Scene {
         L: 0x3d8b4a,
         W: 0xf5eef8,
         T: 0xf5f5dc,
+        H: 0x58b86a,
+        A: 0x6b5b3a,
+        D: 0x143d1c,
       }
     );
 
-    // Skeleton — melee undead with rusty blade
+    // Skeleton — melee undead with rusty blade + ribs
     registerMonsterSprite(
       this,
       'skeleton',
@@ -4620,14 +4833,14 @@ export class BootScene extends Phaser.Scene {
         '................',
         '.....WWWWWW.....',
         '....WWBWWBWW....',
-        '....WWWWWWWW....',
+        '....WWHWWWHW....',
         '.....WWDDWW.....',
         '......WDDW......',
         '....RR.WW.RR....',
-        '...RWWWWWWWW....',
+        '...RWWWDWDWWW...',
         '..R.WW.WW.WW....',
         '....WW....WW....',
-        '....WW....WW....',
+        '....WD....DW....',
         '....W......W....',
         '................',
         '................',
@@ -4639,10 +4852,11 @@ export class BootScene extends Phaser.Scene {
         B: 0x1a1410,
         D: 0xc8b8a8,
         R: 0x8a6a4a,
+        H: 0xffffff,
       }
     );
 
-    // Skeleton archer — ranged-only with bow
+    // Skeleton archer — ranged-only with bow + quiver detail
     registerMonsterSprite(
       this,
       'skeleton_archer',
@@ -4650,13 +4864,13 @@ export class BootScene extends Phaser.Scene {
         '................',
         '.....WWWWWW.....',
         '....WWBWWBWW....',
-        '....WWWWWWWW....',
+        '....WWHWWWHW....',
         '.....WWDDWW.....',
         '..M...WDDW......',
-        '.M.M.WWWWWW.A...',
+        '.M.M.WWWDWW.A...',
         'M...WW.WW.WWA...',
         '.....WW..WW.A...',
-        '.....WW..WW.....',
+        '.....WD..DW.Q...',
         '.....W....W.....',
         '.....W....W.....',
         '................',
@@ -4670,27 +4884,29 @@ export class BootScene extends Phaser.Scene {
         D: 0xb8a898,
         M: 0x6b4e2e,
         A: 0xc8b8a0,
+        H: 0xffffff,
+        Q: 0x8a6a4a,
       }
     );
 
-    // Wolf — lean brown hunter
+    // Wolf — lean brown hunter with snout + fangs
     registerMonsterSprite(
       this,
       'wolf',
       [
         '................',
-        '................',
         '...EE......EE...',
         '..EFF......FFE..',
         '..EFFFFFFFFFFE..',
         '..EFWBFFFFBWFE..',
-        '...EFFFFFFFFE...',
-        '....EFFFFFE.....',
+        '...EFHFFFFHFE...',
+        '....EFTFTFE.....',
         '...EFFFFFFFE....',
-        '..EF.E..E.FE....',
+        '..EF.EAAE.FE....',
         '.EF........FE...',
         'EF..........FE..',
         'T............T..',
+        '................',
         '................',
         '................',
         '................',
@@ -4701,10 +4917,12 @@ export class BootScene extends Phaser.Scene {
         W: 0xf5eef8,
         B: 0x1a1410,
         T: 0x3e2a1a,
+        H: 0xa89070,
+        A: 0x6b5344,
       }
     );
 
-    // Giant spider — dark arachnid with many legs
+    // Giant spider — dark arachnid with many legs + abdomen pattern
     registerMonsterSprite(
       this,
       'giant_spider',
@@ -4715,14 +4933,14 @@ export class BootScene extends Phaser.Scene {
         '..L..DDDDDD..L..',
         '...LDDRRDDDL....',
         '..LDDRWWRRDDL...',
-        '.LDDRRRRRRRDL...',
+        '.LDDRRHHRRRDDL..',
         'LDDRRRRRRRRRDL..',
-        '.L.DRRRRRRRD.L..',
+        '.L.DRRARRARD.L..',
         'L...DR....RD...L',
         '.....D....D.....',
         '....L......L....',
         '...L........L...',
-        '................',
+        '..L..........L..',
         '................',
         '................',
       ],
@@ -4731,23 +4949,25 @@ export class BootScene extends Phaser.Scene {
         R: 0x4a2048,
         W: 0xe74c3c,
         L: 0x2d1b2e,
+        H: 0x6a3068,
+        A: 0x7a2850,
       }
     );
 
-    // Bat — small flying skirmisher
+    // Bat — small flying skirmisher with fangs + wing membrane
     registerMonsterSprite(
       this,
       'bat',
       [
         '................',
-        '................',
         'WW..........WW..',
-        '.WW.BBBBBB.WW...',
+        '.WWHBBBBBBHWW...',
         '..WBBBBBBBBW....',
         '...BBEYYEEBB....',
-        '...BBBBBBBB.....',
+        '...BBBTBBTBB....',
         '....BB..BB......',
         '....B....B......',
+        '...W......W.....',
         '................',
         '................',
         '................',
@@ -4761,10 +4981,12 @@ export class BootScene extends Phaser.Scene {
         W: 0x5a4030,
         E: 0xf1c40f,
         Y: 0x1a1410,
+        H: 0x7a5848,
+        T: 0xf0ebe0,
       }
     );
 
-    // Elf — nimble forest archer with pointed ears + bow
+    // Elf — nimble forest archer with pointed ears + bow + cloak
     registerMonsterSprite(
       this,
       'elf',
@@ -4774,13 +4996,13 @@ export class BootScene extends Phaser.Scene {
         '...NHHHHHHHN....',
         '...HSSSSSSSH....',
         '...HSBEESBSH.A..',
-        '....HSSSSSH.A...',
+        '....HSSWSSH.A...',
         '....HGGGGGH.A...',
-        '...HGGGGGGGH....',
+        '...HGGCGCGGH....',
         '..HG.GGGG.GH.M..',
         '..HG......GH.M..',
         '..LL......LL....',
-        '................',
+        '..L........L....',
         '................',
         '................',
         '................',
@@ -4796,10 +5018,12 @@ export class BootScene extends Phaser.Scene {
         L: 0x5c4030,
         A: 0xc8e6a0,
         M: 0x6b4e2e,
+        W: 0xffe8c8,
+        C: 0x2d6b3a,
       }
     );
 
-    // Beholder — olho central + pedúnculos
+    // Beholder — olho central + pedúnculos + iris
     registerMonsterSprite(
       this,
       'beholder',
@@ -4811,12 +5035,12 @@ export class BootScene extends Phaser.Scene {
         '..PPYYYYYYYYPP..',
         '.PPYWWWWWWWWYPP.',
         '.PPYWBBBBBBWYPP.',
-        '.PPYWBYYYYBWYPP.',
+        '.PPYWBYCCYBWYPP.',
         '.PPYWBBBBBBWYPP.',
         '..PPYWWWWWWYPP..',
         '..PPPYYYYYYPPP..',
         '...PPPDDDDPPP...',
-        '....PPPPPPPP....',
+        '....PPPHHPPP....',
         '.....P....P.....',
         '................',
         '................',
@@ -4828,10 +5052,12 @@ export class BootScene extends Phaser.Scene {
         B: 0x1a1a2e,
         D: 0x5b2c6f,
         E: 0xe74c3c,
+        C: 0x5dade2,
+        H: 0x9b59b6,
       }
     );
 
-    // Dragon — corpo vermelho + asas + chifres
+    // Dragon — corpo vermelho + asas + chifres + escama
     registerMonsterSprite(
       this,
       'dragon',
@@ -4842,13 +5068,13 @@ export class BootScene extends Phaser.Scene {
         '..RRW......WRR..',
         '.WRRRRRRRRRRRRW.',
         'WRRRYBRRRRBYRRRW',
-        '.RRRRRRRRRRRRR..',
+        '.RRRRHRRRRHRRR..',
         '..RRRDDDDRRR....',
-        '.WWRRRRRRRRWW...',
+        '.WWRRRDRDRRWW...',
         'WWRR......RRWW..',
-        '.RR........RR...',
+        '.RR...TT...RR...',
         '.R.R......R.R...',
-        '................',
+        '..C........C....',
         '................',
         '................',
         '................',
@@ -4860,10 +5086,12 @@ export class BootScene extends Phaser.Scene {
         B: 0x1a1a1a,
         W: 0xe67e22,
         H: 0x922b21,
+        T: 0xff6644,
+        C: 0xa93226,
       }
     );
 
-    // Lich — capuz + crânio + orbe de gelo
+    // Lich — capuz + crânio + orbe de gelo + runas
     registerMonsterSprite(
       this,
       'lich',
@@ -4873,13 +5101,13 @@ export class BootScene extends Phaser.Scene {
         '....HNNNNNH.....',
         '...HNSSSSSNH....',
         '...HNSBEESNH.C..',
-        '....HNSSSNH.C...',
+        '....HNSWSNH.COC.',
         '....HNNNNNH.C...',
-        '...HPPPPPPPH....',
+        '...HPPPRPPPH....',
         '..HPPPPPPPPPH...',
         '..HP.PPPPP.PH...',
         '..LL......LL....',
-        '................',
+        '..L........L....',
         '................',
         '................',
         '................',
@@ -4894,28 +5122,31 @@ export class BootScene extends Phaser.Scene {
         P: 0x5d6d7e,
         L: 0x34495e,
         C: 0x66ccff,
+        W: 0xffffff,
+        O: 0xaaddff,
+        R: 0x85c1e9,
       }
     );
 
-    // Fire Elemental — chama viva com núcleo branco
+    // Fire Elemental — chama viva com núcleo branco + faíscas
     registerMonsterSprite(
       this,
       'fire_elemental',
       [
-        '................',
-        '......YY........',
-        '.....YOOY.......',
-        '....YORROY.Y....',
-        '...YORRRROYOO...',
+        '......Y.........',
+        '.....YOOY.Y.....',
+        '....YORROYOO....',
+        '...YORRRROYOY...',
         '..YORRWWWRROY...',
         '.YORRWBWBWRROY..',
         '.YORRRWWWRRROY..',
-        '..YORRRRRRROY...',
+        '..YORRRHRRROY...',
         '...YORRDDROY....',
         '....YORRROY.....',
         '.....YOOY.......',
         '....Y.YY.Y......',
-        '...Y......Y.....',
+        '...Y..Y...Y.....',
+        '..Y........Y....',
         '................',
         '................',
       ],
@@ -4926,10 +5157,11 @@ export class BootScene extends Phaser.Scene {
         D: 0xaa2200,
         W: 0xfff5d6,
         B: 0x1a1a1a,
+        H: 0xffaa66,
       }
     );
 
-    // Demon — chifres, asas e olhos elétricos
+    // Demon — chifres, asas e olhos elétricos + garras
     registerMonsterSprite(
       this,
       'demon',
@@ -4940,13 +5172,13 @@ export class BootScene extends Phaser.Scene {
         '..R.WWWWWW.R....',
         '..WRRRRRRRRW....',
         '.WRRBEYYEBRRW...',
-        '.WRRRRRRRRRRW...',
+        '.WRRRRHHHRRRW...',
         '..WRRDDDDRRW....',
-        '.WWRRRRRRRRWW...',
+        '.WWRRRDRDRRWW...',
         'WWRR......RRWW..',
-        '.RR........RR...',
+        '.RR...AA...RR...',
         '.R.R......R.R...',
-        '..L........L....',
+        '..LC......CL....',
         '................',
         '................',
         '................',
@@ -4960,10 +5192,12 @@ export class BootScene extends Phaser.Scene {
         E: 0x7cf0ff,
         Y: 0xffffff,
         L: 0x5a1020,
+        A: 0xff4466,
+        C: 0x6a1428,
       }
     );
 
-    // Grim Reaper — capuz negro + foice + olhos violeta
+    // Grim Reaper — capuz negro + foice + olhos violeta + véu
     registerMonsterSprite(
       this,
       'grim_reaper',
@@ -4973,13 +5207,13 @@ export class BootScene extends Phaser.Scene {
         '...HNNNNNNH..B..',
         '..HNSSSSSNH.BB..',
         '..HNSVVVSNH.BB..',
-        '..HNSSSSSNH.B...',
+        '..HNSWSWSNH.B...',
         '..HNNNNNNNH.B...',
-        '..HPPPPPPPH.B...',
+        '..HPPPRPPPH.B...',
         '..HPPPPPPPH.B...',
         '..HP.PPPP.PH....',
         '..LL......LL....',
-        '................',
+        '..L........L....',
         '................',
         '................',
         '................',
@@ -4993,10 +5227,12 @@ export class BootScene extends Phaser.Scene {
         P: 0x2a1040,
         L: 0x1a0a28,
         B: 0x6e6e78,
+        W: 0xe8e0f0,
+        R: 0x5a2080,
       }
     );
 
-    // Bruxo — chapéu pontudo + orbe de fogo
+    // Bruxo — chapéu pontudo + orbe de fogo + barba
     registerMonsterSprite(
       this,
       'bruxo',
@@ -5007,12 +5243,12 @@ export class BootScene extends Phaser.Scene {
         '....HRRRRH......',
         '...HRRWWWRH..F..',
         '...HRRBEBRH.FOF.',
-        '....HRRRRH...F..',
+        '....HRWRWRH..F..',
         '....HPPPPPH.....',
-        '...HPPPPPPPH....',
+        '...HPPPRPPPH....',
         '...HP.PPP.PH....',
         '...LL......LL...',
-        '................',
+        '...L........L...',
         '................',
         '................',
         '................',
@@ -5036,18 +5272,19 @@ export class BootScene extends Phaser.Scene {
 
   /** Sprites procedurais para o catálogo expandido (normal / elite / boss). */
   registerCatalogMonsterSprites() {
+    // Templates com mais shading, olhos, armas/acessórios e silhueta legível.
     const humanoid = [
       '................',
-      '......BBBB......',
-      '.....BLLLLB.....',
-      '....BLWEWELB....',
-      '....BLLLLLLB....',
-      '.....BAAAAABB...',
-      '....BBBBBBAAB...',
-      '...BB..BB..BB...',
-      '...BB......BB...',
-      '...DD......DD...',
-      '................',
+      '.....DBBBBBD....',
+      '....DBLLLLLBD...',
+      '...DBLWEWEWLBD..',
+      '...DBLLLHLHLBD..',
+      '....DBAAAAAABD..',
+      '...DBBBBBBAAAB..',
+      '..DBB.ABB.ABBD..',
+      '..DBB.....BBD...',
+      '..DDD.....DDD...',
+      '..D.D.....D.D...',
       '................',
       '................',
       '................',
@@ -5056,16 +5293,16 @@ export class BootScene extends Phaser.Scene {
     ];
     const beast = [
       '................',
-      '....BB....BB....',
-      '...BLLBBBBLLB...',
-      '..BLWEWWWEWLB...',
-      '..BLLLLLLLLLB...',
-      '...BAAAAAAAB....',
-      '....BBBBBBBB....',
-      '...BB......BB...',
-      '..DD........DD..',
-      '................',
-      '................',
+      '...DBB....BBD...',
+      '..DBLLBBBBLLBD..',
+      '.DBLWEWWWEWLBD..',
+      '.DBLLLHLHLLLBD..',
+      '..DBAAAAAAAABD..',
+      '...DBBBBBBBBD...',
+      '..DBB.AA.AABB...',
+      '.DBB......BBD...',
+      '.DDD......DDD...',
+      'D.D........D.D..',
       '................',
       '................',
       '................',
@@ -5074,15 +5311,15 @@ export class BootScene extends Phaser.Scene {
     ];
     const winged = [
       '................',
-      '.AA........AA...',
-      '..AABBBBBBAA....',
-      '...BLLLLLLB.....',
-      '...BLWEWELB.....',
-      '...BLLLLLLB.....',
-      '....BAAAAB......',
-      '....BB..BB......',
-      '...DD....DD.....',
-      '................',
+      'AA..........AA..',
+      '.AADBBBBBBDAA...',
+      '..AABLLLLLBAA...',
+      '...DBLWEWELBD...',
+      '...DBLLHLHLBD...',
+      '....DBAAAABD....',
+      '...AABBAABBA....',
+      '...DD......DD...',
+      '..D.D......D.D..',
       '................',
       '................',
       '................',
@@ -5092,16 +5329,16 @@ export class BootScene extends Phaser.Scene {
     ];
     const bulk = [
       '................',
-      '....BBBBBBBB....',
-      '...BLLLLLLLLB...',
-      '..BLWEWWWEWLB...',
-      '..BLLLLLLLLLB...',
-      '..BAAAAAAAAAB...',
-      '...BBBBBBBBBB...',
-      '...BB......BB...',
-      '..DDD......DDD..',
-      '................',
-      '................',
+      '....DBBBBBBBD...',
+      '...DBLLLLLLLBD..',
+      '..DBLWEWWWEWLBD.',
+      '..DBLLLHLHLLLBD.',
+      '..DBAAAAAAAAABD.',
+      '...DBBBBBBBBBD..',
+      '..DBBB....BBBD..',
+      '.DBBB......BBBD.',
+      '.DDDD......DDDD.',
+      'D.DD........DD.D',
       '................',
       '................',
       '................',
@@ -5110,16 +5347,16 @@ export class BootScene extends Phaser.Scene {
     ];
     const serpent = [
       '................',
-      '......BBBB......',
-      '.....BLWELB.....',
-      '....BLLLLLB.....',
-      '...BBAAAABB.....',
-      '..BB....BB......',
-      '.BB......BB.....',
-      '..BB....BB......',
-      '...BBBBBB.......',
-      '....DDDD........',
-      '................',
+      '.....DBBBBBD....',
+      '....DBLWEWLBD...',
+      '...DBLLHLHLBD...',
+      '..DBBAAAAABBD...',
+      '.DBB....AABB....',
+      'DBB......BBD....',
+      '.DBB....BBD.....',
+      '..DBBBBBBD......',
+      '...DAAAAAD......',
+      '....DDDDD.......',
       '................',
       '................',
       '................',
@@ -5297,8 +5534,14 @@ export class BootScene extends Phaser.Scene {
       ['chaos_primordial', 'bulk', 0x6c3483, 0x4a235a, 0x9b59b6, 0xff44ff, 0x2a1238],
     ];
 
+    const clampCh = (n) => Math.min(255, Math.max(0, n | 0));
     for (const [type, template, body, dark, light, eye, accent] of entries) {
       if (this.textures.exists(`monster_${type}`)) continue;
+      // Highlight derivado da cor clara para volume extra nos templates.
+      const hi =
+        (clampCh(((light >> 16) & 0xff) + 40) << 16) |
+        (clampCh(((light >> 8) & 0xff) + 40) << 8) |
+        clampCh((light & 0xff) + 40);
       registerMonsterSprite(this, type, templates[template], {
         B: body,
         D: dark,
@@ -5306,6 +5549,7 @@ export class BootScene extends Phaser.Scene {
         E: eye,
         W: 0xf5f5f5,
         A: accent,
+        H: hi,
       });
     }
   }

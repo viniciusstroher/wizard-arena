@@ -1254,7 +1254,7 @@ export class GameScene extends Phaser.Scene {
       } else {
         const m = monsters.find((mon) => mon.entityId === item.casterId);
         if (m) {
-          const scale = Math.max(0.85, (m.radius || 14) / 14);
+          const scale = Math.max(0.85, ((m.radius || 14) / 14) * 1.3);
           x = m.x;
           y = m.y - (m.shield > 0 ? 48 : 40) * scale;
         }
@@ -2900,36 +2900,59 @@ export class GameScene extends Phaser.Scene {
 
   renderMonsters() {
     const seen = new Set();
+    const VISUAL_SCALE = 1.3;
     for (const m of this.state.monsters) {
       seen.add(m.entityId);
       const tex = this.monsterTexture(m.type);
       const s = this.ensureActor(this.monsterSprites, m.entityId, tex, 15);
-      s.clearTint();
-      const scale = (m.radius || 14) / 14;
+      const scale = ((m.radius || 14) / 14) * VISUAL_SCALE;
       s.setScale(scale);
+
+      if (s.prevHp != null && m.hp < s.prevHp) {
+        s.hurtUntil = this.time.now + 240;
+      }
+      s.prevHp = m.hp;
 
       const speed = Math.hypot(m.vx || 0, m.vy || 0);
       const walking = speed > 16;
       const walkKey = `${tex}_walk`;
-      if (walking && this.anims.exists(walkKey)) {
-        if (s.anims.currentAnim?.key !== walkKey || !s.anims.isPlaying) {
-          s.play(walkKey);
-        }
+      const idleKey = `${tex}_idle`;
+      const attackKey = `${tex}_attack`;
+      const hurtKey = `${tex}_hurt`;
+      const hurting = s.hurtUntil != null && this.time.now < s.hurtUntil;
+      const attacking = m.pose === 'attack';
+      const current = s.anims?.currentAnim?.key;
+
+      if (hurting && this.anims.exists(hurtKey)) {
+        if (current !== hurtKey || !s.anims.isPlaying) s.play(hurtKey);
+        s.setTint(0xff7777);
+      } else if (attacking && this.anims.exists(attackKey)) {
+        if (current !== attackKey || !s.anims.isPlaying) s.play(attackKey);
+        s.clearTint();
+      } else if (walking && this.anims.exists(walkKey)) {
+        if (current !== walkKey || !s.anims.isPlaying) s.play(walkKey);
         s.anims.timeScale = Phaser.Math.Clamp(speed / 100, 0.7, 1.8);
-        if (s.walkPhase == null) s.walkPhase = Math.random() * Math.PI * 2;
-        const bob = Math.sin(this.time.now / 70 + s.walkPhase) * 1.2 * scale;
-        s.setPosition(m.x, m.y + bob);
+        s.clearTint();
+      } else if (this.anims.exists(idleKey)) {
+        if (current !== idleKey || !s.anims.isPlaying) s.play(idleKey);
+        s.clearTint();
       } else {
         if (s.anims?.isPlaying) s.anims.stop();
         if (s.texture.key !== tex) s.setTexture(tex);
-        s.setPosition(m.x, m.y);
+        s.clearTint();
       }
+
+      if (s.walkPhase == null) s.walkPhase = Math.random() * Math.PI * 2;
+      const bobAmp = walking ? 1.4 : 0.7;
+      const bob =
+        Math.sin(this.time.now / (walking ? 70 : 140) + s.walkPhase) * bobAmp * scale;
+      s.setPosition(m.x, m.y + bob);
 
       if (Math.abs(m.vx || 0) > 10) s.setFlipX(m.vx < 0);
 
       this.emitMoveDust(s, m.x, m.y, m.vx, m.vy);
       const hasShield = (m.shield || 0) > 0;
-      const tagY = m.y - (hasShield ? 34 : 26) * scale;
+      const tagY = m.y - (hasShield ? 36 : 28) * scale;
       const tier =
         m.isBoss ? '★ ' : m.isElite ? '◆ ' : '';
       s.nameTag.setText(`${tier}${this.monsterLabel(m.type)} Lv${m.level || 1}`);
@@ -2953,7 +2976,7 @@ export class GameScene extends Phaser.Scene {
         s.shieldFg.width = 32 * sRatio;
 
         const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 140);
-        const ringR = Math.max(22, (m.radius || 14) + 8);
+        const ringR = Math.max(28, (m.radius || 14) * VISUAL_SCALE + 10);
         if (!s.shieldRing) {
           s.shieldRing = this.add
             .circle(m.x, m.y, ringR, 0x88aaff, 0.15)

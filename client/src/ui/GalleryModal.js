@@ -853,12 +853,15 @@ export class GalleryModal {
     if (!this.previewRoot) return;
 
     const tex = this._monsterTexture(entry.id);
-    const sprite = this.scene.add.sprite(0, 10, tex).setScale(3.2);
+    const sprite = this.scene.add.sprite(0, 10, tex).setScale(4.16);
     this.previewRoot.add(sprite);
     this.previewSprites.push(sprite);
 
+    const idleKey = `monster_${entry.id}_idle`;
     const walkKey = `monster_${entry.id}_walk`;
-    if (this.scene.anims.exists(walkKey)) {
+    if (this.scene.anims.exists(idleKey)) {
+      sprite.play(idleKey);
+    } else if (this.scene.anims.exists(walkKey)) {
       sprite.play(walkKey);
     }
 
@@ -889,7 +892,20 @@ export class GalleryModal {
   _runMonsterAttack(entry, sprite, dummy) {
     if (!sprite?.active) return;
 
+    const attackKey = `monster_${entry.id}_attack`;
+    const idleKey = `monster_${entry.id}_idle`;
+    const playAttackSprite = () => {
+      if (this.scene.anims.exists(attackKey)) {
+        sprite.play(attackKey);
+        sprite.once('animationcomplete', () => {
+          if (!sprite?.active) return;
+          if (this.scene.anims.exists(idleKey)) sprite.play(idleKey);
+        });
+      }
+    };
+
     if (entry.attack === 'melee') {
+      playAttackSprite();
       this.scene.tweens.add({
         targets: sprite,
         x: 70,
@@ -908,6 +924,7 @@ export class GalleryModal {
     }
 
     if (entry.attack === 'ranged') {
+      playAttackSprite();
       const projKey = this._projectileTexture(entry.projectile);
       const proj = this.scene.add.image(sprite.x + 20, sprite.y, projKey).setScale(1.6);
       this.previewRoot.add(proj);
@@ -937,6 +954,16 @@ export class GalleryModal {
   /** Windup do mob + FX da magia + nome flutuante. */
   _castMonsterSpell(entry, sprite, dummy, spellId) {
     if (!sprite?.active || !this.previewRoot) return;
+
+    const attackKey = `monster_${entry.id}_attack`;
+    const idleKey = `monster_${entry.id}_idle`;
+    if (this.scene.anims.exists(attackKey)) {
+      sprite.play(attackKey);
+      sprite.once('animationcomplete', () => {
+        if (!sprite?.active) return;
+        if (this.scene.anims.exists(idleKey)) sprite.play(idleKey);
+      });
+    }
 
     const color = spellColor(spellId);
     const label = this.scene.add
