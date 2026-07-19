@@ -3,8 +3,6 @@ import {
   getMonsterEntries,
   getSpellEntries,
   getFloorEntries,
-  spellDisplayName,
-  spellColor,
 } from '../catalog/galleryCatalog.js';
 import {
   clearGalleryUrl,
@@ -1045,11 +1043,6 @@ export class GalleryModal {
     if (syncUrl) this._syncUrl();
   }
 
-  _randomFloorEntry() {
-    if (!this.floors?.length) return null;
-    return this.floors[(Math.random() * this.floors.length) | 0];
-  }
-
   _playFloorPreview(entry) {
     this._clearPreview();
     this._buildPlatformStage(entry);
@@ -1361,11 +1354,8 @@ export class GalleryModal {
     this._clearPreview();
     if (!this.previewRoot) return;
 
-    const floor = this._randomFloorEntry();
-    if (floor) this._buildPlatformStage(floor);
-
     const tex = this._monsterTexture(entry.id);
-    const sprite = this.scene.add.sprite(-28, 10, tex).setScale(3.6);
+    const sprite = this.scene.add.sprite(0, 8, tex).setScale(3.6);
     this.previewRoot.add(sprite);
     this.previewSprites.push(sprite);
 
@@ -1376,202 +1366,15 @@ export class GalleryModal {
     } else if (this.scene.anims.exists(walkKey)) {
       sprite.play(walkKey);
     }
-
-    // Alvo visual para ataques (dentro da plataforma)
-    const dummy = this.scene.add.circle(48, 10, 7, 0x884444, 0.85);
-    this.previewRoot.add(dummy);
-    this.previewSprites.push(dummy);
-
-    if (this.spellFx?.effectGraphics) {
-      this.previewRoot.bringToTop(this.spellFx.effectGraphics);
-    }
-
-    this._scheduleAttackLoop(entry, sprite, dummy);
-  }
-
-  _scheduleAttackLoop(entry, sprite, dummy) {
-    const fire = () => {
-      if (!this.open || this.selectedMonsterId !== entry.id) return;
-      this._runMonsterAttack(entry, sprite, dummy);
-    };
-    // Primeiro ataque após um curto delay; depois a cada ~2.2s
-    this.previewTimers.push(this.scene.time.delayedCall(600, fire));
-    this.previewTimers.push(
-      this.scene.time.addEvent({
-        delay: 2200,
-        loop: true,
-        callback: fire,
-      })
-    );
-  }
-
-  _runMonsterAttack(entry, sprite, dummy) {
-    if (!sprite?.active) return;
-
-    const attackKey = `monster_${entry.id}_attack`;
-    const idleKey = `monster_${entry.id}_idle`;
-    const playAttackSprite = () => {
-      if (this.scene.anims.exists(attackKey)) {
-        sprite.play(attackKey);
-        sprite.once('animationcomplete', () => {
-          if (!sprite?.active) return;
-          if (this.scene.anims.exists(idleKey)) sprite.play(idleKey);
-        });
-      }
-    };
-
-    if (entry.attack === 'melee') {
-      playAttackSprite();
-      const homeX = sprite.getData('homeX') ?? sprite.x;
-      sprite.setData('homeX', homeX);
-      this.scene.tweens.add({
-        targets: sprite,
-        x: dummy.x - 18,
-        duration: 180,
-        yoyo: true,
-        ease: 'Quad.easeOut',
-        onYoyo: () => {
-          this._burstAt(dummy.x, dummy.y, 'spark', 10);
-          dummy.setFillStyle(0xff6666, 1);
-          this.scene.time.delayedCall(120, () => {
-            if (dummy.active) dummy.setFillStyle(0x884444, 0.85);
-          });
-        },
-        onComplete: () => {
-          if (sprite.active) sprite.x = homeX;
-        },
-      });
-      return;
-    }
-
-    if (entry.attack === 'ranged') {
-      playAttackSprite();
-      const projKey = this._projectileTexture(entry.projectile);
-      const proj = this.scene.add.image(sprite.x + 20, sprite.y, projKey).setScale(1.6);
-      this.previewRoot.add(proj);
-      this.previewSprites.push(proj);
-      this.scene.tweens.add({
-        targets: proj,
-        x: dummy.x,
-        y: dummy.y,
-        duration: 320,
-        ease: 'Quad.easeIn',
-        onComplete: () => {
-          this._burstAt(dummy.x, dummy.y, this._fxKindForProjectile(entry.projectile), 12);
-          proj.destroy();
-        },
-      });
-      return;
-    }
-
-    // caster — cicla pelas magias com windup + rótulo
-    const spells = entry.spells.length ? entry.spells : ['firebolt'];
-    const idx = (sprite.getData('spellIdx') || 0) % spells.length;
-    sprite.setData('spellIdx', idx + 1);
-    const spellId = spells[idx];
-    this._castMonsterSpell(entry, sprite, dummy, spellId);
-  }
-
-  /** Windup do mob + FX da magia + nome flutuante. */
-  _castMonsterSpell(entry, sprite, dummy, spellId) {
-    if (!sprite?.active || !this.previewRoot) return;
-
-    const attackKey = `monster_${entry.id}_attack`;
-    const idleKey = `monster_${entry.id}_idle`;
-    if (this.scene.anims.exists(attackKey)) {
-      sprite.play(attackKey);
-      sprite.once('animationcomplete', () => {
-        if (!sprite?.active) return;
-        if (this.scene.anims.exists(idleKey)) sprite.play(idleKey);
-      });
-    }
-
-    const color = spellColor(spellId);
-    const label = this.scene.add
-      .text(sprite.x, sprite.y - 42, spellDisplayName(spellId), {
-        fontFamily: FONT,
-        fontSize: '12px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setAlpha(0);
-    this.previewRoot.add(label);
-    this.previewSprites.push(label);
-
-    const baseScale = sprite.scaleX;
-    const baseY = sprite.getData('baseY') ?? sprite.y;
-    sprite.setData('baseY', baseY);
-    sprite.setTint(color);
-
-    this.scene.tweens.killTweensOf(sprite);
-    sprite.setPosition(sprite.x, baseY).setScale(baseScale);
-
-    this.scene.tweens.add({
-      targets: sprite,
-      scaleX: baseScale * 1.18,
-      scaleY: baseScale * 1.18,
-      y: baseY - 6,
-      duration: 220,
-      yoyo: true,
-      ease: 'Back.easeOut',
-      onYoyo: () => {
-        if (!sprite.active) return;
-        this._burstAt(sprite.x, baseY - 8, this._fxKindForSpell(spellId), 10);
-        this._animateSpellCast(
-          spellId,
-          sprite.x + 16,
-          baseY,
-          dummy.x,
-          dummy.y,
-          color
-        );
-        dummy.setFillStyle(0xff6666, 1);
-        this.scene.time.delayedCall(160, () => {
-          if (dummy.active) dummy.setFillStyle(0x884444, 0.85);
-        });
-      },
-      onComplete: () => {
-        if (sprite.active) {
-          sprite.clearTint();
-          sprite.setScale(baseScale);
-          sprite.y = baseY;
-        }
-      },
-    });
-
-    this.scene.tweens.add({
-      targets: label,
-      alpha: 1,
-      y: label.y - 10,
-      duration: 280,
-      ease: 'Quad.easeOut',
-      onComplete: () => {
-        this.scene.tweens.add({
-          targets: label,
-          alpha: 0,
-          y: label.y - 8,
-          delay: 500,
-          duration: 280,
-          onComplete: () => label.destroy(),
-        });
-      },
-    });
   }
 
   _playSpellPreview(entry) {
     this._clearPreview();
     if (!this.previewRoot) return;
 
-    const floor = this._randomFloorEntry();
-    if (floor) this._buildPlatformStage(floor);
-
-    const arenaR = this._previewArenaR || 78;
-    // Scale 1.5 no raio padrão (78), proporcional se a arena do preview mudar.
-    const wizardScale = 1.5 * (arenaR / 78);
-    const from = { x: -arenaR * 0.46, y: arenaR * 0.15 };
-    const to = { x: arenaR * 0.58, y: arenaR * 0.15 };
+    const wizardScale = 1.5;
+    const from = { x: -40, y: 12 };
+    const to = { x: 70, y: 12 };
 
     const char = ensureCharacter();
     const tex = ensureWizardColorTexture(this.scene, char.color, char.skin);
@@ -1584,11 +1387,6 @@ export class GalleryModal {
 
     const walkKey = `${tex}_walk`;
     if (this.scene.anims.exists(walkKey)) wizard.play(walkKey);
-
-    const markerR = Math.max(5, arenaR * 0.075);
-    const marker = this.scene.add.circle(to.x, to.y, markerR, 0x884444, 0.7);
-    this.previewRoot.add(marker);
-    this.previewSprites.push(marker);
 
     if (this.spellFx?.effectGraphics) {
       this.previewRoot.bringToTop(this.spellFx.effectGraphics);
@@ -1773,13 +1571,6 @@ export class GalleryModal {
       return 'spark';
     }
     return 'magic';
-  }
-
-  _fxKindForProjectile(kind) {
-    if (kind === 'fireball' || kind === 'firebolt') return 'fire';
-    if (kind === 'ice_shard') return 'ice';
-    if (kind === 'skull_bolt') return 'necro';
-    return 'spark';
   }
 
   _monsterTexture(type) {
