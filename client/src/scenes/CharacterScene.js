@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ensureCharacter, saveCharacter, WIZARD_COLORS } from '../character.js';
+import { fetchCharacterMatches } from '../api.js';
 import { navigate } from '../router.js';
 import { ensureMenuMusic } from '../audio/menuMusic.js';
 import {
@@ -17,6 +18,29 @@ import {
   updateWizardPreviewTexture,
   WIZARD_SKINS,
 } from '../wizardSkin.js';
+import { elementLabel } from '../catalog/elements.js';
+
+function formatDate(value) {
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+}
+
+function shortUuid(id) {
+  const s = String(id || '');
+  if (s.length < 12) return s || '—';
+  return `${s.slice(0, 8)}…`;
+}
 
 export class CharacterScene extends Phaser.Scene {
   constructor() {
@@ -34,13 +58,14 @@ export class CharacterScene extends Phaser.Scene {
     ensureMenuMusic(this);
 
     const { width, height } = this.scale;
-    const panelX = width / 2;
     const uiDepth = 10;
+    const editorX = width * 0.32;
+    const historyX = width * 0.72;
 
     const previewKey = updateWizardPreviewTexture(this, this.selectedColor, this.selectedSkin);
     this.preview = this.add
-      .sprite(panelX, height / 2 - 210, previewKey)
-      .setScale(4.4)
+      .sprite(editorX, height / 2 - 230, previewKey)
+      .setScale(4)
       .setDepth(uiDepth);
 
     this.tweens.add({
@@ -53,7 +78,7 @@ export class CharacterScene extends Phaser.Scene {
     });
 
     this.add
-      .text(panelX, height / 2 - 145, 'Skin do bruxo', {
+      .text(editorX, height / 2 - 165, 'Skin do bruxo', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -61,10 +86,10 @@ export class CharacterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
-    this.buildSkinPicker(panelX, height / 2 - 100, uiDepth);
+    this.buildSkinPicker(editorX, height / 2 - 120, uiDepth);
 
     this.add
-      .text(panelX, height / 2 - 40, 'Nome', {
+      .text(editorX, height / 2 - 55, 'Nome', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -80,10 +105,19 @@ export class CharacterScene extends Phaser.Scene {
     inputEl.spellcheck = false;
     inputEl.placeholder = 'Digite seu nome';
     styleDomInput(inputEl);
-    this.nameInput = this.add.dom(panelX, height / 2, inputEl).setOrigin(0.5).setDepth(uiDepth);
+    this.nameInput = this.add.dom(editorX, height / 2 - 15, inputEl).setOrigin(0.5).setDepth(uiDepth);
+
+    this.idText = this.add
+      .text(editorX, height / 2 + 28, `ID: ${this.character.id}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#6b6088',
+      })
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
 
     this.add
-      .text(panelX, height / 2 + 45, 'Cor do bruxo', {
+      .text(editorX, height / 2 + 60, 'Cor do bruxo', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -91,10 +125,10 @@ export class CharacterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
-    this.buildPalette(panelX, height / 2 + 105, uiDepth);
+    this.buildPalette(editorX, height / 2 + 120, uiDepth);
 
     this.errorText = this.add
-      .text(panelX, height / 2 + 185, '', {
+      .text(editorX, height / 2 + 195, '', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#ff6b6b',
@@ -102,23 +136,147 @@ export class CharacterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
-    makeMenuButton(this, panelX - 90, height / 2 + 240, 'Voltar', 0x443866, () => {
+    makeMenuButton(this, editorX - 90, height / 2 + 250, 'Voltar', 0x443866, () => {
       navigate('/');
     }, 160).setDepth(uiDepth);
 
-    makeMenuButton(this, panelX + 90, height / 2 + 240, 'Salvar', 0x2ecc71, () => {
+    makeMenuButton(this, editorX + 90, height / 2 + 250, 'Salvar', 0x2ecc71, () => {
       this.save();
     }, 160).setDepth(uiDepth);
+
+    this.buildHistoryPanel(historyX, height / 2 + 20, uiDepth);
 
     this.events.once('shutdown', () => {
       this.nameInput?.destroy();
       this.nameInput = null;
+      this.historyDom?.destroy();
+      this.historyDom = null;
       destroyAmbientCreatures(this);
     });
   }
 
+  buildHistoryPanel(x, y, depth) {
+    this.add
+      .text(x, y - 280, 'Histórico de partidas', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '22px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+
+    this.historyStatus = this.add
+      .text(x, y - 248, 'Carregando...', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+
+    const listEl = document.createElement('div');
+    listEl.style.cssText = [
+      'width: 460px',
+      'height: 460px',
+      'overflow-y: auto',
+      'box-sizing: border-box',
+      'padding: 8px',
+      'font-family: Trebuchet MS, sans-serif',
+      'color: #eee6ff',
+      'background: rgba(14, 10, 26, 0.72)',
+      'border: 1px solid #3a2f66',
+      'border-radius: 10px',
+      'scrollbar-width: thin',
+      'scrollbar-color: #6b5cff #1a1430',
+    ].join(';');
+    this.historyEl = listEl;
+    this.historyDom = this.add.dom(x, y + 10, listEl).setOrigin(0.5).setDepth(depth);
+    this.loadHistory();
+  }
+
+  async loadHistory() {
+    if (!this.historyEl) return;
+    this.historyEl.innerHTML = '';
+    this.historyStatus?.setText('Carregando...').setColor('#9a8bb8');
+    try {
+      const data = await fetchCharacterMatches(this.character.id, { limit: 40 });
+      const matches = data.matches || [];
+      if (!matches.length) {
+        this.historyStatus?.setText('Nenhuma partida registrada ainda');
+        const empty = document.createElement('div');
+        empty.style.cssText =
+          'padding: 48px 16px; text-align: center; color: #9a8bb8; font-size: 14px; line-height: 1.5;';
+        empty.textContent =
+          'Quando você terminar uma partida com este personagem, ela aparecerá aqui.';
+        this.historyEl.appendChild(empty);
+        return;
+      }
+
+      this.historyStatus?.setText(
+        `${data.total} partida${data.total === 1 ? '' : 's'} · ${this.character.name}`
+      );
+
+      for (const m of matches) {
+        const row = document.createElement('div');
+        row.style.cssText = [
+          'padding: 12px 10px',
+          'margin-bottom: 8px',
+          'background: rgba(30, 24, 54, 0.9)',
+          'border-radius: 8px',
+          'border: 1px solid #4a3d78',
+        ].join(';');
+
+        const top = document.createElement('div');
+        top.style.cssText =
+          'display: flex; justify-content: space-between; gap: 8px; align-items: baseline;';
+
+        const result = document.createElement('div');
+        const ok = m.result === 'success';
+        result.textContent = ok ? 'SUCESSO' : 'DERROTA';
+        result.style.cssText = `font-size: 13px; font-weight: 700; color: ${ok ? '#2ecc71' : '#ff6b6b'};`;
+
+        const points = document.createElement('div');
+        points.textContent = `${m.points ?? 0} pts`;
+        points.style.cssText = 'font-size: 14px; color: #f4e8ff; font-weight: 600;';
+
+        top.appendChild(result);
+        top.appendChild(points);
+
+        const uuid = document.createElement('div');
+        uuid.textContent = `UUID: ${shortUuid(m.matchId)}`;
+        uuid.title = m.matchId;
+        uuid.style.cssText = 'font-size: 11px; color: #6b6088; margin-top: 4px;';
+
+        const date = document.createElement('div');
+        date.textContent = formatDate(m.endedAt);
+        date.style.cssText = 'font-size: 12px; color: #9a8bb8; margin-top: 2px;';
+
+        const names = (m.participants || []).map((p) => p.name).filter(Boolean);
+        const participants = document.createElement('div');
+        participants.textContent = names.length
+          ? `Participantes: ${names.join(', ')}`
+          : 'Participantes: —';
+        participants.style.cssText =
+          'font-size: 12px; color: #c4b5e0; margin-top: 6px; line-height: 1.35;';
+
+        const stats = document.createElement('div');
+        stats.textContent = `${elementLabel(m.wizardType)} · ${m.kills ?? 0}K / ${m.deaths ?? 0}D · ${m.damageDealt ?? 0} dano`;
+        stats.style.cssText = 'font-size: 11px; color: #9a8bb8; margin-top: 4px;';
+
+        row.appendChild(top);
+        row.appendChild(uuid);
+        row.appendChild(date);
+        row.appendChild(participants);
+        row.appendChild(stats);
+        this.historyEl.appendChild(row);
+      }
+    } catch (err) {
+      this.historyStatus?.setText(err.message || 'Falha ao carregar histórico').setColor('#ff6b6b');
+    }
+  }
+
   buildSkinPicker(centerX, y, depth) {
-    const gap = 104;
+    const gap = 88;
     const totalW = (WIZARD_SKINS.length - 1) * gap;
     const startX = centerX - totalW / 2;
 
@@ -134,20 +292,20 @@ export class CharacterScene extends Phaser.Scene {
       );
 
       const frame = this.add
-        .rectangle(x, y, 80, 80, 0x1a1430, 0.85)
+        .rectangle(x, y, 70, 70, 0x1a1430, 0.85)
         .setStrokeStyle(2, 0xffffff, selected ? 0.95 : 0.2)
         .setDepth(depth)
         .setInteractive({ useHandCursor: true });
 
       const sprite = this.add
         .sprite(x, y - 4, key)
-        .setScale(1.35)
+        .setScale(1.2)
         .setDepth(depth + 1);
 
       const label = this.add
-        .text(x, y + 52, skin.name, {
+        .text(x, y + 46, skin.name, {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '11px',
+          fontSize: '10px',
           color: selected ? '#f4e8ff' : '#9a8bb8',
         })
         .setOrigin(0.5)
@@ -162,8 +320,8 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   buildPalette(centerX, y, depth) {
-    const size = 26;
-    const gap = 8;
+    const size = 24;
+    const gap = 7;
     const cols = 10;
     const rows = Math.ceil(WIZARD_COLORS.length / cols);
     const totalW = cols * size + (cols - 1) * gap;
@@ -223,6 +381,7 @@ export class CharacterScene extends Phaser.Scene {
   save() {
     const name = String(this.nameInput?.node?.value || '').trim();
     const result = saveCharacter({
+      id: this.character.id,
       name,
       color: this.selectedColor,
       skin: this.selectedSkin,
@@ -232,6 +391,7 @@ export class CharacterScene extends Phaser.Scene {
       this.nameInput?.node?.focus();
       return;
     }
+    this.character = result.character;
     this.errorText.setText('');
     navigate('/');
   }

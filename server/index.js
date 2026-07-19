@@ -1,15 +1,21 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { randomUUID } from 'crypto';
 import { Server } from 'socket.io';
 import ViteExpress from 'vite-express';
 import { Match } from './Match.js';
+import { initDatabase } from './db/index.js';
+import { createApiRouter } from './api.js';
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: '*' },
 });
+
+app.use(express.json());
+app.use('/api', createApiRouter());
 
 /** @type {Map<string, Match>} */
 const matches = new Map();
@@ -92,12 +98,21 @@ function normalizeSkin(skin) {
   return WIZARD_SKIN_IDS.has(id) ? id : 'classic';
 }
 
+const CHARACTER_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeCharacterId(value) {
+  const id = String(value || '').trim();
+  return CHARACTER_ID_RE.test(id) ? id : null;
+}
+
 function appearanceFromPayload(payload = {}) {
   const color = Number(payload.color);
   return {
     name: payload.name,
     color: Number.isFinite(color) ? color >>> 0 : undefined,
     skin: normalizeSkin(payload.skin),
+    characterId: normalizeCharacterId(payload.characterId),
   };
 }
 
@@ -131,6 +146,7 @@ io.on('connection', (socket) => {
     const result = match.addPlayer(socket, appearance.name, {
       color: appearance.color,
       skin: appearance.skin,
+      characterId: appearance.characterId,
       skipPassword: true,
     });
     if (!result.ok) {
@@ -140,6 +156,7 @@ io.on('connection', (socket) => {
     }
 
     socket.data.matchId = match.id;
+    socket.data.characterId = appearance.characterId;
     socket.emit('lobby_created', { matchId: match.id, playerId: socket.id });
     socket.emit('joined', { matchId: match.id, playerId: socket.id });
     socket.emit('lobby_state', match.lobbySnapshot());
@@ -173,6 +190,7 @@ io.on('connection', (socket) => {
     const result = match.addPlayer(socket, appearance.name, {
       color: appearance.color,
       skin: appearance.skin,
+      characterId: appearance.characterId,
       password: payload.password,
     });
     if (!result.ok) {
@@ -184,6 +202,7 @@ io.on('connection', (socket) => {
     }
 
     socket.data.matchId = match.id;
+    socket.data.characterId = appearance.characterId;
     socket.emit('joined', { matchId: match.id, playerId: socket.id });
     socket.emit('lobby_state', match.lobbySnapshot());
     broadcastLobbies();
@@ -252,6 +271,12 @@ io.on('connection', (socket) => {
     if (!text) return;
 
     player.lastChatAt = now;
+    match.logChat({
+      playerId: socket.id,
+      characterId: player.characterId,
+      name: player.name,
+      text,
+    });
     match.broadcast({
       type: 'chat',
       playerId: socket.id,
@@ -299,8 +324,19 @@ app.get(['/character', '/matchmaking', '/matchmaking/*'], (req, res, next) => {
   next();
 });
 
-ViteExpress.bind(app, httpServer, () => {
-  httpServer.listen(PORT, () => {
-    console.log(`Wizard Arena running at http://localhost:${PORT}`);
+async function start() {
+  try {
+    await initDatabase();
+  } catch (err) {
+    console.error('[db] init failed', err);
+    process.exit(1);
+  }
+
+  ViteExpress.bind(app, httpServer, () => {
+    httpServer.listen(PORT, () => {
+      console.log(`Wizard Arena running at http://localhost:${PORT}`);
+    });
   });
-});
+}
+
+start();

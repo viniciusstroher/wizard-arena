@@ -8,14 +8,17 @@
     "dev:remote": "node scripts/dev-remote.js",
     "tunnel": "ngrok http 3080",
     "start": "NODE_ENV=production node server/index.js",
-    "build": "vite build"
+    "build": "vite build",
+    "db:sync": "node --input-type=module -e \"import { initDatabase } from './server/db/index.js'; await initDatabase();\""
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
     "phaser": "^3.87.0",
+    "sequelize": "^6.37.8",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "sqlite3": "^6.0.1",
     "vite": "^6.0.7",
     "vite-express": "^0.20.0"
   }

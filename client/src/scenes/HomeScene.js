@@ -9,6 +9,7 @@ import {
   updateAmbientCreatures,
 } from '../ui/ambientCreatures.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
+import { SettingsModal } from '../ui/SettingsModal.js';
 
 export class HomeScene extends Phaser.Scene {
   constructor() {
@@ -50,6 +51,12 @@ export class HomeScene extends Phaser.Scene {
       navigate('/matchmaking');
     }).setDepth(10);
 
+    makeMenuButton(this, panelX, panelY + 160, 'Config', 0x443866, () => {
+      this.settingsModal?.show();
+    }).setDepth(10);
+
+    this.settingsModal = new SettingsModal(this);
+
     this.add
       .text(panelX, height - 36, 'Personalize seu bruxo e entre em uma sala', {
         fontFamily: 'Trebuchet MS, sans-serif',
@@ -60,6 +67,8 @@ export class HomeScene extends Phaser.Scene {
       .setDepth(5);
 
     this.events.once('shutdown', () => {
+      this.settingsModal?.destroy();
+      this.settingsModal = null;
       destroyAmbientCreatures(this);
     });
   }

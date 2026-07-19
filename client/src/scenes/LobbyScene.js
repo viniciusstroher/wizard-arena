@@ -6,12 +6,6 @@ import { MessageBoard } from '../ui/MessageBoard.js';
 import { GalleryModal } from '../ui/GalleryModal.js';
 import { parseGalleryUrl } from '../ui/galleryUrl.js';
 import {
-  RESOLUTIONS,
-  applyResolution,
-  loadResolutionId,
-  saveResolutionId,
-} from '../settings/resolution.js';
-import {
   createMagicFlakes,
   createMenuFlames,
   updateMenuFlames,
@@ -23,10 +17,9 @@ import {
 } from '../ui/ambientCreatures.js';
 import {
   ensureMenuMusic,
-  getMenuMusicVolume,
-  setMenuMusicVolume,
   stopMenuMusic,
 } from '../audio/menuMusic.js';
+import { SettingsModal } from '../ui/SettingsModal.js';
 
 export class LobbyScene extends Phaser.Scene {
   constructor() {
@@ -45,12 +38,7 @@ export class LobbyScene extends Phaser.Scene {
     this.joined = false;
     this.ready = false;
     this.lobby = null;
-    this.lobbyMusicVolume = getMenuMusicVolume();
-    this.settingsModalOpen = false;
     this.settingsModal = null;
-    this.volumeSlider = null;
-    this.resolutionSelect = null;
-    this.resolutionId = loadResolutionId();
     this.adminModalOpen = false;
     this.adminModal = null;
     this.adminChecksDom = null;
@@ -86,7 +74,8 @@ export class LobbyScene extends Phaser.Scene {
     this.joinLobby();
 
     this.events.once('shutdown', () => {
-      this.closeSettingsModal();
+      this.settingsModal?.destroy();
+      this.settingsModal = null;
       this.closeAdminModal();
       this.closeControlsModal();
       this.galleryModal?.destroy();
@@ -99,10 +88,6 @@ export class LobbyScene extends Phaser.Scene {
         this.socket.emit('leave_lobby');
       }
     });
-  }
-
-  saveLobbyMusicVolume(vol) {
-    this.lobbyMusicVolume = setMenuMusicVolume(vol);
   }
 
   drawBackground() {
@@ -261,7 +246,7 @@ export class LobbyScene extends Phaser.Scene {
       btnStartY + step * 3,
       'Config',
       0x443866,
-      () => this.openSettingsModal(),
+      () => this.settingsModal?.show(),
       halfW
     );
     this.adminBtn = this.makeButton(
@@ -298,12 +283,24 @@ export class LobbyScene extends Phaser.Scene {
 
     this.controlsModalOpen = false;
     this.controlsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
-    this.settingsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
     this.adminModal = this.add.container(0, 0).setDepth(400).setVisible(false);
+    this.settingsModal = new SettingsModal(this, {
+      onOpen: () => {
+        if (this.controlsModalOpen) this.closeControlsModal();
+        if (this.adminModalOpen) this.closeAdminModal();
+        if (this.galleryModal?.isOpen()) this.galleryModal.hide();
+        this.setLobbyDomVisible(false);
+      },
+      onClose: () => {
+        if (!this.adminModalOpen && !this.controlsModalOpen && !this.galleryModal?.isOpen()) {
+          this.setLobbyDomVisible(true);
+        }
+      },
+    });
     this.galleryModal = new GalleryModal(this, {
       onOpen: () => this.setLobbyDomVisible(false),
       onClose: () => {
-        if (!this.settingsModalOpen && !this.adminModalOpen && !this.controlsModalOpen) {
+        if (!this.settingsModal?.isOpen() && !this.adminModalOpen && !this.controlsModalOpen) {
           this.setLobbyDomVisible(true);
         }
       },
@@ -342,7 +339,7 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   openGalleryModal(options = {}) {
-    if (this.settingsModalOpen) this.closeSettingsModal();
+    if (this.settingsModal?.isOpen()) this.settingsModal.hide();
     if (this.adminModalOpen) this.closeAdminModal();
     if (this.controlsModalOpen) this.closeControlsModal();
     this.galleryModal?.show(options);
@@ -361,167 +358,10 @@ export class LobbyScene extends Phaser.Scene {
     });
   }
 
-  openSettingsModal() {
-    if (this.settingsModalOpen) return;
-    if (this.controlsModalOpen) this.closeControlsModal();
-    if (this.adminModalOpen) this.closeAdminModal();
-    if (this.galleryModal?.isOpen()) this.galleryModal.hide();
-    this.settingsModalOpen = true;
-
-    this.setLobbyDomVisible(false);
-
-    const { width, height } = this.scale;
-    this.settingsModal.removeAll(true);
-    this.settingsModal.setDepth(10000).setVisible(true);
-    this.children.bringToTop(this.settingsModal);
-
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
-    dim.setInteractive();
-    dim.on('pointerup', () => this.closeSettingsModal());
-
-    const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 340, 0x161228, 0.98)
-      .setStrokeStyle(2, 0x6b5cff)
-      .setInteractive();
-
-    const title = this.add
-      .text(width / 2, height / 2 - 130, 'Configurações', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '26px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5);
-
-    const resLabel = this.add
-      .text(width / 2, height / 2 - 75, 'Resolução', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#c4b5e0',
-      })
-      .setOrigin(0.5);
-
-    const selectEl = document.createElement('select');
-    selectEl.style.cssText = [
-      'width: 280px',
-      'height: 34px',
-      'padding: 0 10px',
-      'border: 1px solid #6b5cff',
-      'border-radius: 6px',
-      'background: #1e1836',
-      'color: #e8dfff',
-      'font-family: Trebuchet MS, sans-serif',
-      'font-size: 14px',
-      'cursor: pointer',
-      'outline: none',
-    ].join(';');
-    for (const res of RESOLUTIONS) {
-      const opt = document.createElement('option');
-      opt.value = res.id;
-      opt.textContent = res.label;
-      if (res.id === this.resolutionId) opt.selected = true;
-      selectEl.appendChild(opt);
-    }
-    selectEl.addEventListener('change', () => {
-      this.resolutionId = selectEl.value;
-      saveResolutionId(this.resolutionId);
-      applyResolution(this.resolutionId, this.game);
-      // Rebuild para recentrar o modal após o Scale.FIT recalcular
-      this.closeSettingsModal();
-      this.openSettingsModal();
-    });
-    this.resolutionSelect = this.add.dom(width / 2, height / 2 - 40, selectEl).setOrigin(0.5);
-
-    const volLabel = this.add
-      .text(width / 2, height / 2 + 10, 'Volume da música de fundo', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#c4b5e0',
-      })
-      .setOrigin(0.5);
-
-    const pct = Math.round(this.lobbyMusicVolume * 100);
-    this.volumeValueText = this.add
-      .text(width / 2, height / 2 + 42, `${pct}%`, {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '18px',
-        color: '#e8dfff',
-      })
-      .setOrigin(0.5);
-
-    const sliderEl = document.createElement('input');
-    sliderEl.type = 'range';
-    sliderEl.min = '0';
-    sliderEl.max = '100';
-    sliderEl.step = '1';
-    sliderEl.value = String(pct);
-    sliderEl.style.cssText = [
-      'width: 280px',
-      'height: 28px',
-      'accent-color: #6b5cff',
-      'cursor: pointer',
-    ].join(';');
-    sliderEl.addEventListener('input', () => {
-      const v = Number(sliderEl.value) / 100;
-      this.saveLobbyMusicVolume(v);
-      if (this.volumeValueText) {
-        this.volumeValueText.setText(`${Math.round(v * 100)}%`);
-      }
-    });
-
-    this.volumeSlider = this.add.dom(width / 2, height / 2 + 78, sliderEl).setOrigin(0.5);
-
-    const closeBg = this.add
-      .rectangle(width / 2, height / 2 + 130, 140, 40, 0x6b5cff, 1)
-      .setStrokeStyle(1, 0xffffff, 0.15);
-    const closeLabel = this.add
-      .text(width / 2, height / 2 + 130, 'Fechar', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    closeBg.setInteractive({ useHandCursor: true });
-    closeBg.on('pointerover', () => closeBg.setScale(1.04));
-    closeBg.on('pointerout', () => closeBg.setScale(1));
-    closeBg.on('pointerup', () => this.closeSettingsModal());
-
-    this.settingsModal.add([
-      dim,
-      panel,
-      title,
-      resLabel,
-      volLabel,
-      this.volumeValueText,
-      closeBg,
-      closeLabel,
-    ]);
-  }
-
-  closeSettingsModal() {
-    if (!this.settingsModalOpen && !this.volumeSlider && !this.resolutionSelect) return;
-    this.settingsModalOpen = false;
-    if (this.volumeSlider) {
-      this.volumeSlider.destroy();
-      this.volumeSlider = null;
-    }
-    if (this.resolutionSelect) {
-      this.resolutionSelect.destroy();
-      this.resolutionSelect = null;
-    }
-    if (this.settingsModal) {
-      this.settingsModal.removeAll(true);
-      this.settingsModal.setVisible(false);
-    }
-    this.volumeValueText = null;
-    if (!this.controlsModalOpen && !this.adminModalOpen && !this.galleryModal?.isOpen()) {
-      this.setLobbyDomVisible(true);
-    }
-  }
-
   openAdminModal() {
     if (this.adminModalOpen) return;
     if (!this.joined) return;
-    if (this.settingsModalOpen) this.closeSettingsModal();
+    if (this.settingsModal?.isOpen()) this.settingsModal.hide();
     if (this.galleryModal?.isOpen()) this.galleryModal.hide();
     if (this.controlsModalOpen) this.closeControlsModal();
     this.adminModalOpen = true;
@@ -669,7 +509,7 @@ export class LobbyScene extends Phaser.Scene {
       this.adminModal.removeAll(true);
       this.adminModal.setVisible(false);
     }
-    if (!this.controlsModalOpen && !this.settingsModalOpen && !this.galleryModal?.isOpen()) {
+    if (!this.controlsModalOpen && !this.settingsModal?.isOpen() && !this.galleryModal?.isOpen()) {
       this.setLobbyDomVisible(true);
     }
   }
@@ -697,7 +537,7 @@ export class LobbyScene extends Phaser.Scene {
 
   openControlsModal() {
     if (this.controlsModalOpen) return;
-    if (this.settingsModalOpen) this.closeSettingsModal();
+    if (this.settingsModal?.isOpen()) this.settingsModal.hide();
     if (this.adminModalOpen) this.closeAdminModal();
     if (this.galleryModal?.isOpen()) this.galleryModal.hide();
     this.controlsModalOpen = true;
@@ -779,7 +619,7 @@ export class LobbyScene extends Phaser.Scene {
     this.controlsModalOpen = false;
     this.controlsModal.removeAll(true);
     this.controlsModal.setVisible(false);
-    if (!this.settingsModalOpen && !this.adminModalOpen && !this.galleryModal?.isOpen()) {
+    if (!this.settingsModal?.isOpen() && !this.adminModalOpen && !this.galleryModal?.isOpen()) {
       this.setLobbyDomVisible(true);
     }
   }
@@ -883,6 +723,7 @@ export class LobbyScene extends Phaser.Scene {
     if (!this.matchId) return;
     const payload = {
       matchId: this.matchId,
+      characterId: this.character.id,
       name: this.character.name,
       color: this.character.color,
       skin: this.character.skin,

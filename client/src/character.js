@@ -38,15 +38,37 @@ export const WIZARD_COLORS = [
 
 const RANDOM_NAMES = ['Mage', 'Hex', 'Nyx', 'Orb', 'Rune', 'Ash', 'Vex', 'Lux', 'Kira', 'Zed'];
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function normalizeColor(value, fallback = 0xff5555) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return n >>> 0;
 }
 
+function newCharacterId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  // Fallback raro (navegadores antigos)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function normalizeCharacterId(value, fallback = null) {
+  const id = String(value || '').trim();
+  if (UUID_RE.test(id)) return id;
+  return fallback;
+}
+
 export function randomCharacter() {
   const prefix = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
   return {
+    id: newCharacterId(),
     name: `${prefix}${Math.floor(Math.random() * 900 + 100)}`,
     color: WIZARD_COLORS[Math.floor(Math.random() * WIZARD_COLORS.length)],
     skin: WIZARD_SKIN_IDS[Math.floor(Math.random() * WIZARD_SKIN_IDS.length)],
@@ -60,11 +82,18 @@ export function loadCharacter() {
       const data = JSON.parse(raw);
       const name = String(data?.name || '').trim().slice(0, 16);
       if (name) {
-        return {
+        const id = normalizeCharacterId(data.id) || newCharacterId();
+        const char = {
+          id,
           name,
           color: normalizeColor(data.color),
           skin: normalizeSkinId(data.skin),
         };
+        // Migra personagens antigos sem UUID
+        if (!normalizeCharacterId(data.id)) {
+          saveCharacter(char);
+        }
+        return char;
       }
     }
   } catch {
@@ -75,6 +104,7 @@ export function loadCharacter() {
   const legacyName = String(localStorage.getItem('wa_name') || '').trim().slice(0, 16);
   if (legacyName) {
     const char = {
+      id: newCharacterId(),
       name: legacyName,
       color: WIZARD_COLORS[Math.floor(Math.random() * WIZARD_COLORS.length)],
       skin: DEFAULT_SKIN,
@@ -98,7 +128,17 @@ export function ensureCharacter() {
 export function saveCharacter(character) {
   const name = String(character?.name || '').trim().slice(0, 16);
   if (!name) return { ok: false, error: 'Digite um nome para o personagem.' };
+
+  let previousId = null;
+  try {
+    const raw = localStorage.getItem(CHARACTER_KEY);
+    if (raw) previousId = normalizeCharacterId(JSON.parse(raw)?.id);
+  } catch {
+    // ignore
+  }
+
   const data = {
+    id: normalizeCharacterId(character?.id, previousId) || newCharacterId(),
     name,
     color: normalizeColor(character?.color),
     skin: normalizeSkinId(character?.skin),

@@ -91,6 +91,13 @@ function normalizeSkin(skin) {
   return WIZARD_SKIN_IDS.includes(id) ? id : 'classic';
 }
 
+const CHARACTER_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isValidCharacterId(value) {
+  return typeof value === 'string' && CHARACTER_ID_RE.test(value);
+}
+
 function randomSkin() {
   return WIZARD_SKIN_IDS[Math.floor(Math.random() * WIZARD_SKIN_IDS.length)];
 }
@@ -188,6 +195,13 @@ export class Match {
     /** Após level-up no fim do round: null | { type: 'intermission' } | { type: 'endMatch', winner } */
     this.afterLevelUp = null;
     this.events = [];
+    /** Log persistente da partida (não limpa a cada tick). */
+    this.eventLog = [];
+    this.chatLog = [];
+    this.startedAt = null;
+    this.endReason = null;
+    this.maxRoundsSaved = CONFIG.MAX_ROUNDS;
+    this._persisted = false;
     this.tickAcc = 0;
     this.running = false;
     this._interval = null;
@@ -551,10 +565,15 @@ export class Match {
   createPlayerState(id, name, isBot = false, appearance = {}) {
     const angle = (this.players.size / Math.max(1, this.maxPlayers)) * Math.PI * 2;
     const wizard = isBot ? randomWizard() : resolveWizard(appearance);
+    const characterId =
+      !isBot && appearance.characterId && isValidCharacterId(appearance.characterId)
+        ? appearance.characterId
+        : null;
     return {
       id,
       entityId: eid(),
       name: (name || 'Wizard').slice(0, 16),
+      characterId,
       ready: isBot,
       isBot,
       x: CONFIG.ARENA_CENTER_X + Math.cos(angle) * 120,
@@ -653,6 +672,7 @@ export class Match {
     const player = this.createPlayerState(socket.id, name, false, {
       color: opts.color,
       skin: opts.skin,
+      characterId: opts.characterId,
     });
     this.players.set(socket.id, player);
     socket.join(this.id);
@@ -839,6 +859,7 @@ export class Match {
     this.prepareRound();
     this.phase = 'countdown';
     this.countdown = 3;
+    if (!this.startedAt) this.startedAt = new Date();
     this.broadcast({ type: 'countdown', seconds: this.countdown });
     this.broadcastState(true);
     this.ensureLoop();
@@ -2054,6 +2075,9 @@ export class Match {
     this.bossRound = false;
     this.winnerId = winner?.id || null;
     this.matchResult = result === 'success' ? 'success' : 'fail';
+    this.endReason = reason || null;
+    this.maxRoundsSaved = CONFIG.MAX_ROUNDS;
+    if (!this.startedAt) this.startedAt = new Date();
     this.pushEvent({
       type: 'match_end',
       winnerId: this.winnerId,
@@ -2062,6 +2086,7 @@ export class Match {
       scores: [...this.players.values()]
         .map((p) => ({
           id: p.id,
+          characterId: p.characterId || null,
           name: p.name,
           score: p.score,
           kills: p.kills,
@@ -2071,11 +2096,34 @@ export class Match {
           gold: p.gold || 0,
           damageDealt: Math.round(p.damageDealt || 0),
           level: p.level,
+          isBot: !!p.isBot,
+          wizardType: p.wizardType,
         }))
         .sort((a, b) => b.score - a.score || b.kills - a.kills || a.deaths - b.deaths || b.level - a.level),
     });
     this.broadcastState(true);
+    void this.persistResult();
     setTimeout(() => this.destroy(), 60000);
+  }
+
+  async persistResult() {
+    try {
+      const { persistMatch } = await import('./db/matchStore.js');
+      await persistMatch(this);
+    } catch (err) {
+      console.error('[db] falha ao gravar partida', this.id, err);
+    }
+  }
+
+  logChat({ playerId, characterId, name, text }) {
+    this.chatLog.push({
+      playerId,
+      characterId: characterId || null,
+      name: String(name || 'Wizard').slice(0, 16),
+      text: String(text || '').slice(0, 100),
+      at: this.matchTime || 0,
+    });
+    if (this.chatLog.length > 500) this.chatLog.splice(0, this.chatLog.length - 500);
   }
 
   wipeAll() {
@@ -4138,6 +4186,10 @@ export class Match {
 
   pushEvent(ev) {
     this.events.push(ev);
+    if (ev && ev.type !== 'damage' && ev.type !== 'heal') {
+      this.eventLog.push({ ...ev, _at: this.matchTime || 0 });
+      if (this.eventLog.length > 4000) this.eventLog.splice(0, this.eventLog.length - 4000);
+    }
   }
 
   lobbySnapshot() {

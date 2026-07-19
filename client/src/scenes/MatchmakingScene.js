@@ -14,6 +14,7 @@ import {
   destroyAmbientCreatures,
   updateAmbientCreatures,
 } from '../ui/ambientCreatures.js';
+import { openLeaderboardModal } from '../ui/leaderboardModal.js';
 
 export class MatchmakingScene extends Phaser.Scene {
   constructor() {
@@ -40,6 +41,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.lobbies = [];
     this.maxPlayers = 4;
     this.passwordPrompt = null;
+    this.leaderboardModal = null;
 
     drawMenuBackground(this, { subtitle: 'Salas' });
     createAmbientCreatures(this);
@@ -71,6 +73,8 @@ export class MatchmakingScene extends Phaser.Scene {
       this.socket.off('lobby_created');
       this.socket.off('error_msg');
       this.destroyPasswordPrompt();
+      this.leaderboardModal?.close();
+      this.leaderboardModal = null;
       this.maxSelectDom?.destroy();
       this.passInputDom?.destroy();
       this.listDom?.destroy();
@@ -152,7 +156,11 @@ export class MatchmakingScene extends Phaser.Scene {
     makeMenuButton(this, x, y + 90, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
       uiDepth
     );
-    makeMenuButton(this, x, y + 150, '← Home', 0x443866, () => {
+    makeMenuButton(this, x, y + 150, 'Leaderboard', 0xc9a227, () => {
+      this.leaderboardModal?.close();
+      this.leaderboardModal = openLeaderboardModal();
+    }, 220).setDepth(uiDepth);
+    makeMenuButton(this, x, y + 210, '← Home', 0x443866, () => {
       navigate('/');
     }, 220).setDepth(uiDepth);
   }
@@ -221,6 +229,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.statusText.setColor('#c4b5e0');
     this.statusText.setText('Criando lobby...');
     this.socket.emit('create_lobby', {
+      characterId: this.character.id,
       name: this.character.name,
       color: this.character.color,
       skin: this.character.skin,
