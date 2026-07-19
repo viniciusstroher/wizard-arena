@@ -138,7 +138,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.modeSelectDom = this.add.dom(x, y - 95, modeEl).setOrigin(0.5).setDepth(uiDepth);
 
     this.add
-      .text(x, y - 50, 'Jogadores (1–8)', {
+      .text(x, y - 50, 'Jogadores (1–4)', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#9a8bb8',
@@ -148,7 +148,7 @@ export class MatchmakingScene extends Phaser.Scene {
 
     const selectEl = document.createElement('select');
     selectEl.style.cssText = selectStyle;
-    for (let i = 1; i <= 8; i++) {
+    for (let i = 1; i <= 4; i++) {
       const opt = document.createElement('option');
       opt.value = String(i);
       opt.textContent = `${i} jogador${i > 1 ? 'es' : ''}`;

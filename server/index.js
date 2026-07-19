@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { Server } from 'socket.io';
 import ViteExpress from 'vite-express';
 import { Match } from './Match.js';
+import { CONFIG } from './config.js';
 import { initDatabase } from './db/index.js';
 import { createApiRouter } from './api.js';
 
@@ -24,8 +25,8 @@ const LOBBY_BROWSER = 'lobby_browser';
 
 function clampMaxPlayers(n) {
   const v = Math.floor(Number(n));
-  if (!Number.isFinite(v)) return 4;
-  return Math.min(8, Math.max(1, v));
+  if (!Number.isFinite(v)) return CONFIG.MAX_PLAYERS;
+  return Math.min(CONFIG.MAX_PLAYERS, Math.max(1, v));
 }
 
 function normalizePassword(raw) {

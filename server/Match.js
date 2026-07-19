@@ -151,7 +151,7 @@ export class Match {
     this.io = io;
     const max = Math.floor(Number(options.maxPlayers));
     this.maxPlayers = Number.isFinite(max)
-      ? Math.min(8, Math.max(1, max))
+      ? Math.min(CONFIG.MAX_PLAYERS, Math.max(1, max))
       : CONFIG.MAX_PLAYERS;
     this.password = options.password ? String(options.password) : null;
     this.onLobbyListChange =

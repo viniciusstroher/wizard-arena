@@ -118,7 +118,7 @@ export const CONFIG = {
   DIFFICULTY_BOSS_HP_MUL: DIFF.bossHp,
   DIFFICULTY_BOSS_DMG_MUL: DIFF.bossDmg,
   TICK_RATE: 20,
-  MAX_PLAYERS: 8,
+  MAX_PLAYERS: 4,
   MIN_PLAYERS: 1,
   /** Quantidade de rounds na partida. */
   MAX_ROUNDS,
