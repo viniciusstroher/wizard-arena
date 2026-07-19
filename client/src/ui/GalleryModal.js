@@ -46,6 +46,8 @@ const PREVIEW_H = 260;
 /** Margem interna ao encaixar o sprite do monstro no painel de preview. */
 const MONSTER_PREVIEW_PAD_X = 28;
 const MONSTER_PREVIEW_PAD_Y = 20;
+/** Fração do tamanho máximo que cabe no preview (1 = preenche; menor = mais compacto). */
+const MONSTER_PREVIEW_FILL = 0.42;
 
 /**
  * Modal da galeria no lobby: abas Monstros / Magias / Terrenos com lista + preview.
@@ -1361,10 +1363,11 @@ export class GalleryModal {
     const frame = this.scene.textures.get(tex)?.get();
     const tw = Math.max(1, frame?.width || 32);
     const th = Math.max(1, frame?.height || 32);
-    const scale = Math.min(
-      (PREVIEW_W - MONSTER_PREVIEW_PAD_X * 2) / tw,
-      (PREVIEW_H - MONSTER_PREVIEW_PAD_Y * 2) / th
-    );
+    const scale =
+      Math.min(
+        (PREVIEW_W - MONSTER_PREVIEW_PAD_X * 2) / tw,
+        (PREVIEW_H - MONSTER_PREVIEW_PAD_Y * 2) / th
+      ) * MONSTER_PREVIEW_FILL;
 
     const displayH = th * scale;
     const spriteY = 4;
