@@ -122,30 +122,25 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
   });
 
   const total = await MatchPlayer.count({ where: { characterId: id, isBot: false } });
-  const [wins, losses] = await Promise.all([
-    MatchPlayer.count({
-      where: { characterId: id, isBot: false },
-      include: [
-        {
-          model: Match,
-          as: 'match',
-          required: true,
-          where: { result: 'success' },
-        },
-      ],
-    }),
-    MatchPlayer.count({
-      where: { characterId: id, isBot: false },
-      include: [
-        {
-          model: Match,
-          as: 'match',
-          required: true,
-          where: { result: 'fail' },
-        },
-      ],
-    }),
-  ]);
+
+  // Contagem por resultado via SQL direto — mais confiável no SQLite do que
+  // Model.count({ include }) (o processo Node não hot-reload; precisa reiniciar).
+  const [resultCounts] = await Match.sequelize.query(
+    `SELECT m.result AS result, COUNT(*) AS c
+     FROM match_players AS mp
+     INNER JOIN matches AS m ON m.id = mp.matchId
+     WHERE mp.characterId = :id AND mp.isBot = 0
+     GROUP BY m.result`,
+    { replacements: { id } }
+  );
+  let wins = 0;
+  let losses = 0;
+  for (const row of resultCounts) {
+    const n = Number(row.c) || 0;
+    if (row.result === 'success') wins = n;
+    else if (row.result === 'fail') losses = n;
+  }
+
   const matchIds = rows.map((r) => r.matchId);
   const peers =
     matchIds.length === 0
