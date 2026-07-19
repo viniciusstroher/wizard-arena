@@ -67,13 +67,13 @@ export const SPELLS = {
   mend: {
     id: 'mend',
     name: 'Cura',
-    description: 'Cura rápida. Habilidade inata (H), liberada no nível 3.',
+    description: 'Cura rápida. Habilidade inata (H), disponível desde o nível 1.',
     type: 'basic',
     playerUsable: true,
-    /** Não aparece na tela de escolha; inata a partir do nível 3. */
+    /** Não aparece na tela de escolha; inata desde o nível 1. */
     selectable: false,
     innate: true,
-    unlockLevel: 3,
+    unlockLevel: 1,
     cooldown: 4.0,
     manaCost: 0,
     heal: 28,
@@ -116,13 +116,13 @@ export const SPELLS = {
   barrier: {
     id: 'barrier',
     name: 'Barreira',
-    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E), liberada no nível 2.',
+    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E), disponível desde o nível 1.',
     type: 'basic',
     playerUsable: true,
-    /** Não aparece na tela de escolha; inata a partir do nível 2. */
+    /** Não aparece na tela de escolha; inata desde o nível 1. */
     selectable: false,
     innate: true,
-    unlockLevel: 2,
+    unlockLevel: 1,
     cooldown: 6.0,
     manaCost: 0,
     shield: 35,

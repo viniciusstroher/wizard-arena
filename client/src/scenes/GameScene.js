@@ -500,7 +500,7 @@ export class GameScene extends Phaser.Scene {
 
     this.spellSlots = [];
     // Linha de cima: 1–3 magias + 4 ultimate
-    // Linha de baixo: Shift = dash, E = escudo (lv2), H = heal (lv3), B = blink (lv5)
+    // Linha de baixo: Shift = dash, E = escudo (lv1), H = heal (lv1), B = blink (lv5)
     const slotLabels = ['1', '2', '3', '4', 'Shift', 'E', 'H', 'B'];
     const slotSize = 60;
     const slotGap = 10;
