@@ -12,6 +12,7 @@ import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { GalleryModal } from '../ui/GalleryModal.js';
 import { ControlsModal } from '../ui/ControlsModal.js';
 import { SettingsModal } from '../ui/SettingsModal.js';
+import { openLeaderboardModal } from '../ui/leaderboardModal.js';
 import { parseGalleryUrl } from '../ui/galleryUrl.js';
 
 export class HomeScene extends Phaser.Scene {
@@ -27,48 +28,59 @@ export class HomeScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
     const panelX = width / 2;
-    const panelY = height / 2;
+    const panelY = height / 2 - 10;
+    this.leaderboardModal = null;
 
     const tex = ensureWizardColorTexture(this, this.character.color, this.character.skin);
     this.preview = this.add
-      .sprite(panelX, panelY - 180, tex)
-      .setScale(3.6)
+      .sprite(panelX, panelY - 200, tex)
+      .setScale(3.4)
       .setDepth(5);
     const walkKey = `${tex}_walk`;
     if (this.anims.exists(walkKey)) this.preview.play(walkKey);
 
     this.add
-      .text(panelX, panelY - 100, this.character.name, {
+      .text(panelX, panelY - 125, this.character.name, {
         fontFamily: 'Georgia, serif',
-        fontSize: '28px',
+        fontSize: '26px',
         color: '#f4e8ff',
       })
       .setOrigin(0.5)
       .setDepth(5);
 
-    makeMenuButton(this, panelX, panelY - 20, 'Personagem', 0x6b5cff, () => {
+    const closeOverlays = () => {
+      this.galleryModal?.hide();
+      this.controlsModal?.hide();
+      this.settingsModal?.hide();
+      this.leaderboardModal?.close();
+      this.leaderboardModal = null;
+    };
+
+    makeMenuButton(this, panelX, panelY - 50, 'Personagem', 0x6b5cff, () => {
       navigate('/character');
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 40, 'Salas', 0x2ecc71, () => {
+    makeMenuButton(this, panelX, panelY + 5, 'Salas', 0x2ecc71, () => {
       navigate('/matchmaking');
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 100, 'Galeria', 0x443866, () => {
-      this.controlsModal?.hide();
-      this.settingsModal?.hide();
+    makeMenuButton(this, panelX, panelY + 60, 'Leaderboard', 0xc9a227, () => {
+      closeOverlays();
+      this.leaderboardModal = openLeaderboardModal();
+    }).setDepth(10);
+
+    makeMenuButton(this, panelX, panelY + 115, 'Galeria', 0x443866, () => {
+      closeOverlays();
       this.galleryModal?.show();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 160, 'Comandos', 0x443866, () => {
-      this.galleryModal?.hide();
-      this.settingsModal?.hide();
+    makeMenuButton(this, panelX, panelY + 170, 'Comandos', 0x443866, () => {
+      closeOverlays();
       this.controlsModal?.show();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 220, 'Config', 0x443866, () => {
-      this.galleryModal?.hide();
-      this.controlsModal?.hide();
+    makeMenuButton(this, panelX, panelY + 225, 'Config', 0x443866, () => {
+      closeOverlays();
       this.settingsModal?.show();
     }).setDepth(10);
 
@@ -76,18 +88,24 @@ export class HomeScene extends Phaser.Scene {
       onOpen: () => {
         this.controlsModal?.hide();
         this.settingsModal?.hide();
+        this.leaderboardModal?.close();
+        this.leaderboardModal = null;
       },
     });
     this.controlsModal = new ControlsModal(this, {
       onOpen: () => {
         this.galleryModal?.hide();
         this.settingsModal?.hide();
+        this.leaderboardModal?.close();
+        this.leaderboardModal = null;
       },
     });
     this.settingsModal = new SettingsModal(this, {
       onOpen: () => {
         this.galleryModal?.hide();
         this.controlsModal?.hide();
+        this.leaderboardModal?.close();
+        this.leaderboardModal = null;
       },
     });
     this._maybeOpenGalleryFromUrl();
@@ -102,6 +120,8 @@ export class HomeScene extends Phaser.Scene {
       .setDepth(5);
 
     this.events.once('shutdown', () => {
+      this.leaderboardModal?.close();
+      this.leaderboardModal = null;
       this.galleryModal?.destroy();
       this.galleryModal = null;
       this.controlsModal?.destroy();
