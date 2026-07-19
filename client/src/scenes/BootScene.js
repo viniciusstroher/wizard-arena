@@ -51,84 +51,53 @@ function findContentBounds(src) {
 /**
  * Offset lower-body + arm pixels to fake a walk / limb cycle.
  * side: -1 left, +1 right. intensity: 1 = normal, 2 = extended stride.
+ * bounce: vertical body bob for more readable motion.
  */
-function makeWalkPose(rows, side, intensity = 1) {
+function makeWalkPose(rows, side, intensity = 1, bounce = 0) {
   const src = gridToMatrix(rows);
   const h = src.length;
   const w = src[0].length;
   const dst = blankMatrix(h, w);
   const { first, last, mid } = findContentBounds(src);
-  const legFrom = Math.max(0, last - 3);
-  const armFrom = first + Math.floor((last - first) * 0.35);
+  const legFrom = Math.max(0, last - 4);
+  const armFrom = first + Math.floor((last - first) * 0.32);
   const armTo = Math.max(armFrom, legFrom - 1);
   const step = intensity >= 2 ? 2 : 1;
+  const bob = bounce;
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const ch = src[y][x];
       if (ch === '.') continue;
       let nx = x;
-      let ny = y;
+      let ny = y + bob;
       const left = x < mid;
       if (y >= legFrom) {
         if (side < 0) {
           nx = x + (left ? -step : step);
-          ny = y + (left ? 1 : -1);
+          ny = y + bob + (left ? 1 : -1);
         } else {
           nx = x + (left ? step : -step);
-          ny = y + (left ? -1 : 1);
+          ny = y + bob + (left ? -1 : 1);
         }
       } else if (y >= armFrom && y <= armTo) {
-        // Braços em contrafase das pernas
+        // Braços em contrafase das pernas (mais amplitude)
         if (side < 0) {
           nx = x + (left ? step : -step);
-          ny = y + (left ? -1 : 0);
+          ny = y + bob + (left ? -1 : 0);
         } else {
           nx = x + (left ? -step : step);
-          ny = y + (left ? 0 : -1);
+          ny = y + bob + (left ? 0 : -1);
         }
+        // ponta da arma / asa externa se estende
+        if (!left && intensity >= 2) nx += 1;
       } else if (y <= first + 2) {
-        // Cabeça balança levemente
+        // Cabeça balança + leve bob
         nx = x + (side < 0 ? -1 : 1);
-      }
-      if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
-        dst[ny][nx] = ch;
-      } else if (dst[y][x] === '.') {
-        dst[y][x] = ch;
-      }
-    }
-  }
-  return matrixToGrid(dst);
-}
-
-/** Respiração: sobe o tronco um pixel e alarga o peito. */
-function makeIdlePose(rows, phase = 1) {
-  const src = gridToMatrix(rows);
-  const h = src.length;
-  const w = src[0].length;
-  const dst = blankMatrix(h, w);
-  const { first, last, mid } = findContentBounds(src);
-  const chestTo = first + Math.floor((last - first) * 0.55);
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const ch = src[y][x];
-      if (ch === '.') continue;
-      let nx = x;
-      let ny = y;
-      if (phase === 1 && y >= first && y <= chestTo) {
-        ny = y - 1;
-        if (x === mid || x === mid - 1 || x === mid + 1) {
-          // peito ligeiramente mais cheio
-          const side = x < mid ? -1 : x > mid ? 1 : 0;
-          if (side !== 0 && dst[Math.max(0, ny)]?.[x + side] === '.') {
-            // preenchido abaixo no loop principal
-          }
-          nx = x + (x < mid ? -1 : x > mid ? 1 : 0);
-        }
-      } else if (phase === 2 && y >= first && y <= chestTo) {
-        ny = y;
-        nx = x;
+        ny = y + bob;
+      } else if (y < armFrom) {
+        // tronco segue o bob
+        ny = y + bob;
       }
       if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
         dst[ny][nx] = ch;
@@ -140,15 +109,63 @@ function makeIdlePose(rows, phase = 1) {
   return matrixToGrid(dst);
 }
 
-/** Avanço / windup de ataque — corpo e arma para a direita. */
+/** Respiração: sobe o tronco, alarga o peito e agita asas/topo. */
+function makeIdlePose(rows, phase = 1) {
+  const src = gridToMatrix(rows);
+  const h = src.length;
+  const w = src[0].length;
+  const dst = blankMatrix(h, w);
+  const { first, last, mid } = findContentBounds(src);
+  const chestTo = first + Math.floor((last - first) * 0.55);
+  const wingBand = first + 2;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const ch = src[y][x];
+      if (ch === '.') continue;
+      let nx = x;
+      let ny = y;
+      if (phase === 1) {
+        if (y >= first && y <= chestTo) {
+          ny = y - 1;
+          if (x === mid || x === mid - 1 || x === mid + 1) {
+            nx = x + (x < mid ? -1 : x > mid ? 1 : 0);
+          }
+        }
+        // asas / ombros laterais sobem um pouco
+        if (y <= wingBand && (x <= mid - 3 || x >= mid + 3)) {
+          ny = Math.max(0, y - 1);
+          nx = x + (x < mid ? -1 : 1);
+        }
+      } else if (phase === 2) {
+        // exalar: tronco desce leve, laterais recolhem
+        if (y >= first && y <= chestTo) {
+          ny = Math.min(h - 1, y + 1);
+          if (x === mid - 2 || x === mid + 2) {
+            nx = x + (x < mid ? 1 : -1);
+          }
+        }
+      }
+      if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
+        dst[ny][nx] = ch;
+      } else if (y >= 0 && y < h && dst[y][x] === '.') {
+        dst[y][x] = ch;
+      }
+    }
+  }
+  return matrixToGrid(dst);
+}
+
+/** Avanço / windup de ataque — lunge + elevação do braço/arma. */
 function makeAttackPose(rows) {
   const src = gridToMatrix(rows);
   const h = src.length;
   const w = src[0].length;
   const dst = blankMatrix(h, w);
   const { first, last, mid } = findContentBounds(src);
-  const armFrom = first + Math.floor((last - first) * 0.3);
-  const armTo = first + Math.floor((last - first) * 0.7);
+  const armFrom = first + Math.floor((last - first) * 0.28);
+  const armTo = first + Math.floor((last - first) * 0.72);
+  const legFrom = Math.max(0, last - 3);
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -157,11 +174,17 @@ function makeAttackPose(rows) {
       let nx = x + 1;
       let ny = y;
       if (y >= armFrom && y <= armTo && x >= mid) {
-        nx = x + 2;
+        nx = x + 3;
         ny = y - 1;
       } else if (y < first + 3) {
-        nx = x + 1;
+        nx = x + 2;
         ny = y - 1;
+      } else if (y >= legFrom) {
+        // perna traseira ancora, dianteira avança
+        nx = x + (x >= mid ? 2 : 0);
+        ny = y + (x < mid ? 1 : 0);
+      } else {
+        nx = x + 1;
       }
       if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
         dst[ny][nx] = ch;
@@ -175,13 +198,13 @@ function makeAttackPose(rows) {
   return matrixToGrid(dst);
 }
 
-/** Recuo ao tomar dano — comprime e puxa para trás. */
+/** Recuo ao tomar dano — comprime, puxa para trás e achata. */
 function makeHurtPose(rows) {
   const src = gridToMatrix(rows);
   const h = src.length;
   const w = src[0].length;
   const dst = blankMatrix(h, w);
-  const { first, last } = findContentBounds(src);
+  const { first, last, mid } = findContentBounds(src);
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
@@ -191,6 +214,12 @@ function makeHurtPose(rows) {
       let ny = y;
       if (y >= first && y <= last) {
         ny = Math.min(h - 1, y + 1);
+        // squash horizontal leve no tronco
+        if (y < last - 1) {
+          nx = x - 1 + (x < mid ? 0 : x > mid ? 0 : 0);
+          if (x === mid - 1) nx = x;
+          if (x === mid + 1) nx = x;
+        }
       }
       if (nx >= 0 && nx < w && ny >= 0 && ny < h && dst[ny][nx] === '.') {
         dst[ny][nx] = ch;
@@ -206,15 +235,17 @@ function makeHurtPose(rows) {
 function registerMonsterSprite(scene, type, idle, palette) {
   const base = `monster_${type}`;
   const idleBreath = makeIdlePose(idle, 1);
-  const walkL = makeWalkPose(idle, -1, 1);
-  const walkR = makeWalkPose(idle, 1, 1);
-  const walkL2 = makeWalkPose(idleBreath, -1, 2);
-  const walkR2 = makeWalkPose(idleBreath, 1, 2);
+  const idleExhale = makeIdlePose(idle, 2);
+  const walkL = makeWalkPose(idle, -1, 1, 0);
+  const walkR = makeWalkPose(idle, 1, 1, 0);
+  const walkL2 = makeWalkPose(idleBreath, -1, 2, -1);
+  const walkR2 = makeWalkPose(idleBreath, 1, 2, -1);
   const attack = makeAttackPose(idle);
   const hurt = makeHurtPose(idle);
 
   makePixelTexture(scene, base, idle, palette);
   makePixelTexture(scene, `${base}_i2`, idleBreath, palette);
+  makePixelTexture(scene, `${base}_i3`, idleExhale, palette);
   makePixelTexture(scene, `${base}_wL`, walkL, palette);
   makePixelTexture(scene, `${base}_wR`, walkR, palette);
   makePixelTexture(scene, `${base}_wL2`, walkL2, palette);
@@ -230,11 +261,11 @@ function registerMonsterSprite(scene, type, idle, palette) {
         { key: base },
         { key: `${base}_wL` },
         { key: `${base}_wL2` },
-        { key: base },
+        { key: `${base}_i2` },
         { key: `${base}_wR` },
         { key: `${base}_wR2` },
       ],
-      frameRate: 10,
+      frameRate: 12,
       repeat: -1,
     });
   }
@@ -247,9 +278,9 @@ function registerMonsterSprite(scene, type, idle, palette) {
         { key: base },
         { key: `${base}_i2` },
         { key: base },
-        { key: `${base}_i2` },
+        { key: `${base}_i3` },
       ],
-      frameRate: 3,
+      frameRate: 4,
       repeat: -1,
     });
   }
@@ -262,9 +293,10 @@ function registerMonsterSprite(scene, type, idle, palette) {
         { key: `${base}_i2` },
         { key: `${base}_atk` },
         { key: `${base}_atk` },
+        { key: `${base}_wR` },
         { key: base },
       ],
-      frameRate: 12,
+      frameRate: 14,
       repeat: 0,
     });
   }
@@ -276,9 +308,10 @@ function registerMonsterSprite(scene, type, idle, palette) {
       frames: [
         { key: `${base}_hurt` },
         { key: `${base}_hurt` },
+        { key: `${base}_i3` },
         { key: base },
       ],
-      frameRate: 14,
+      frameRate: 16,
       repeat: 0,
     });
   }
@@ -1232,6 +1265,90 @@ export class BootScene extends Phaser.Scene {
           '................',
         ],
         palette: { W: 0xfff8dc, Y: 0xf4d03f, O: 0xffaa33, R: 0xe67e22 },
+      },
+      crystal_bolt: {
+        rows: [
+          '................',
+          '..........CC....',
+          '.........CWLC...',
+          '........CWLLLC..',
+          '.......CWLPPLIC.',
+          '......CWLP.PLIC.',
+          '.....CWLP...PLIC',
+          '....CWLP....PLIC',
+          '...CWLPP...PLIC.',
+          '..CCWLPPLICIC...',
+          '.CWWWLLLICC.....',
+          'CWWWWWWWCC......',
+          '.CCWWWWCC.......',
+          '...CCCCC........',
+          '................',
+          '................',
+        ],
+        palette: { C: 0x5dade2, W: 0xd6eaf8, L: 0xffffff, P: 0xaed6f1, I: 0x85c1e9 },
+      },
+      thorn_nova: {
+        rows: [
+          '................',
+          '....G..G..G.....',
+          '..G.GGGGGG.G....',
+          '.GGGLYYYLGGG....',
+          '..GLYY..YYLG.G..',
+          'G.GLY....YLG.G..',
+          '..GLY.TT.YLG....',
+          'G.GLY....YLG.G..',
+          '..GLYY..YYLG....',
+          '.GGGLYYYLGGG....',
+          '..G.GGGGGG.G....',
+          '....G..G..G.....',
+          '................',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { G: 0x145a32, L: 0x27ae60, Y: 0x58d68d, T: 0xaaff44 },
+      },
+      rift_lance: {
+        rows: [
+          '................',
+          '.......PP.......',
+          '......PLLP......',
+          '.....PLVVLP.....',
+          '....PLV..VLP....',
+          '...PLV....VLP...',
+          '..PLV......VLP..',
+          '...PLV....VLP...',
+          '....PLV..VLP....',
+          '.....PLVVLP.....',
+          '......PWWP......',
+          '.....PWWWWP.....',
+          '....PWWWWWWP....',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { P: 0x6c3483, L: 0x9b59b6, V: 0xd2b4de, W: 0xffffff },
+      },
+      tidal_crush: {
+        rows: [
+          '................',
+          '....BB..BB......',
+          '..BBWWWWWWBB....',
+          '.BWWCCCCCCWWB...',
+          '.BWCC....CCWB...',
+          'BWC...DD...CWB..',
+          'BWC...DD...CWB..',
+          '.BWCC....CCWB...',
+          '.BWWCCCCCCWWB...',
+          '..BBWWWWWWBB....',
+          '....BB..BB......',
+          '......WW........',
+          '.....WWWW.......',
+          '................',
+          '................',
+          '................',
+        ],
+        palette: { B: 0x0e2f44, W: 0x5dade2, C: 0x2e86c1, D: 0x88eeff },
       },
     };
 
@@ -4958,19 +5075,19 @@ export class BootScene extends Phaser.Scene {
       'imp',
       [
         '................',
-        '....H......H....',
+        '....HY....YH....',
         '...HYH....HYH...',
         '..HRRRRRRRRRRH..',
         '.HRRRRRRRRRRRRH.',
         '.HRRYBRRRBYRRRH.',
         '.HRRRWRRRRWRRRH.',
         '..HRRDDDDDRRH...',
-        '...HRRDRDRRH....',
-        '....HDDDDDH.....',
+        '...HRRDRDRRH.C..',
+        '....HDDDDDH.C...',
         '...HRRC..CRRH...',
         '..HRR......RRH..',
         '.HRC........CRH.',
-        '.C............C.',
+        '.C...Y....Y...C.',
         '................',
         '................',
       ],
@@ -4985,7 +5102,7 @@ export class BootScene extends Phaser.Scene {
       }
     );
 
-    // Slime — round green blob with shine + drip
+    // Slime — round green blob with shine, bubbles + drip
     registerMonsterSprite(
       this,
       'slime',
@@ -4994,16 +5111,16 @@ export class BootScene extends Phaser.Scene {
         '......GGGG......',
         '....GGLLLLGG....',
         '...GLLWWLLLLG...',
-        '..GLLLWWLLLLLG..',
+        '..GLLLWWLHLLLG..',
         '..GLLBBLLBBLLG..',
+        '..GLLLWHLWLLLG..',
         '..GLLLLHLLLLLG..',
-        '..GLLLLLLLLLLG..',
         '...GDLLLLLLDG...',
         '....GGDDDDGG....',
         '.....GGGGGG.....',
-        '.....G.GG.G.....',
-        '......G..G......',
-        '.......GG.......',
+        '....G.GG.GG.G...',
+        '.....G..G..G....',
+        '......GG.GG.....',
         '................',
         '................',
       ],
@@ -5017,7 +5134,7 @@ export class BootScene extends Phaser.Scene {
       }
     );
 
-    // Wraith — floating purple spirit with veil trails
+    // Wraith — floating purple spirit with veil trails + core glow
     registerMonsterSprite(
       this,
       'wraith',
@@ -5028,14 +5145,14 @@ export class BootScene extends Phaser.Scene {
         '...LPPWPPWPL....',
         '...LPPCPPCPL....',
         '....LPPHPPL.....',
-        '.....LPPPL......',
+        '.....LCHCL......',
         '....LPPPPPL.....',
         '...LPPPLPPPL....',
-        '..LPP..P..PPL...',
-        '.LP....P....PL..',
-        'LP.....L.....PL.',
-        'L.......L.....L.',
-        '................',
+        '..LPP.LP.LPPL...',
+        '.LP..L.P.L..PL..',
+        'LP..L..L..L..PL.',
+        'L..L...L...L..L.',
+        '....L.....L.....',
         '................',
         '................',
       ],
@@ -5179,23 +5296,23 @@ export class BootScene extends Phaser.Scene {
       }
     );
 
-    // Wolf — lean brown hunter with snout + fangs
+    // Wolf — lean brown hunter with snout, fangs + bristled back
     registerMonsterSprite(
       this,
       'wolf',
       [
         '................',
-        '...EE......EE...',
+        '...EE.A..A.EE...',
         '..EFF......FFE..',
         '..EFFFFFFFFFFE..',
         '..EFWBFFFFBWFE..',
         '...EFHFFFFHFE...',
         '....EFTFTFE.....',
         '...EFFFFFFFE....',
-        '..EF.EAAE.FE....',
-        '.EF........FE...',
+        '..EFHEA.AEHFE...',
+        '.EF.AA....AA.FE.',
         'EF..........FE..',
-        'T............T..',
+        'T.A........A.T..',
         '................',
         '................',
         '................',
@@ -5244,21 +5361,21 @@ export class BootScene extends Phaser.Scene {
       }
     );
 
-    // Bat — small flying skirmisher with fangs + wing membrane
+    // Bat — small flying skirmisher with fangs + wing membrane detail
     registerMonsterSprite(
       this,
       'bat',
       [
         '................',
-        'WW..........WW..',
+        'WW.W......W.WW..',
         '.WWHBBBBBBHWW...',
-        '..WBBBBBBBBW....',
+        'W.WBBHBBHBBW.W..',
         '...BBEYYEEBB....',
         '...BBBTBBTBB....',
-        '....BB..BB......',
+        '....BBHHBB......',
         '....B....B......',
-        '...W......W.....',
-        '................',
+        '...W.W..W.W.....',
+        '..W........W....',
         '................',
         '................',
         '................',
@@ -5347,24 +5464,24 @@ export class BootScene extends Phaser.Scene {
       }
     );
 
-    // Dragon — corpo vermelho + asas + chifres + escama
+    // Dragon — corpo vermelho + asas + chifres + escama + fogo no peito
     registerMonsterSprite(
       this,
       'dragon',
       [
         '................',
-        '..H..........H..',
+        '..HY........YH..',
         '.HR..........RH.',
-        '..RRW......WRR..',
+        '..RRW.TT..W.RR..',
         '.WRRRRRRRRRRRRW.',
         'WRRRYBRRRRBYRRRW',
         '.RRRRHRRRRHRRR..',
-        '..RRRDDDDRRR....',
+        '..RRRDDTDDRRR...',
         '.WWRRRDRDRRWW...',
-        'WWRR......RRWW..',
+        'WWRR.T....T.RRWW',
         '.RR...TT...RR...',
         '.R.R......R.R...',
-        '..C........C....',
+        '..C.Y....Y.C....',
         '................',
         '................',
         '................',
@@ -5381,7 +5498,7 @@ export class BootScene extends Phaser.Scene {
       }
     );
 
-    // Lich — capuz + crânio + orbe de gelo + runas
+    // Lich — capuz + crânio + orbe de gelo + runas no manto
     registerMonsterSprite(
       this,
       'lich',
@@ -5394,9 +5511,9 @@ export class BootScene extends Phaser.Scene {
         '....HNSWSNH.COC.',
         '....HNNNNNH.C...',
         '...HPPPRPPPH....',
-        '..HPPPPPPPPPH...',
-        '..HP.PPPPP.PH...',
-        '..LL......LL....',
+        '..HPPRPPPPRPPH..',
+        '..HP.RPPPPR.PH..',
+        '..LL..R..R..LL..',
         '..L........L....',
         '................',
         '................',
@@ -5562,15 +5679,16 @@ export class BootScene extends Phaser.Scene {
 
   /** Sprites procedurais para o catálogo expandido (normal / elite / boss). */
   registerCatalogMonsterSprites() {
-    // Templates com mais shading, olhos, armas/acessórios e silhueta legível.
+    // Templates com shading (B/D/L/H), olhos (E/W), acentos (A) e silhueta legível.
     const humanoid = [
       '................',
-      '.....DBBBBBD....',
-      '....DBLLLLLBD...',
+      '....D.BBBB.D....',
+      '....DBLLLLBD....',
       '...DBLWEWEWLBD..',
-      '...DBLLLHLHLBD..',
+      '...DBLLHHLHLBD..',
       '....DBAAAAAABD..',
       '...DBBBBBBAAAB..',
+      '..DBBLA.A.ALBD..',
       '..DBB.ABB.ABBD..',
       '..DBB.....BBD...',
       '..DDD.....DDD...',
@@ -5579,20 +5697,19 @@ export class BootScene extends Phaser.Scene {
       '................',
       '................',
       '................',
-      '................',
     ];
     const beast = [
       '................',
-      '...DBB....BBD...',
+      '..A.DBB..BBD.A..',
       '..DBLLBBBBLLBD..',
       '.DBLWEWWWEWLBD..',
-      '.DBLLLHLHLLLBD..',
+      '.DBLLHHLHHLLBD..',
       '..DBAAAAAAAABD..',
       '...DBBBBBBBBD...',
       '..DBB.AA.AABB...',
-      '.DBB......BBD...',
+      '.DBBLA....ALBD..',
       '.DDD......DDD...',
-      'D.D........D.D..',
+      'D.D.A....A.D.D..',
       '................',
       '................',
       '................',
@@ -5601,14 +5718,14 @@ export class BootScene extends Phaser.Scene {
     ];
     const winged = [
       '................',
-      'AA..........AA..',
+      'AA.A......A.AA..',
       '.AADBBBBBBDAA...',
-      '..AABLLLLLBAA...',
+      'A.AABLLLLLBAA.A.',
       '...DBLWEWELBD...',
-      '...DBLLHLHLBD...',
+      '...DBLLHHLHBD...',
       '....DBAAAABD....',
       '...AABBAABBA....',
-      '...DD......DD...',
+      '..AADD....DDAA..',
       '..D.D......D.D..',
       '................',
       '................',
@@ -5622,12 +5739,12 @@ export class BootScene extends Phaser.Scene {
       '....DBBBBBBBD...',
       '...DBLLLLLLLBD..',
       '..DBLWEWWWEWLBD.',
-      '..DBLLLHLHLLLBD.',
+      '..DBLLHHLHHLLBD.',
       '..DBAAAAAAAAABD.',
       '...DBBBBBBBBBD..',
-      '..DBBB....BBBD..',
+      '..DBBLA..ALBBD..',
       '.DBBB......BBBD.',
-      '.DDDD......DDDD.',
+      '.DDDD.A..A.DDDD.',
       'D.DD........DD.D',
       '................',
       '................',
@@ -5639,15 +5756,15 @@ export class BootScene extends Phaser.Scene {
       '................',
       '.....DBBBBBD....',
       '....DBLWEWLBD...',
-      '...DBLLHLHLBD...',
+      '...DBLLHHLHBD...',
       '..DBBAAAAABBD...',
-      '.DBB....AABB....',
-      'DBB......BBD....',
+      '.DBBLA..AABB....',
+      'DBB......BBD.A..',
       '.DBB....BBD.....',
       '..DBBBBBBD......',
       '...DAAAAAD......',
       '....DDDDD.......',
-      '................',
+      '......A.........',
       '................',
       '................',
       '................',
@@ -5923,6 +6040,107 @@ export class BootScene extends Phaser.Scene {
       ['forge_emperor', 'bulk', 0xb9770e, 0x7d6608, 0xd4ac0d, 0xffee88, 0x5a4808],
       ['shadow_primordial', 'bulk', 0x1a0a20, 0x0a0410, 0x3a2040, 0xff4466, 0x050208],
       ['tide_kraken_lord', 'bulk', 0x1a5276, 0x0e2f44, 0x2e86c1, 0x88eeff, 0x0a1e30],
+      // Expansão 4 +100
+      ['amber_mite', 'beast', 0xd4a017, 0x74580c, 0xffd01d, 0xffff24, 0x4a3808],
+      ['fog_hare', 'beast', 0xd5d8dc, 0x757679, 0xffffff, 0xffffff, 0x4a4b4d],
+      ['driftwood_crab', 'beast', 0x8b7355, 0x4c3f2e, 0xb4956e, 0xfeb888, 0x30281d],
+      ['pollen_moth', 'winged', 0xf9e79f, 0x887f57, 0xffffce, 0xfffffe, 0x575037],
+      ['basalt_cub', 'bulk', 0x2c3e50, 0x18222c, 0x395068, 0x666380, 0x0f151c],
+      ['reed_imp', 'winged', 0x7d6608, 0x443804, 0xa2840a, 0xeaa30c, 0x2b2302],
+      ['snow_finch', 'winged', 0xeaf2f8, 0x808588, 0xffffff, 0xffffff, 0x515456],
+      ['salt_scorpion', 'beast', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['moss_newt', 'beast', 0x556b2f, 0x2e3a19, 0x6e8b3d, 0xaaab4b, 0x1d2510],
+      ['copper_tick', 'beast', 0xb87333, 0x653f1c, 0xef9542, 0xffb851, 0x402811],
+      ['tide_sprite', 'winged', 0x48c9b0, 0x276e60, 0x5dffe4, 0x73ffff, 0x19463d],
+      ['ash_vole', 'beast', 0x6e2c00, 0x3c1800, 0x8f3900, 0xb24600, 0x260f00],
+      ['bramble_boar', 'beast', 0x6e4a2e, 0x3c2819, 0x8f603b, 0xb27649, 0x261910],
+      ['chalk_imp', 'winged', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['mire_slug', 'serpent', 0x4a6741, 0x283823, 0x608554, 0x76a468, 0x192416],
+      ['gust_sylph', 'winged', 0xaed6f1, 0x5f7584, 0xe2ffff, 0xffffff, 0x3c4a54],
+      ['onyx_beetle', 'beast', 0x1c2833, 0x0f161c, 0x243442, 0x2e4051, 0x090e11],
+      ['peat_rat', 'beast', 0x5d4037, 0x33231e, 0x785347, 0xb66658, 0x201613],
+      ['glint_pixie', 'winged', 0xd2b4de, 0x73637a, 0xffeaff, 0xffffff, 0x493e4d],
+      ['dune_scarab', 'beast', 0xc9a227, 0x6e5915, 0xffd232, 0xffff3e, 0x46380d],
+      ['frost_gnat', 'winged', 0x85c1e9, 0x496a80, 0xacfaff, 0xf6ffff, 0x2e4351],
+      ['root_crawler', 'beast', 0x1e8449, 0x104828, 0x27ab5e, 0x32d374, 0x0a2e19],
+      ['cinder_toad', 'bulk', 0xe67e22, 0x7e4512, 0xffa32c, 0xffc936, 0x502c0b],
+      ['pearl_slug', 'serpent', 0xf5eef8, 0x868288, 0xffffff, 0xffffff, 0x555356],
+      ['rune_mite', 'beast', 0xaf7ac5, 0x60436c, 0xe39eff, 0xffc3ff, 0x3d2a44],
+      ['shadow_vole', 'beast', 0x2c2c3a, 0x18181f, 0x39394b, 0x66465c, 0x0f0f14],
+      ['coral_urchin', 'bulk', 0xe74c3c, 0x7f2921, 0xff624e, 0xff7960, 0x501a15],
+      ['pine_imp', 'winged', 0x145a32, 0x0b311b, 0x1a7541, 0x229050, 0x071f11],
+      ['slag_imp', 'winged', 0x935116, 0x502c0c, 0xbf691c, 0xeb8123, 0x331c07],
+      ['ice_tick', 'beast', 0xd6eaf8, 0x758088, 0xffffff, 0xffffff, 0x4a5156],
+      ['bog_finch', 'winged', 0x7dcea0, 0x447158, 0xa2ffd0, 0xeaffff, 0x2b4838],
+      ['quartz_mite', 'beast', 0xaed6f1, 0x5f7584, 0xe2ffff, 0xffffff, 0x3c4a54],
+      ['dust_jackal', 'beast', 0xc2a05a, 0x6a5831, 0xfcd075, 0xffff90, 0x43381f],
+      ['kelp_newt', 'beast', 0x117a65, 0x094337, 0x169e83, 0x3bc3a1, 0x052a23],
+      ['ember_vole', 'beast', 0xcb4335, 0x6f241d, 0xff5744, 0xff6b54, 0x471712],
+      ['thorn_mite', 'beast', 0x27ae60, 0x155f34, 0x32e27c, 0x3eff99, 0x0d3c21],
+      ['mist_imp', 'winged', 0x95a5a6, 0x515a5b, 0xc1d6d7, 0xeeffff, 0x34393a],
+      ['shale_tick', 'beast', 0x7f8c8d, 0x454d4d, 0xa5b6b7, 0xebe0e1, 0x2c3131],
+      ['aurora_moth', 'winged', 0xaf7ac5, 0x60436c, 0xe39eff, 0xffc3ff, 0x3d2a44],
+      ['blood_mite', 'beast', 0xc0392b, 0x691f17, 0xf94a37, 0xff5b44, 0x43130f],
+      ['salt_newt', 'beast', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['vine_imp', 'winged', 0x1abc9c, 0x0e6755, 0x21f4ca, 0x2bfff9, 0x094136],
+      ['glacier_mite', 'beast', 0x5dade2, 0x335f7c, 0x78e0ff, 0xb6ffff, 0x203c4f],
+      ['scrap_tick', 'beast', 0x85929e, 0x495056, 0xacbdcd, 0xf6e9fc, 0x2e3337],
+      ['void_gnat', 'winged', 0x4a0080, 0x280046, 0x6000a6, 0x7600cc, 0x19002c],
+      ['marsh_imp', 'winged', 0x556b2f, 0x2e3a19, 0x6e8b3d, 0xaaab4b, 0x1d2510],
+      ['crystal_finch', 'winged', 0xd6eaf8, 0x758088, 0xffffff, 0xffffff, 0x4a5156],
+      ['pyre_mite', 'beast', 0xe74c3c, 0x7f2921, 0xff624e, 0xff7960, 0x501a15],
+      ['amber_golem', 'bulk', 0xd4a017, 0x74580c, 0xffd01d, 0xffff24, 0x4a3808],
+      ['fog_wraith', 'humanoid', 0xd5d8dc, 0x757679, 0xffffff, 0xffffff, 0x4a4b4d],
+      ['drift_krakenling', 'bulk', 0x1a5276, 0x0e2d40, 0x216a99, 0x2b83bc, 0x091c29],
+      ['pollen_witch', 'humanoid', 0xf9e79f, 0x887f57, 0xffffce, 0xfffffe, 0x575037],
+      ['basalt_guardian', 'bulk', 0x2c3e50, 0x18222c, 0x395068, 0x666380, 0x0f151c],
+      ['reed_naga', 'serpent', 0x7d6608, 0x443804, 0xa2840a, 0xeaa30c, 0x2b2302],
+      ['snow_berserker', 'humanoid', 0xeaf2f8, 0x808588, 0xffffff, 0xffffff, 0x515456],
+      ['salt_goliath', 'bulk', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['moss_treant', 'bulk', 0x556b2f, 0x2e3a19, 0x6e8b3d, 0xaaab4b, 0x1d2510],
+      ['copper_sentinel', 'bulk', 0xb87333, 0x653f1c, 0xef9542, 0xffb851, 0x402811],
+      ['tide_witch', 'humanoid', 0x48c9b0, 0x276e60, 0x5dffe4, 0x73ffff, 0x19463d],
+      ['ash_assassin_adept', 'humanoid', 0x6e2c00, 0x3c1800, 0x8f3900, 0xb24600, 0x260f00],
+      ['bramble_hydra', 'serpent', 0x6e4a2e, 0x3c2819, 0x8f603b, 0xb27649, 0x261910],
+      ['chalk_mage', 'humanoid', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['mire_hydra', 'serpent', 0x4a6741, 0x283823, 0x608554, 0x76a468, 0x192416],
+      ['gust_djinn', 'winged', 0xaed6f1, 0x5f7584, 0xe2ffff, 0xffffff, 0x3c4a54],
+      ['onyx_knight', 'humanoid', 0x1c2833, 0x0f161c, 0x243442, 0x2e4051, 0x090e11],
+      ['peat_necromancer', 'humanoid', 0x5d4037, 0x33231e, 0x785347, 0xb66658, 0x201613],
+      ['glint_sphinx', 'beast', 0xd2b4de, 0x73637a, 0xffeaff, 0xffffff, 0x493e4d],
+      ['dune_wyrm', 'serpent', 0xc9a227, 0x6e5915, 0xffd232, 0xffff3e, 0x46380d],
+      ['frost_centurion', 'humanoid', 0x85c1e9, 0x496a80, 0xacfaff, 0xf6ffff, 0x2e4351],
+      ['root_guardian', 'bulk', 0x1e8449, 0x104828, 0x27ab5e, 0x32d374, 0x0a2e19],
+      ['cinder_drake', 'winged', 0xe67e22, 0x7e4512, 0xffa32c, 0xffc936, 0x502c0b],
+      ['pearl_siren', 'humanoid', 0xf5eef8, 0x868288, 0xffffff, 0xffffff, 0x555356],
+      ['rune_archon_adept', 'humanoid', 0xaf7ac5, 0x60436c, 0xe39eff, 0xffc3ff, 0x3d2a44],
+      ['shadow_duelist_elite', 'humanoid', 0x2c2c3a, 0x18181f, 0x39394b, 0x66465c, 0x0f0f14],
+      ['coral_hydra', 'serpent', 0xe74c3c, 0x7f2921, 0xff624e, 0xff7960, 0x501a15],
+      ['pine_treant', 'bulk', 0x145a32, 0x0b311b, 0x1a7541, 0x229050, 0x071f11],
+      ['slag_golem', 'bulk', 0x935116, 0x502c0c, 0xbf691c, 0xeb8123, 0x331c07],
+      ['ice_wyvern_adept', 'winged', 0xd6eaf8, 0x758088, 0xffffff, 0xffffff, 0x4a5156],
+      ['bog_alchemist', 'humanoid', 0x7dcea0, 0x447158, 0xa2ffd0, 0xeaffff, 0x2b4838],
+      ['quartz_guardian', 'bulk', 0xaed6f1, 0x5f7584, 0xe2ffff, 0xffffff, 0x3c4a54],
+      ['amber_sovereign', 'bulk', 0xd4a017, 0x74580c, 0xffd01d, 0xffff24, 0x4a3808],
+      ['fog_matriarch', 'winged', 0xd5d8dc, 0x757679, 0xffffff, 0xffffff, 0x4a4b4d],
+      ['drift_kraken_king', 'bulk', 0x1a5276, 0x0e2d40, 0x216a99, 0x2b83bc, 0x091c29],
+      ['pollen_empress', 'winged', 0xf9e79f, 0x887f57, 0xffffce, 0xfffffe, 0x575037],
+      ['basalt_colossus', 'bulk', 0x2c3e50, 0x18222c, 0x395068, 0x666380, 0x0f151c],
+      ['reed_hydra_queen', 'serpent', 0x7d6608, 0x443804, 0xa2840a, 0xeaa30c, 0x2b2302],
+      ['snow_emperor', 'humanoid', 0xeaf2f8, 0x808588, 0xffffff, 0xffffff, 0x515456],
+      ['salt_tyrant', 'bulk', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['moss_world_tree', 'bulk', 0x556b2f, 0x2e3a19, 0x6e8b3d, 0xaaab4b, 0x1d2510],
+      ['copper_behemoth', 'bulk', 0xb87333, 0x653f1c, 0xef9542, 0xffb851, 0x402811],
+      ['tide_leviathan', 'serpent', 0x48c9b0, 0x276e60, 0x5dffe4, 0x73ffff, 0x19463d],
+      ['ash_warlord', 'humanoid', 0x6e2c00, 0x3c1800, 0x8f3900, 0xb24600, 0x260f00],
+      ['bramble_primordial', 'bulk', 0x6e4a2e, 0x3c2819, 0x8f603b, 0xb27649, 0x261910],
+      ['chalk_archon', 'humanoid', 0xf5e6c8, 0x867e6e, 0xffffff, 0xffffff, 0x555046],
+      ['mire_sovereign', 'serpent', 0x4a6741, 0x283823, 0x608554, 0x76a468, 0x192416],
+      ['gust_storm_lord', 'winged', 0xaed6f1, 0x5f7584, 0xe2ffff, 0xffffff, 0x3c4a54],
+      ['onyx_overlord', 'humanoid', 0x1c2833, 0x0f161c, 0x243442, 0x2e4051, 0x090e11],
+      ['peat_bone_king', 'humanoid', 0x5d4037, 0x33231e, 0x785347, 0xb66658, 0x201613],
+      ['glint_astral_lord', 'winged', 0xd2b4de, 0x73637a, 0xffeaff, 0xffffff, 0x493e4d],
+      ['dune_sand_emperor', 'serpent', 0xc9a227, 0x6e5915, 0xffd232, 0xffff3e, 0x46380d],
     ];
 
     const clampCh = (n) => Math.min(255, Math.max(0, n | 0));
