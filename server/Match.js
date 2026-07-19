@@ -1919,6 +1919,17 @@ export class Match {
     return bone;
   }
 
+  /** Remove ossos/sangue que ficaram na lava (fora do raio atual da arena). */
+  cullDebrisOutsideArena() {
+    const cx = CONFIG.ARENA_CENTER_X;
+    const cy = CONFIG.ARENA_CENTER_Y;
+    const r = this.arenaRadius;
+    for (const e of this.effects) {
+      if (e.type !== 'bones' && e.type !== 'blood') continue;
+      if (Math.hypot(e.x - cx, e.y - cy) > r) e.life = 0;
+    }
+  }
+
   /** Posição do drop em cima do crânio do esqueleto. */
   dropPosOnBones(bones) {
     return {
@@ -4488,6 +4499,9 @@ export class Match {
 
     // DoTs depois dos AoEs (status já aplicado/renovado neste tick)
     this.tickAllDots(dt);
+
+    // Esqueletos/sangue na lava somem quando a arena encolhe
+    this.cullDebrisOutsideArena();
 
     // Effects lifetime
     for (const e of this.effects) e.life -= dt;

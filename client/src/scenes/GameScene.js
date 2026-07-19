@@ -1468,10 +1468,47 @@ export class GameScene extends Phaser.Scene {
 
   clearLocalCorpses() {
     for (const c of this.localCorpses) {
+      if (c.pile) this.tweens.killTweensOf(c.pile);
+      if (c.skull) this.tweens.killTweensOf(c.skull);
       c.pile?.destroy();
       c.skull?.destroy();
     }
     this.localCorpses = [];
+  }
+
+  /** Corpos locais (jogadores) somem ao tocar a lava da arena. */
+  cullLocalCorpsesInLava() {
+    const arena = this.state?.arena;
+    if (!arena || !this.localCorpses.length) return;
+
+    const keep = [];
+    for (const c of this.localCorpses) {
+      if (c.melting) {
+        keep.push(c);
+        continue;
+      }
+      if (Math.hypot(c.x - arena.x, c.y - arena.y) <= arena.radius) {
+        keep.push(c);
+        continue;
+      }
+      c.melting = true;
+      keep.push(c);
+      const targets = [c.pile, c.skull].filter(Boolean);
+      if (!targets.length) continue;
+      this.tweens.add({
+        targets,
+        alpha: 0,
+        y: '+=10',
+        duration: 280,
+        ease: 'Quad.easeIn',
+        onComplete: () => {
+          c.pile?.destroy();
+          c.skull?.destroy();
+          this.localCorpses = this.localCorpses.filter((x) => x !== c);
+        },
+      });
+    }
+    this.localCorpses = keep;
   }
 
   /** Limpa corpos locais, sangue, ossos, loot e moedas do chão (início de rodada). */
@@ -1511,6 +1548,7 @@ export class GameScene extends Phaser.Scene {
       this.sendInput();
     }
     this.renderArena();
+    this.cullLocalCorpsesInLava();
     this.renderRocks();
     this.renderTrees();
     this.renderPlayers();
@@ -4792,6 +4830,11 @@ export class GameScene extends Phaser.Scene {
       }
 
       if (e.type === 'bones') {
+        const arena = this.state.arena;
+        // Fora da plataforma = lava: não desenha / remove sprite local
+        if (arena && Math.hypot(e.x - arena.x, e.y - arena.y) > arena.radius) {
+          continue;
+        }
         seenBones.add(e.entityId);
         let pack = this.boneSprites.get(e.entityId);
         if (!pack) {
