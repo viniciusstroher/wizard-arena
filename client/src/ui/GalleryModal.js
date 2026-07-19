@@ -11,6 +11,7 @@ import {
   galleryShareUrl,
   syncGalleryUrl,
 } from './galleryUrl.js';
+import { GallerySpellFx } from './gallerySpellFx.js';
 
 const TIER_SECTIONS = [
   { id: 'normal', label: 'Normais', color: '#9a8bb8' },
@@ -84,6 +85,9 @@ export class GalleryModal {
     this.copyLabel = null;
     this.copyFeedbackTimer = null;
     this.stageGfx = null;
+    this.spellFx = null;
+    this._previewPlatformId = null;
+    this._previewArenaR = 78;
 
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
@@ -152,9 +156,13 @@ export class GalleryModal {
     const L = this._computeLayout();
     this.layout = L;
 
-    this.container.removeAll(true);
-    this._destroyListDom();
+    this.spellFx?.destroy();
+    this.spellFx = null;
     this._clearPreview();
+    this.container.removeAll(true);
+    this.previewRoot = null;
+    this.stageGfx = null;
+    this._destroyListDom();
     this.container.setDepth(10000).setVisible(true);
     this.scene.children.bringToTop(this.container);
 
@@ -259,6 +267,15 @@ export class GalleryModal {
     this.previewRoot = this.scene.add.container(L.previewX, L.previewY);
     this.stageGfx = this.scene.add.graphics();
     this.previewRoot.add(this.stageGfx);
+
+    this.spellFx = new GallerySpellFx(this.scene, {
+      getOrigin: () => ({
+        x: this.previewRoot?.x ?? 0,
+        y: this.previewRoot?.y ?? 0,
+      }),
+      depth: 10003,
+    });
+    this.spellFx.create(this.previewRoot);
 
     this.container.add([
       dim,
@@ -417,6 +434,8 @@ export class GalleryModal {
     }
     this._clearPreview();
     this._destroyFx();
+    this.spellFx?.destroy();
+    this.spellFx = null;
     this._destroyListDom();
     this.container.removeAll(true);
     this.container.setVisible(false);
@@ -433,6 +452,7 @@ export class GalleryModal {
     this.layout = null;
     this._previewedTab = null;
     this._previewedId = null;
+    this._previewPlatformId = null;
     clearGalleryUrl();
     this.onClose?.();
   }
@@ -1023,11 +1043,24 @@ export class GalleryModal {
     if (syncUrl) this._syncUrl();
   }
 
+  _randomFloorEntry() {
+    if (!this.floors?.length) return null;
+    return this.floors[(Math.random() * this.floors.length) | 0];
+  }
+
   _playFloorPreview(entry) {
     this._clearPreview();
-    if (!this.previewRoot) return;
+    this._buildPlatformStage(entry);
+  }
+
+  /** Monta lava + disco + props + borda (plataforma da arena) no preview. */
+  _buildPlatformStage(entry) {
+    if (!this.previewRoot || !entry) return;
 
     const arenaR = 78;
+    this._previewArenaR = arenaR;
+    this._previewPlatformId = entry.id;
+
     const floorKey = this.scene.textures.exists(entry.textureKey)
       ? entry.textureKey
       : this.scene.textures.exists('arena_brick')
@@ -1047,7 +1080,7 @@ export class GalleryModal {
           delay: 40,
           loop: true,
           callback: () => {
-            if (!this.open || this.selectedFloorId !== entry.id || !lava.active) return;
+            if (!this.open || this._previewPlatformId !== entry.id || !lava.active) return;
             lava.tilePositionX += 0.45;
             lava.tilePositionY += 0.25;
           },
@@ -1086,14 +1119,17 @@ export class GalleryModal {
     // Anel de ferro no perímetro
     this._spawnFloorPreviewIronRim(arenaR);
 
-    // Parede de energia por cima de tudo (como na partida)
+    // Parede de energia por cima do chão (VFX de magia fica acima via spellFx)
     if (this.stageGfx) this.previewRoot.bringToTop(this.stageGfx);
+    if (this.spellFx?.effectGraphics) {
+      this.previewRoot.bringToTop(this.spellFx.effectGraphics);
+    }
     this.previewTimers.push(
       this.scene.time.addEvent({
         delay: 50,
         loop: true,
         callback: () => {
-          if (!this.open || this.selectedFloorId !== entry.id) return;
+          if (!this.open || this._previewPlatformId !== entry.id) return;
           this._drawFloorPreviewFireWall(arenaR);
         },
       })
@@ -1323,8 +1359,11 @@ export class GalleryModal {
     this._clearPreview();
     if (!this.previewRoot) return;
 
+    const floor = this._randomFloorEntry();
+    if (floor) this._buildPlatformStage(floor);
+
     const tex = this._monsterTexture(entry.id);
-    const sprite = this.scene.add.sprite(0, 10, tex).setScale(4.16);
+    const sprite = this.scene.add.sprite(-28, 10, tex).setScale(3.6);
     this.previewRoot.add(sprite);
     this.previewSprites.push(sprite);
 
@@ -1336,10 +1375,14 @@ export class GalleryModal {
       sprite.play(walkKey);
     }
 
-    // Alvo visual para ataques
-    const dummy = this.scene.add.circle(110, 10, 8, 0x884444, 0.85);
+    // Alvo visual para ataques (dentro da plataforma)
+    const dummy = this.scene.add.circle(48, 10, 7, 0x884444, 0.85);
     this.previewRoot.add(dummy);
     this.previewSprites.push(dummy);
+
+    if (this.spellFx?.effectGraphics) {
+      this.previewRoot.bringToTop(this.spellFx.effectGraphics);
+    }
 
     this._scheduleAttackLoop(entry, sprite, dummy);
   }
@@ -1377,9 +1420,11 @@ export class GalleryModal {
 
     if (entry.attack === 'melee') {
       playAttackSprite();
+      const homeX = sprite.getData('homeX') ?? sprite.x;
+      sprite.setData('homeX', homeX);
       this.scene.tweens.add({
         targets: sprite,
-        x: 70,
+        x: dummy.x - 18,
         duration: 180,
         yoyo: true,
         ease: 'Quad.easeOut',
@@ -1389,6 +1434,9 @@ export class GalleryModal {
           this.scene.time.delayedCall(120, () => {
             if (dummy.active) dummy.setFillStyle(0x884444, 0.85);
           });
+        },
+        onComplete: () => {
+          if (sprite.active) sprite.x = homeX;
         },
       });
       return;
@@ -1514,108 +1562,74 @@ export class GalleryModal {
     this._clearPreview();
     if (!this.previewRoot) return;
 
+    const floor = this._randomFloorEntry();
+    if (floor) this._buildPlatformStage(floor);
+
+    const from = { x: -36, y: 12 };
+    const to = { x: 46, y: 12 };
+
     const iconKey = `spell_${entry.id}`;
     if (this.scene.textures.exists(iconKey)) {
-      const icon = this.scene.add.image(0, -20, iconKey).setScale(2.4);
+      const icon = this.scene.add.image(from.x, from.y - 28, iconKey).setScale(1.8);
       this.previewRoot.add(icon);
       this.previewSprites.push(icon);
       this.scene.tweens.add({
         targets: icon,
-        scale: 2.7,
+        scale: 2.0,
         duration: 500,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
       });
     } else {
-      const orb = this.scene.add.circle(0, -20, 22, entry.color, 0.95);
+      const orb = this.scene.add.circle(from.x, from.y - 24, 14, entry.color, 0.95);
       this.previewRoot.add(orb);
       this.previewSprites.push(orb);
     }
 
+    const marker = this.scene.add.circle(to.x, to.y, 6, 0x884444, 0.7);
+    this.previewRoot.add(marker);
+    this.previewSprites.push(marker);
+
+    if (this.spellFx?.effectGraphics) {
+      this.previewRoot.bringToTop(this.spellFx.effectGraphics);
+    }
+
     const cast = () => {
       if (!this.open || this.selectedSpellId !== entry.id) return;
-      this._animateSpellCast(entry.id, -90, 40, 100, 40, entry.color);
+      this._animateSpellCast(entry.id, from.x, from.y, to.x, to.y, entry.color);
     };
-    this.previewTimers.push(this.scene.time.delayedCall(400, cast));
+    this.previewTimers.push(this.scene.time.delayedCall(350, cast));
     this.previewTimers.push(
       this.scene.time.addEvent({
-        delay: 1800,
+        delay: 2200,
         loop: true,
         callback: cast,
       })
     );
   }
 
+  /** VFX completo do jogo (fade começa em 100%), com projétil quando necessário. */
   _animateSpellCast(spellId, x1, y1, x2, y2, color) {
-    const kind = this._fxKindForSpell(spellId);
-
-    // Magias de área / novae: anel expandindo
-    if (
-      spellId === 'flame_nova' ||
-      spellId === 'poison_cloud' ||
-      spellId === 'abyss_nova' ||
-      spellId === 'void_collapse' ||
-      spellId === 'frost_apocalypse' ||
-      spellId === 'plague_burst' ||
-      spellId === 'shadow_eclipse' ||
-      spellId === 'apocalypse' ||
-      spellId === 'time_freeze' ||
-      spellId === 'barrier'
-    ) {
-      const ring = this.scene.add.circle(0, 30, 8, color ?? 0xffffff, 0.15);
-      ring.setStrokeStyle(2, color ?? 0xffffff, 0.9);
-      this.previewRoot.add(ring);
-      this.previewSprites.push(ring);
-      this.scene.tweens.add({
-        targets: ring,
-        scale: 4.5,
-        alpha: 0,
-        duration: 700,
-        ease: 'Quad.easeOut',
-        onComplete: () => ring.destroy(),
-      });
-      this._burstAt(0, 30, kind, 16);
+    if (!this.spellFx) {
+      this._burstAt(x2, y2, this._fxKindForSpell(spellId), 14);
       return;
     }
 
-    // Raios / cadeia
-    if (
-      spellId === 'arc_lightning' ||
-      spellId === 'storm_call' ||
-      spellId === 'electric_bolt' ||
-      spellId === 'electric_storm' ||
-      spellId === 'infernal_judgment'
-    ) {
-      if (this.stageGfx) {
-        this.stageGfx.clear();
-        this.stageGfx.lineStyle(2, color ?? 0xaadfff, 0.95);
-        this.stageGfx.beginPath();
-        this.stageGfx.moveTo(x1, y1 - 50);
-        this.stageGfx.lineTo(x2, y2);
-        this.stageGfx.strokePath();
-        this.scene.time.delayedCall(180, () => {
-          if (this.stageGfx) this.stageGfx.clear();
-        });
-      }
-      this._burstAt(x2, y2, 'spark', 18);
-      return;
-    }
+    const result = this.spellFx.play(spellId, color, { x: x1, y: y1 }, { x: x2, y: y2 });
+    if (!result.needsProjectile) return;
 
-    // Blink / heal — partículas no local
-    if (spellId === 'blink' || spellId === 'mend' || spellId === 'dash') {
-      this._burstAt(0, 20, kind, 16);
-      return;
-    }
-
-    // Projétil padrão
     const projKey = this._projectileTexture(spellId);
-    const proj = this.scene.add.image(x1, y1, projKey).setScale(1.5);
+    const proj = this.scene.add.image(x1, y1, projKey).setScale(1.45);
     if (!this.scene.textures.exists(projKey) || projKey === 'orb') {
       proj.setTint(color ?? 0xffffff);
     }
     this.previewRoot.add(proj);
     this.previewSprites.push(proj);
+    if (this.spellFx?.effectGraphics) {
+      this.previewRoot.bringToTop(this.spellFx.effectGraphics);
+    }
+
     this.scene.tweens.add({
       targets: proj,
       x: x2,
@@ -1623,7 +1637,7 @@ export class GalleryModal {
       duration: 380,
       ease: 'Quad.easeIn',
       onComplete: () => {
-        this._burstAt(x2, y2, kind, 14);
+        this.spellFx?.playImpact(spellId, color, x2, y2, 28);
         proj.destroy();
       },
     });
@@ -1778,9 +1792,16 @@ export class GalleryModal {
       this._floorMaskGfx = null;
     }
     if (this.stageGfx) this.stageGfx.clear();
-    // Limpar tweens do previewRoot
+    this.spellFx?.clear();
+    this._previewPlatformId = null;
+    // Limpar tweens do previewRoot (sem destruir emitters/graphics do spellFx)
     if (this.previewRoot) {
-      this.scene.tweens.killTweensOf(this.previewRoot.list);
+      const skip = new Set();
+      if (this.stageGfx) skip.add(this.stageGfx);
+      if (this.spellFx?.effectGraphics) skip.add(this.spellFx.effectGraphics);
+      for (const child of this.previewRoot.list) {
+        if (!skip.has(child)) this.scene.tweens.killTweensOf(child);
+      }
     }
   }
 
