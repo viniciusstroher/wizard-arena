@@ -128,6 +128,12 @@ export const CONFIG = {
   /** Duração total estimada dos rounds (sem intermissões). */
   MATCH_DURATION: MAX_ROUNDS * ROUND_DURATION,
   PLAYER_MAX_HP: 100,
+  /** Vida máxima extra por nível do personagem (nível 1 = base). */
+  PLAYER_HP_PER_LEVEL: envNumber('PLAYER_HP_PER_LEVEL', 10),
+  /** Cura (H) extra por nível do personagem além do valor base da magia. */
+  PLAYER_HEAL_PER_LEVEL: envNumber('PLAYER_HEAL_PER_LEVEL', 4),
+  /** Escudo (E) extra por nível do personagem além do valor base da magia. */
+  PLAYER_SHIELD_PER_LEVEL: envNumber('PLAYER_SHIELD_PER_LEVEL', 5),
   /** Velocidade de movimento de jogadores/bots (px/s). */
   PLAYER_SPEED: envNumber('PLAYER_SPEED', 189),
   /** Multiplicador de velocidade por tipo de chão da arena. */

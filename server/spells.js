@@ -67,7 +67,8 @@ export const SPELLS = {
   mend: {
     id: 'mend',
     name: 'Cura',
-    description: 'Cura rápida. Habilidade inata (H), disponível desde o nível 1.',
+    description:
+      'Cura rápida. Habilidade inata (H), disponível desde o nível 1. Melhora a cada nível do personagem.',
     type: 'basic',
     playerUsable: true,
     /** Não aparece na tela de escolha; inata desde o nível 1. */
@@ -116,7 +117,8 @@ export const SPELLS = {
   barrier: {
     id: 'barrier',
     name: 'Barreira',
-    description: 'Escudo que absorve dano por alguns segundos. Habilidade inata (E), disponível desde o nível 1.',
+    description:
+      'Escudo que absorve dano por alguns segundos. Habilidade inata (E), disponível desde o nível 1. Melhora a cada nível do personagem.',
     type: 'basic',
     playerUsable: true,
     /** Não aparece na tela de escolha; inata desde o nível 1. */

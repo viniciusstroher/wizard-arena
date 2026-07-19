@@ -1553,8 +1553,10 @@ export class Match {
       return;
     }
 
-    player.shield = stats.shield;
-    player.maxShield = stats.shield;
+    const levelBonus = Math.max(0, (player.level || 1) - 1) * (CONFIG.PLAYER_SHIELD_PER_LEVEL || 0);
+    const shield = Math.max(1, Math.round((stats.shield || 0) + levelBonus));
+    player.shield = shield;
+    player.maxShield = shield;
     player.shieldTimer = stats.duration;
     player.barrierCooldown = stats.cooldown;
     this.clearInnateRequest(player, 'barrier');
@@ -1594,7 +1596,9 @@ export class Match {
       return;
     }
 
-    player.hp = Math.min(player.maxHp, player.hp + stats.heal);
+    const levelBonus = Math.max(0, (player.level || 1) - 1) * (CONFIG.PLAYER_HEAL_PER_LEVEL || 0);
+    const heal = Math.max(1, Math.round((stats.heal || 0) + levelBonus));
+    player.hp = Math.min(player.maxHp, player.hp + heal);
     player.mendCooldown = stats.cooldown;
     this.clearInnateRequest(player, 'mend');
     this.effects.push({
@@ -1819,6 +1823,12 @@ export class Match {
       player.level += 1;
       player.xpToNext = xpForLevel(player.level + 1) - xpForLevel(player.level);
       if (player.xpToNext <= 0) player.xpToNext = 100 + player.level * 40;
+      // Vida máxima e HP atual sobem a cada nível
+      const hpGain = Math.max(0, CONFIG.PLAYER_HP_PER_LEVEL || 0);
+      if (hpGain > 0) {
+        player.maxHp += hpGain;
+        player.hp = Math.min(player.maxHp, player.hp + hpGain);
+      }
       player.pendingLevelUps += 1;
       leveled = true;
       this.pushEvent({
