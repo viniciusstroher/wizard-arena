@@ -13,6 +13,7 @@ import { GalleryModal } from '../ui/GalleryModal.js';
 import { ControlsModal } from '../ui/ControlsModal.js';
 import { SettingsModal } from '../ui/SettingsModal.js';
 import { openLeaderboardModal } from '../ui/leaderboardModal.js';
+import { openFeaturesModal } from '../ui/featuresModal.js';
 import { parseGalleryUrl } from '../ui/galleryUrl.js';
 
 export class HomeScene extends Phaser.Scene {
@@ -30,6 +31,7 @@ export class HomeScene extends Phaser.Scene {
     const panelX = width / 2;
     const panelY = height / 2 - 10;
     this.leaderboardModal = null;
+    this.featuresModal = null;
 
     const tex = ensureWizardColorTexture(this, this.character.color, this.character.skin);
     this.preview = this.add
@@ -54,6 +56,8 @@ export class HomeScene extends Phaser.Scene {
       this.settingsModal?.hide();
       this.leaderboardModal?.close();
       this.leaderboardModal = null;
+      this.featuresModal?.close();
+      this.featuresModal = null;
     };
 
     makeMenuButton(this, panelX, panelY - 50, 'Personagem', 0x6b5cff, () => {
@@ -69,17 +73,22 @@ export class HomeScene extends Phaser.Scene {
       this.leaderboardModal = openLeaderboardModal();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 115, 'Galeria', 0x443866, () => {
+    makeMenuButton(this, panelX, panelY + 115, 'Features', 0x2a8f9e, () => {
+      closeOverlays();
+      this.featuresModal = openFeaturesModal();
+    }).setDepth(10);
+
+    makeMenuButton(this, panelX, panelY + 170, 'Galeria', 0x443866, () => {
       closeOverlays();
       this.galleryModal?.show();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 170, 'Comandos', 0x443866, () => {
+    makeMenuButton(this, panelX, panelY + 225, 'Comandos', 0x443866, () => {
       closeOverlays();
       this.controlsModal?.show();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 225, 'Config', 0x443866, () => {
+    makeMenuButton(this, panelX, panelY + 280, 'Config', 0x443866, () => {
       closeOverlays();
       this.settingsModal?.show();
     }).setDepth(10);
@@ -90,6 +99,8 @@ export class HomeScene extends Phaser.Scene {
         this.settingsModal?.hide();
         this.leaderboardModal?.close();
         this.leaderboardModal = null;
+        this.featuresModal?.close();
+        this.featuresModal = null;
       },
     });
     this.controlsModal = new ControlsModal(this, {
@@ -98,6 +109,8 @@ export class HomeScene extends Phaser.Scene {
         this.settingsModal?.hide();
         this.leaderboardModal?.close();
         this.leaderboardModal = null;
+        this.featuresModal?.close();
+        this.featuresModal = null;
       },
     });
     this.settingsModal = new SettingsModal(this, {
@@ -106,6 +119,8 @@ export class HomeScene extends Phaser.Scene {
         this.controlsModal?.hide();
         this.leaderboardModal?.close();
         this.leaderboardModal = null;
+        this.featuresModal?.close();
+        this.featuresModal = null;
       },
     });
     this._maybeOpenGalleryFromUrl();
@@ -122,6 +137,8 @@ export class HomeScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.leaderboardModal?.close();
       this.leaderboardModal = null;
+      this.featuresModal?.close();
+      this.featuresModal = null;
       this.galleryModal?.destroy();
       this.galleryModal = null;
       this.controlsModal?.destroy();
