@@ -2774,7 +2774,7 @@ export class GameScene extends Phaser.Scene {
 
       if (Math.abs(p.vx || 0) > 12) s.setFlipX(p.vx < 0);
 
-      const baseScale = p.id === this.playerId ? 1.15 : 1;
+      const baseScale = p.id === this.playerId ? 1.35 : 1.2;
       if (p.dashing && p.alive) {
         if (s.anims?.isPlaying) s.anims.stop();
         if (s.texture.key !== tex) s.setTexture(tex);
@@ -2812,9 +2812,9 @@ export class GameScene extends Phaser.Scene {
 
       const hasShield = p.alive && p.shield > 0;
       const isSelf = p.id === this.playerId;
-      const hpY = p.y - 20;
+      const hpY = p.y - 26;
       const shieldY = hpY - 7;
-      const nameY = hasShield ? p.y - 36 : p.y - 28;
+      const nameY = hasShield ? p.y - 44 : p.y - 36;
 
       s.nameTag.setText(`${p.name} Lv${p.level || 1}${p.alive ? '' : ' ✝'}`);
       s.nameTag.setColor(isSelf ? '#ffd166' : '#ffffff');
@@ -2852,13 +2852,13 @@ export class GameScene extends Phaser.Scene {
         const pulse = 0.55 + 0.45 * Math.sin(this.time.now / 140);
         if (!s.shieldRing) {
           s.shieldRing = this.add
-            .circle(p.x, p.y, 22, 0x88aaff, 0.15)
+            .circle(p.x, p.y, 26, 0x88aaff, 0.15)
             .setStrokeStyle(2, 0x88aaff, 0.85)
             .setDepth(19);
         }
         if (!s.shieldRingOuter) {
           s.shieldRingOuter = this.add
-            .circle(p.x, p.y, 28, 0x88aaff, 0)
+            .circle(p.x, p.y, 32, 0x88aaff, 0)
             .setStrokeStyle(1.5, 0xaaccff, 0.55)
             .setDepth(18);
         }

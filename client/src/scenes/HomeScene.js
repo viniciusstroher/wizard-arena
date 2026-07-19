@@ -22,7 +22,7 @@ export class HomeScene extends Phaser.Scene {
     const tex = ensureWizardColorTexture(this, this.character.color, this.character.skin);
     this.preview = this.add
       .sprite(panelX, panelY - 120, tex)
-      .setScale(3.2)
+      .setScale(3.6)
       .setDepth(5);
     const walkKey = `${tex}_walk`;
     if (this.anims.exists(walkKey)) this.preview.play(walkKey);
