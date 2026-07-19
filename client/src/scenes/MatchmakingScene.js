@@ -134,6 +134,7 @@ export class MatchmakingScene extends Phaser.Scene {
     modeEl.addEventListener('change', () => {
       this.pvpEnabled = modeEl.value === 'true';
     });
+    this.modeSelectEl = modeEl;
     this.modeSelectDom = this.add.dom(x, y - 95, modeEl).setOrigin(0.5).setDepth(uiDepth);
 
     this.add
@@ -308,6 +309,11 @@ export class MatchmakingScene extends Phaser.Scene {
     }
     this.statusText.setColor('#c4b5e0');
     this.statusText.setText('Criando lobby...');
+    const pvpEnabled =
+      this.modeSelectEl != null
+        ? this.modeSelectEl.value === 'true'
+        : !!this.pvpEnabled;
+    this.pvpEnabled = pvpEnabled;
     this.socket.emit('create_lobby', {
       characterId: this.character.id,
       name: this.character.name,
@@ -315,7 +321,7 @@ export class MatchmakingScene extends Phaser.Scene {
       skin: this.character.skin,
       maxPlayers: this.maxPlayers,
       password: password || null,
-      pvpEnabled: !!this.pvpEnabled,
+      pvpEnabled,
     });
   }
 
