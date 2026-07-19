@@ -386,9 +386,9 @@ export const WIZARD_SKINS = [
     // Cajado: foice óssea com crânio
     idle: [
       '....................',
-      '......HHHHHH....SNS.',
-      '.....HHHHHHHH...NEN.',
-      '....HHHHHHHHHH...N..',
+      '......HHHHHH....WBW.',
+      '.....HHHHHHHH...BDB.',
+      '....HHHHHHHHHH...B..',
       '...HHHNSSSSNHHH..T..',
       '...HHHSEEESSHHH.WT..',
       '...HHHSSNSSSHHHW.T..',
@@ -408,9 +408,9 @@ export const WIZARD_SKINS = [
     ],
     walkL: [
       '....................',
-      '......HHHHHH....SNS.',
-      '.....HHHHHHHH...NEN.',
-      '....HHHHHHHHHH...N..',
+      '......HHHHHH....WBW.',
+      '.....HHHHHHHH...BDB.',
+      '....HHHHHHHHHH...B..',
       '...HHHNSSSSNHHH..T..',
       '...HHHSEEESSHHH.WT..',
       '...HHHSSNSSSHHHW.T..',
@@ -430,9 +430,9 @@ export const WIZARD_SKINS = [
     ],
     walkR: [
       '....................',
-      '......HHHHHH....SNS.',
-      '.....HHHHHHHH...NEN.',
-      '....HHHHHHHHHH...N..',
+      '......HHHHHH....WBW.',
+      '.....HHHHHHHH...BDB.',
+      '....HHHHHHHHHH...B..',
       '...HHHNSSSSNHHH..T..',
       '...HHHSEEESSHHH.WT..',
       '...HHHSSNSSSHHHW.T..',

@@ -3,6 +3,11 @@ import { ensureCharacter } from '../character.js';
 import { navigate } from '../router.js';
 import { ensureMenuMusic } from '../audio/menuMusic.js';
 import { drawMenuBackground, makeMenuButton, updateMenuFlames } from '../ui/menuChrome.js';
+import {
+  createAmbientCreatures,
+  destroyAmbientCreatures,
+  updateAmbientCreatures,
+} from '../ui/ambientCreatures.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 
 export class HomeScene extends Phaser.Scene {
@@ -13,6 +18,7 @@ export class HomeScene extends Phaser.Scene {
   create() {
     this.character = ensureCharacter();
     drawMenuBackground(this, { subtitle: 'Arena de magos' });
+    createAmbientCreatures(this);
     ensureMenuMusic(this);
 
     const { width, height } = this.scale;
@@ -52,9 +58,14 @@ export class HomeScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(5);
+
+    this.events.once('shutdown', () => {
+      destroyAmbientCreatures(this);
+    });
   }
 
-  update() {
+  update(_time, delta) {
     updateMenuFlames(this);
+    updateAmbientCreatures(this, delta);
   }
 }

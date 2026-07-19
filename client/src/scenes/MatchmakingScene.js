@@ -9,6 +9,11 @@ import {
   styleDomInput,
   updateMenuFlames,
 } from '../ui/menuChrome.js';
+import {
+  createAmbientCreatures,
+  destroyAmbientCreatures,
+  updateAmbientCreatures,
+} from '../ui/ambientCreatures.js';
 
 export class MatchmakingScene extends Phaser.Scene {
   constructor() {
@@ -37,6 +42,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.passwordPrompt = null;
 
     drawMenuBackground(this, { subtitle: 'Salas' });
+    createAmbientCreatures(this);
     ensureMenuMusic(this);
 
     const { width, height } = this.scale;
@@ -68,6 +74,7 @@ export class MatchmakingScene extends Phaser.Scene {
       this.maxSelectDom?.destroy();
       this.passInputDom?.destroy();
       this.listDom?.destroy();
+      destroyAmbientCreatures(this);
     });
   }
 
@@ -393,7 +400,8 @@ export class MatchmakingScene extends Phaser.Scene {
     }
   }
 
-  update() {
+  update(_time, delta) {
     updateMenuFlames(this);
+    updateAmbientCreatures(this, delta);
   }
 }

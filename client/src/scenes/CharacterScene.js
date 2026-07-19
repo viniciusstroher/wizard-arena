@@ -9,6 +9,11 @@ import {
   updateMenuFlames,
 } from '../ui/menuChrome.js';
 import {
+  createAmbientCreatures,
+  destroyAmbientCreatures,
+  updateAmbientCreatures,
+} from '../ui/ambientCreatures.js';
+import {
   updateWizardPreviewTexture,
   WIZARD_SKINS,
 } from '../wizardSkin.js';
@@ -25,6 +30,7 @@ export class CharacterScene extends Phaser.Scene {
     this.errorText = null;
 
     drawMenuBackground(this, { subtitle: 'Personagem' });
+    createAmbientCreatures(this);
     ensureMenuMusic(this);
 
     const { width, height } = this.scale;
@@ -107,6 +113,7 @@ export class CharacterScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.nameInput?.destroy();
       this.nameInput = null;
+      destroyAmbientCreatures(this);
     });
   }
 
@@ -229,7 +236,8 @@ export class CharacterScene extends Phaser.Scene {
     navigate('/');
   }
 
-  update() {
+  update(_time, delta) {
     updateMenuFlames(this);
+    updateAmbientCreatures(this, delta);
   }
 }
