@@ -3,8 +3,6 @@ import { ensureCharacter } from '../character.js';
 import { getSocket } from '../net/socket.js';
 import { navigate } from '../router.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
-import { GalleryModal } from '../ui/GalleryModal.js';
-import { parseGalleryUrl } from '../ui/galleryUrl.js';
 import {
   createMagicFlakes,
   createMenuFlames,
@@ -19,7 +17,6 @@ import {
   ensureMenuMusic,
   stopMenuMusic,
 } from '../audio/menuMusic.js';
-import { SettingsModal } from '../ui/SettingsModal.js';
 
 export class LobbyScene extends Phaser.Scene {
   constructor() {
@@ -38,11 +35,9 @@ export class LobbyScene extends Phaser.Scene {
     this.joined = false;
     this.ready = false;
     this.lobby = null;
-    this.settingsModal = null;
     this.adminModalOpen = false;
     this.adminModal = null;
     this.adminChecksDom = null;
-    this.galleryModal = null;
     this.leavingToMenu = false;
     this.enteringGame = false;
 
@@ -74,12 +69,7 @@ export class LobbyScene extends Phaser.Scene {
     this.joinLobby();
 
     this.events.once('shutdown', () => {
-      this.settingsModal?.destroy();
-      this.settingsModal = null;
       this.closeAdminModal();
-      this.closeControlsModal();
-      this.galleryModal?.destroy();
-      this.galleryModal = null;
       this.messageBoard?.destroy();
       this.messageBoard = null;
       destroyAmbientCreatures(this);
@@ -224,44 +214,19 @@ export class LobbyScene extends Phaser.Scene {
     this.setButtonEnabled(this.botsBtn, false);
     this.setButtonEnabled(this.removeBotsBtn, false);
 
-    this.galleryBtn = this.makeButton(
-      panelX - halfW / 2 - 6,
-      btnStartY + step * 2,
-      'Galeria',
-      0x443866,
-      () => this.openGalleryModal(),
-      halfW
-    );
-    this.controlsBtn = this.makeButton(
-      panelX + halfW / 2 + 6,
-      btnStartY + step * 2,
-      'Comandos',
-      0x443866,
-      () => this.openControlsModal(),
-      halfW
-    );
-
-    this.settingsBtn = this.makeButton(
-      panelX - halfW / 2 - 6,
-      btnStartY + step * 3,
-      'Config',
-      0x443866,
-      () => this.settingsModal?.show(),
-      halfW
-    );
     this.adminBtn = this.makeButton(
-      panelX + halfW / 2 + 6,
-      btnStartY + step * 3,
-      'Admin',
+      panelX,
+      btnStartY + step * 2,
+      'Opções da Partida',
       0x8e44ad,
       () => this.openAdminModal(),
-      halfW
+      btnW
     );
     this.setButtonEnabled(this.adminBtn, false);
 
     this.leaveBtn = this.makeButton(
       panelX,
-      btnStartY + step * 4,
+      btnStartY + step * 3,
       'Sair da sala',
       0xc0392b,
       () => this.leaveToMatchmaking(),
@@ -272,40 +237,13 @@ export class LobbyScene extends Phaser.Scene {
       this.readyBtn,
       this.botsBtn,
       this.removeBotsBtn,
-      this.galleryBtn,
-      this.controlsBtn,
-      this.settingsBtn,
       this.adminBtn,
       this.leaveBtn,
     ]) {
       btn.setDepth(uiDepth);
     }
 
-    this.controlsModalOpen = false;
-    this.controlsModal = this.add.container(0, 0).setDepth(400).setVisible(false);
     this.adminModal = this.add.container(0, 0).setDepth(400).setVisible(false);
-    this.settingsModal = new SettingsModal(this, {
-      onOpen: () => {
-        if (this.controlsModalOpen) this.closeControlsModal();
-        if (this.adminModalOpen) this.closeAdminModal();
-        if (this.galleryModal?.isOpen()) this.galleryModal.hide();
-        this.setLobbyDomVisible(false);
-      },
-      onClose: () => {
-        if (!this.adminModalOpen && !this.controlsModalOpen && !this.galleryModal?.isOpen()) {
-          this.setLobbyDomVisible(true);
-        }
-      },
-    });
-    this.galleryModal = new GalleryModal(this, {
-      onOpen: () => this.setLobbyDomVisible(false),
-      onClose: () => {
-        if (!this.settingsModal?.isOpen() && !this.adminModalOpen && !this.controlsModalOpen) {
-          this.setLobbyDomVisible(true);
-        }
-      },
-    });
-    this._maybeOpenGalleryFromUrl();
 
     this.hint = this.add
       .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos/bots', {
@@ -338,32 +276,9 @@ export class LobbyScene extends Phaser.Scene {
     this.messageBoard?.setDomVisible(visible);
   }
 
-  openGalleryModal(options = {}) {
-    if (this.settingsModal?.isOpen()) this.settingsModal.hide();
-    if (this.adminModalOpen) this.closeAdminModal();
-    if (this.controlsModalOpen) this.closeControlsModal();
-    this.galleryModal?.show(options);
-  }
-
-  _maybeOpenGalleryFromUrl() {
-    const link = parseGalleryUrl();
-    if (!link) return;
-    // Adia um tick para o layout/DOM do lobby estabilizar.
-    this.time.delayedCall(0, () => {
-      this.openGalleryModal({
-        tab: link.tab,
-        spellId: link.spellId,
-        monsterId: link.monsterId,
-      });
-    });
-  }
-
   openAdminModal() {
     if (this.adminModalOpen) return;
     if (!this.joined) return;
-    if (this.settingsModal?.isOpen()) this.settingsModal.hide();
-    if (this.galleryModal?.isOpen()) this.galleryModal.hide();
-    if (this.controlsModalOpen) this.closeControlsModal();
     this.adminModalOpen = true;
 
     this.setLobbyDomVisible(false);
@@ -385,9 +300,9 @@ export class LobbyScene extends Phaser.Scene {
     panel.on('pointerup', (_p, _x, _y, event) => event.stopPropagation());
 
     const title = this.add
-      .text(width / 2, height / 2 - 155, 'Admin', {
+      .text(width / 2, height / 2 - 155, 'Opções da Partida', {
         fontFamily: 'Georgia, serif',
-        fontSize: '26px',
+        fontSize: '24px',
         color: '#f4e8ff',
       })
       .setOrigin(0.5);
@@ -509,9 +424,7 @@ export class LobbyScene extends Phaser.Scene {
       this.adminModal.removeAll(true);
       this.adminModal.setVisible(false);
     }
-    if (!this.controlsModalOpen && !this.settingsModal?.isOpen() && !this.galleryModal?.isOpen()) {
-      this.setLobbyDomVisible(true);
-    }
+    this.setLobbyDomVisible(true);
   }
 
   saveAdminSettings() {
@@ -533,95 +446,6 @@ export class LobbyScene extends Phaser.Scene {
       this.lobby.pvpEnabled = pvpOn;
     }
     this.closeAdminModal();
-  }
-
-  openControlsModal() {
-    if (this.controlsModalOpen) return;
-    if (this.settingsModal?.isOpen()) this.settingsModal.hide();
-    if (this.adminModalOpen) this.closeAdminModal();
-    if (this.galleryModal?.isOpen()) this.galleryModal.hide();
-    this.controlsModalOpen = true;
-
-    // DOM fica acima do canvas — esconde inputs enquanto o modal está aberto
-    this.setLobbyDomVisible(false);
-
-    const { width, height } = this.scale;
-    this.controlsModal.removeAll(true);
-    this.controlsModal.setDepth(10000).setVisible(true);
-    this.children.bringToTop(this.controlsModal);
-
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
-    dim.setInteractive();
-    dim.on('pointerup', () => this.closeControlsModal());
-
-    const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 460, 0x161228, 0.98)
-      .setStrokeStyle(2, 0x6b5cff);
-
-    const title = this.add
-      .text(width / 2, height / 2 - 175, 'Comandos', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '26px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5);
-
-    const lines = [
-      ['WASD', 'Mover'],
-      ['Shift + WASD', 'Dash'],
-      ['Mouse', 'Mirar'],
-      ['1 – 4', 'Selecionar (projéteis: autocast)'],
-      ['Tab', 'Ciclar magia 1→2→3→4'],
-      ['Espaço', 'Magia de área / ultimate'],
-      ['E / H / B', 'Escudo / Heal / Blink'],
-    ];
-
-    const rows = [];
-    const startY = height / 2 - 130;
-    lines.forEach(([key, action], i) => {
-      const y = startY + i * 34;
-      const keyText = this.add
-        .text(width / 2 - 150, y, key, {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '16px',
-          color: '#b8a6ff',
-        })
-        .setOrigin(0, 0.5);
-      const actionText = this.add
-        .text(width / 2 + 20, y, action, {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '16px',
-          color: '#e8dfff',
-        })
-        .setOrigin(0, 0.5);
-      rows.push(keyText, actionText);
-    });
-
-    const closeBg = this.add
-      .rectangle(width / 2, height / 2 + 170, 140, 40, 0x6b5cff, 1)
-      .setStrokeStyle(1, 0xffffff, 0.15);
-    const closeLabel = this.add
-      .text(width / 2, height / 2 + 170, 'Fechar', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    closeBg.setInteractive({ useHandCursor: true });
-    closeBg.on('pointerover', () => closeBg.setScale(1.04));
-    closeBg.on('pointerout', () => closeBg.setScale(1));
-    closeBg.on('pointerup', () => this.closeControlsModal());
-
-    this.controlsModal.add([dim, panel, title, ...rows, closeBg, closeLabel]);
-  }
-
-  closeControlsModal() {
-    this.controlsModalOpen = false;
-    this.controlsModal.removeAll(true);
-    this.controlsModal.setVisible(false);
-    if (!this.settingsModal?.isOpen() && !this.adminModalOpen && !this.galleryModal?.isOpen()) {
-      this.setLobbyDomVisible(true);
-    }
   }
 
   makeButton(x, y, label, color, onClick, width = 280) {

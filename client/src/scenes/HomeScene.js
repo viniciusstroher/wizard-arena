@@ -9,7 +9,9 @@ import {
   updateAmbientCreatures,
 } from '../ui/ambientCreatures.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
-import { SettingsModal } from '../ui/SettingsModal.js';
+import { GalleryModal } from '../ui/GalleryModal.js';
+import { ControlsModal } from '../ui/ControlsModal.js';
+import { parseGalleryUrl } from '../ui/galleryUrl.js';
 
 export class HomeScene extends Phaser.Scene {
   constructor() {
@@ -24,18 +26,18 @@ export class HomeScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
     const panelX = width / 2;
-    const panelY = height / 2 + 20;
+    const panelY = height / 2 + 10;
 
     const tex = ensureWizardColorTexture(this, this.character.color, this.character.skin);
     this.preview = this.add
-      .sprite(panelX, panelY - 120, tex)
+      .sprite(panelX, panelY - 150, tex)
       .setScale(4)
       .setDepth(5);
     const walkKey = `${tex}_walk`;
     if (this.anims.exists(walkKey)) this.preview.play(walkKey);
 
     this.add
-      .text(panelX, panelY - 40, this.character.name, {
+      .text(panelX, panelY - 70, this.character.name, {
         fontFamily: 'Georgia, serif',
         fontSize: '28px',
         color: '#f4e8ff',
@@ -43,19 +45,31 @@ export class HomeScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(5);
 
-    makeMenuButton(this, panelX, panelY + 40, 'Personagem', 0x6b5cff, () => {
+    makeMenuButton(this, panelX, panelY + 10, 'Personagem', 0x6b5cff, () => {
       navigate('/character');
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 100, 'Salas', 0x2ecc71, () => {
+    makeMenuButton(this, panelX, panelY + 70, 'Salas', 0x2ecc71, () => {
       navigate('/matchmaking');
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 160, 'Config', 0x443866, () => {
-      this.settingsModal?.show();
+    makeMenuButton(this, panelX, panelY + 130, 'Galeria', 0x443866, () => {
+      this.controlsModal?.hide();
+      this.galleryModal?.show();
     }).setDepth(10);
 
-    this.settingsModal = new SettingsModal(this);
+    makeMenuButton(this, panelX, panelY + 190, 'Comandos', 0x443866, () => {
+      this.galleryModal?.hide();
+      this.controlsModal?.show();
+    }).setDepth(10);
+
+    this.galleryModal = new GalleryModal(this, {
+      onOpen: () => this.controlsModal?.hide(),
+    });
+    this.controlsModal = new ControlsModal(this, {
+      onOpen: () => this.galleryModal?.hide(),
+    });
+    this._maybeOpenGalleryFromUrl();
 
     this.add
       .text(panelX, height - 36, 'Personalize seu bruxo e entre em uma sala', {
@@ -67,9 +81,23 @@ export class HomeScene extends Phaser.Scene {
       .setDepth(5);
 
     this.events.once('shutdown', () => {
-      this.settingsModal?.destroy();
-      this.settingsModal = null;
+      this.galleryModal?.destroy();
+      this.galleryModal = null;
+      this.controlsModal?.destroy();
+      this.controlsModal = null;
       destroyAmbientCreatures(this);
+    });
+  }
+
+  _maybeOpenGalleryFromUrl() {
+    const link = parseGalleryUrl();
+    if (!link) return;
+    this.time.delayedCall(0, () => {
+      this.galleryModal?.show({
+        tab: link.tab,
+        spellId: link.spellId,
+        monsterId: link.monsterId,
+      });
     });
   }
 
