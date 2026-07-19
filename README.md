@@ -37,8 +37,7 @@ Para PvP real: abra duas abas/navegadores, entre com nomes diferentes e dê Read
 |-------|------|
 | WASD | Mover |
 | Mouse | Mirar |
-| 1–4 / Tab | Selecionar magia (projéteis: autocast) |
-| Espaço | Usar magia de área / ultimate |
+| 1–4 / Tab | Selecionar magia (autocast ao sair do cooldown) |
 | E / H / B | Escudo / Heal / Blink |
 
 ## Regras

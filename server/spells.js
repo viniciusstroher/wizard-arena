@@ -4,11 +4,9 @@ export const SPELLS = {
   firebolt: {
     id: 'firebolt',
     name: 'Seta de Fogo',
-    description: 'Projétil de fogo com disparo automático. Causa dano a distância.',
+    description: 'Projétil de fogo. Dispara sozinho enquanto o slot estiver selecionado.',
     type: 'basic',
     playerUsable: true,
-    /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
-    autocast: true,
     cooldown: 0.40,
     manaCost: 0,
     damage: 18,
@@ -20,11 +18,9 @@ export const SPELLS = {
   ice_shard: {
     id: 'ice_shard',
     name: 'Fragmento de Gelo',
-    description: 'Fragmento de gelo com disparo automático. Causa dano e reduz velocidade por 5s.',
+    description: 'Fragmento de gelo. Dispara sozinho enquanto o slot estiver selecionado. Causa dano e reduz velocidade por 5s.',
     type: 'basic',
     playerUsable: true,
-    /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
-    autocast: true,
     cooldown: 0.45,
     manaCost: 0,
     damage: 14,
@@ -136,11 +132,9 @@ export const SPELLS = {
   skull_bolt: {
     id: 'skull_bolt',
     name: 'Raio Craniano',
-    description: 'Caveira amaldiçoada com raios negros. Disparo automático.',
+    description: 'Caveira amaldiçoada com raios negros. Dispara sozinho enquanto o slot estiver selecionado.',
     type: 'basic',
     playerUsable: true,
-    /** Dispara sozinho enquanto o slot estiver selecionado (sem Espaço). */
-    autocast: true,
     cooldown: 0.63,
     manaCost: 0,
     damage: 22,

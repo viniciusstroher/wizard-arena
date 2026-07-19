@@ -49,9 +49,8 @@ export class ControlsModal {
       ['WASD', 'Mover'],
       ['Shift + WASD', 'Dash'],
       ['Mouse', 'Mirar'],
-      ['1 – 4', 'Selecionar (projéteis: autocast)'],
+      ['1 – 4', 'Selecionar magia (autocast)'],
       ['Tab', 'Ciclar magia 1→2→3→4'],
-      ['Espaço', 'Magia de área / ultimate'],
       ['E / H / B', 'Escudo / Heal / Blink'],
     ];
 
