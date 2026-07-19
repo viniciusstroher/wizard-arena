@@ -59,6 +59,8 @@ export class GameScene extends Phaser.Scene {
     this.lavaBurn = null;
     this.arenaFireWall = null;
     this.arenaFireEmbers = null;
+    this.conjureFx = null;
+    this.conjureEmbers = null;
     this.arenaIronSprites = [];
     this.fireballFx = null;
     this.iceFx = null;
@@ -91,6 +93,12 @@ export class GameScene extends Phaser.Scene {
     this.spawnPingGraphics = null;
     /** Labels de magia não-projétil acima de jogadores/bots/mobs. */
     this.spellCastLabels = [];
+    /** Spotlight de abertura de round (preto + foco no jogador). */
+    this.roundSpotlight = null;
+    this.roundSpotlightBg = null;
+    this.roundSpotlightHole = null;
+    this.roundSpotlightRim = null;
+    this.roundSpotlightMask = null;
   }
 
   create() {
@@ -117,12 +125,14 @@ export class GameScene extends Phaser.Scene {
     this.createMoveDust();
     this.createLavaBurn();
     this.createArenaFireWall();
+    this.createConjureFx();
     this.createSpellParticleFx();
 
     this.createHud();
     this.createEventBoard();
     this.createDisconnectUi();
     this.createMatchEndUi();
+    this.createRoundSpotlight();
     this.setupAimCursor();
     this.cursors = this.input.keyboard.addKeys({
       up: Phaser.Input.Keyboard.KeyCodes.W,
@@ -175,8 +185,13 @@ export class GameScene extends Phaser.Scene {
       this.messageBoard = null;
       this.arenaFireWall?.destroy();
       this.arenaFireEmbers?.destroy();
+      this.conjureFx?.destroy();
+      this.conjureEmbers?.destroy();
+      this.destroyRoundSpotlight();
       this.arenaFireWall = null;
       this.arenaFireEmbers = null;
+      this.conjureFx = null;
+      this.conjureEmbers = null;
       for (const s of this.arenaIronSprites) s.destroy();
       this.arenaIronSprites = [];
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
@@ -1380,6 +1395,7 @@ export class GameScene extends Phaser.Scene {
         this.startSpawnPing();
         this.clearFloorDebris();
         this.syncBattleMusic();
+        this.beginRoundSpotlightReveal();
         if (ev.bossRound) this.showBossFightAlert();
       }
       if (ev.type === 'kiko_laugh') {
@@ -1403,9 +1419,18 @@ export class GameScene extends Phaser.Scene {
     if (state.phase === 'countdown' && prevPhase !== 'countdown') {
       // Ping já no countdown, antes do round começar
       this.startSpawnPing(10000);
+      this.beginRoundSpotlight();
       if (prevPhase && prevPhase !== 'lobby') {
         this.clearFloorDebris();
       }
+    } else if (
+      state.phase === 'countdown' &&
+      this.roundSpotlight &&
+      !this.roundSpotlight.active &&
+      this.roundSpotlight.mode === 'idle'
+    ) {
+      // Estado inicial já em countdown (reload / late join)
+      this.beginRoundSpotlight();
     }
     if (state.phase === 'ended') {
       this.showMatchEndOverlay(state);
@@ -1495,6 +1520,7 @@ export class GameScene extends Phaser.Scene {
     this.renderLootBags();
     this.renderCoins();
     this.renderSpawnPing();
+    this.updateRoundSpotlight();
     this.updateSpellCastLabels();
     this.updateHud();
     this.updateLevelUpUi();
@@ -1503,6 +1529,134 @@ export class GameScene extends Phaser.Scene {
 
   startSpawnPing(durationMs = 2800) {
     this.spawnPingUntil = this.time.now + durationMs;
+  }
+
+  /** Overlay preto com furo no jogador local (abertura de round). */
+  createRoundSpotlight() {
+    const { width, height } = this.scale;
+    this.roundSpotlight = {
+      active: false,
+      mode: 'idle', // idle | hold | reveal
+      alpha: 0,
+      holeR: 64,
+      revealStartedAt: 0,
+      revealDuration: 1400,
+    };
+
+    // Preto no mundo (mesmas coords do jogador) — cobre arena/HUD abaixo do banner
+    this.roundSpotlightBg = this.add
+      .rectangle(width / 2, height / 2, width * 2.2, height * 2.2, 0x000000, 1)
+      .setDepth(140)
+      .setVisible(false)
+      .setAlpha(0);
+
+    this.roundSpotlightHole = this.make.graphics({ x: 0, y: 0, add: false });
+    this.roundSpotlightMask = this.roundSpotlightHole.createGeometryMask();
+    this.roundSpotlightMask.invertAlpha = true;
+    this.roundSpotlightBg.setMask(this.roundSpotlightMask);
+
+    this.roundSpotlightRim = this.add.graphics().setDepth(141).setVisible(false);
+  }
+
+  destroyRoundSpotlight() {
+    this.roundSpotlightBg?.clearMask(true);
+    this.roundSpotlightBg?.destroy();
+    this.roundSpotlightRim?.destroy();
+    this.roundSpotlightHole?.destroy();
+    this.roundSpotlightBg = null;
+    this.roundSpotlightRim = null;
+    this.roundSpotlightHole = null;
+    this.roundSpotlightMask = null;
+    this.roundSpotlight = null;
+  }
+
+  beginRoundSpotlight() {
+    if (!this.roundSpotlight) this.createRoundSpotlight();
+    const s = this.roundSpotlight;
+    s.active = true;
+    s.mode = 'hold';
+    s.alpha = 1;
+    s.holeR = 72;
+    s.revealStartedAt = 0;
+    this.roundSpotlightBg?.setVisible(true).setAlpha(1);
+    this.roundSpotlightRim?.setVisible(true);
+  }
+
+  /** Fade-out do preto + abertura do foco quando o round começa de verdade. */
+  beginRoundSpotlightReveal() {
+    if (!this.roundSpotlight) this.createRoundSpotlight();
+    const s = this.roundSpotlight;
+    if (!s.active && s.alpha <= 0) {
+      this.beginRoundSpotlight();
+    }
+    s.active = true;
+    s.mode = 'reveal';
+    s.revealStartedAt = this.time.now;
+    s.revealDuration = 1400;
+    if (s.alpha < 0.2) s.alpha = 1;
+    this.roundSpotlightBg?.setVisible(true);
+    this.roundSpotlightRim?.setVisible(true);
+  }
+
+  updateRoundSpotlight() {
+    const s = this.roundSpotlight;
+    if (!s || !this.roundSpotlightBg || !this.roundSpotlightHole) return;
+
+    if (!s.active && s.alpha <= 0.01) {
+      this.roundSpotlightBg.setVisible(false).setAlpha(0);
+      this.roundSpotlightRim?.setVisible(false).clear();
+      return;
+    }
+
+    const me = this.me();
+    const { width, height } = this.scale;
+    const hx = me?.x ?? width / 2;
+    const hy = (me?.y ?? height / 2) - 8;
+
+    if (s.mode === 'hold') {
+      s.alpha = 1;
+      s.holeR = 72 * (1 + 0.05 * Math.sin(this.time.now / 220));
+    } else if (s.mode === 'reveal') {
+      const p = Phaser.Math.Clamp(
+        (this.time.now - s.revealStartedAt) / s.revealDuration,
+        0,
+        1
+      );
+      const ease = 1 - Math.pow(1 - p, 3);
+      s.alpha = 1 - ease;
+      s.holeR = 72 + ease * 900;
+      if (p >= 1) {
+        s.active = false;
+        s.mode = 'idle';
+        s.alpha = 0;
+        s.holeR = 72;
+        this.roundSpotlightBg.setVisible(false).setAlpha(0);
+        this.roundSpotlightRim.setVisible(false).clear();
+        return;
+      }
+    }
+
+    const rx = s.holeR * 0.95;
+    const ry = s.holeR * 1.2;
+
+    this.roundSpotlightHole.clear();
+    this.roundSpotlightHole.fillStyle(0xffffff, 1);
+    this.roundSpotlightHole.fillEllipse(hx, hy, rx * 2, ry * 2);
+
+    this.roundSpotlightBg.setVisible(true).setAlpha(s.alpha);
+
+    const rim = this.roundSpotlightRim;
+    rim.clear();
+    if (s.alpha > 0.02) {
+      rim.setVisible(true);
+      const a = s.alpha;
+      rim.lineStyle(12, 0x1a0840, 0.4 * a);
+      rim.strokeEllipse(hx, hy, rx * 2 + 14, ry * 2 + 14);
+      rim.lineStyle(6, 0x3a1878, 0.45 * a);
+      rim.strokeEllipse(hx, hy, rx * 2 + 6, ry * 2 + 6);
+      rim.lineStyle(2.2, 0x88aacc, 0.55 * a);
+      rim.strokeEllipse(hx, hy, rx * 2, ry * 2);
+    }
   }
 
   /** Círculo vermelho piscando na posição do jogador local (countdown + início do round). */
@@ -1721,6 +1875,39 @@ export class GameScene extends Phaser.Scene {
         blendMode: 'NORMAL',
       })
       .setDepth(2.5);
+  }
+
+  /** Partículas de conjuração — mesma paleta da borda da arena, subindo do chão. */
+  createConjureFx() {
+    this.conjureFx = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x4a2080, 0x6b40a8, 0x4488aa, 0x88aacc],
+        speed: { min: 28, max: 70 },
+        angle: { min: 255, max: 285 },
+        scale: { start: 1.05, end: 0 },
+        alpha: { start: 0.55, end: 0 },
+        lifespan: { min: 420, max: 780 },
+        gravityY: -55,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'NORMAL',
+      })
+      .setDepth(11);
+
+    this.conjureEmbers = this.add
+      .particles(0, 0, 'particle', {
+        tint: [0x5a3088, 0x5070a0, 0x8860b0, 0xaad0e8],
+        speed: { min: 16, max: 42 },
+        angle: { min: 240, max: 300 },
+        scale: { start: 0.65, end: 0 },
+        alpha: { start: 0.4, end: 0 },
+        lifespan: { min: 500, max: 900 },
+        gravityY: -35,
+        frequency: -1,
+        emitting: false,
+        blendMode: 'NORMAL',
+      })
+      .setDepth(12);
   }
 
   createSpellParticleFx() {
@@ -3496,42 +3683,118 @@ export class GameScene extends Phaser.Scene {
     g.fillCircle(e.x, e.y - 50, 4);
   }
 
+  /**
+   * Conjuração: mesma energia da borda da arena, subindo do chão até a cabeça.
+   * (tipo de efeito no servidor continua `pentagram` por compatibilidade)
+   */
   drawPentagram(e) {
     const maxLife = e.maxLife || 1.76;
     const fade = Math.min(1, e.life / maxLife);
-    const pulse = 0.85 + 0.15 * Math.sin((maxLife - e.life) * 10);
-    const radius = (e.radius || 30.4) * pulse;
-    const color = e.color || 0xffffff;
-    const rot = (maxLife - e.life) * 0.55;
+    const t = this.time.now;
+    const age = Math.max(0, maxLife - e.life);
+    const pulse = 0.78 + 0.22 * Math.sin(t / 420);
+    const flicker = 0.82 + 0.18 * Math.sin(t / 360 + 1.1);
+    const spin = t * 0.00035 + age * 1.1;
+    const rise = Math.min(1, age / 0.22);
+    const baseR = (e.radius || 30.4) * (0.72 + 0.08 * pulse);
+    // Sobe do chão (pés) até a cabeça do mago
+    const headH = 34 + baseR * 0.15;
+    const height = headH * rise * (0.88 + 0.12 * flicker);
+    const spellColor = e.color || 0x88aacc;
     const g = this.effectGraphics;
+    const aFade = fade * flicker;
 
-    g.fillStyle(color, 0.1 * fade);
-    g.fillCircle(e.x, e.y, radius);
-    g.lineStyle(2.5, color, 0.85 * fade);
-    g.strokeCircle(e.x, e.y, radius);
-    g.lineStyle(1.5, color, 0.45 * fade);
-    g.strokeCircle(e.x, e.y, radius * 0.72);
+    // Anel no chão — mesma linguagem visual da parede da arena
+    g.lineStyle(12, 0x1a0840, 0.14 * aFade);
+    g.strokeCircle(e.x, e.y + 6, baseR + 3);
+    g.lineStyle(8, 0x3a1878, 0.18 * pulse * fade);
+    g.strokeCircle(e.x, e.y + 6, baseR + 1);
+    g.lineStyle(5, 0x5a3098, 0.22 * aFade);
+    g.strokeCircle(e.x, e.y + 6, baseR);
+    g.lineStyle(2.5, 0x3a6a88, 0.26 * pulse * fade);
+    g.strokeCircle(e.x, e.y + 6, baseR - 2);
+    g.lineStyle(1.2, 0x88aacc, 0.32 * aFade);
+    g.strokeCircle(e.x, e.y + 6, baseR - 3);
 
-    const pts = [];
-    for (let i = 0; i < 5; i++) {
-      const a = -Math.PI / 2 + rot + (i * Math.PI * 2) / 5;
-      pts.push({
-        x: e.x + Math.cos(a) * radius * 0.88,
-        y: e.y + Math.sin(a) * radius * 0.88,
-      });
+    // Toque da cor da magia no chão
+    g.lineStyle(1.5, spellColor, 0.28 * fade);
+    g.strokeCircle(e.x, e.y + 6, baseR * 0.55);
+
+    // Arcos rotativos no chão
+    const arcs = 3;
+    for (let k = 0; k < arcs; k++) {
+      const start = spin * (k % 2 === 0 ? 1 : -1) + (k / arcs) * Math.PI * 2;
+      const sweep = 0.55 + 0.12 * Math.sin(t * 0.003 + k);
+      g.lineStyle(2, k % 2 === 0 ? 0x7a48b0 : 0x4a88a8, 0.3 * pulse * fade);
+      g.beginPath();
+      g.arc(e.x, e.y + 6, baseR + 1, start, start + sweep, false);
+      g.strokePath();
     }
 
-    g.lineStyle(2, color, 0.95 * fade);
-    g.beginPath();
-    g.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i <= 5; i++) {
-      const next = pts[(i * 2) % 5];
-      g.lineTo(next.x, next.y);
-    }
-    g.strokePath();
+    // Coluna suave (chão → cabeça)
+    g.fillStyle(0x3a1878, 0.08 * aFade);
+    g.fillEllipse(e.x, e.y + 6 - height * 0.45, baseR * 1.1, height * 0.95);
+    g.fillStyle(0x5a3098, 0.07 * pulse * fade);
+    g.fillEllipse(e.x, e.y + 6 - height * 0.5, baseR * 0.7, height * 0.85);
+    g.fillStyle(spellColor, 0.05 * fade);
+    g.fillEllipse(e.x, e.y + 6 - height * 0.55, baseR * 0.35, height * 0.7);
 
-    g.fillStyle(color, 0.35 * fade);
-    g.fillCircle(e.x, e.y, 3);
+    // Línguas de energia verticais (mesmo estilo da borda, mas subindo)
+    const tongues = 16;
+    for (let i = 0; i < tongues; i++) {
+      const ang = (i / tongues) * Math.PI * 2 + spin * 0.35;
+      const wobble = 0.7 + 0.3 * Math.sin(t * 0.004 + i * 2.1);
+      const h = (height * 0.55 + (i % 5) * (height * 0.09) + 4 * Math.sin(t * 0.003 + i * 1.4)) * wobble;
+      const ring = baseR * (0.55 + 0.35 * ((i % 3) / 2));
+      const x0 = e.x + Math.cos(ang) * ring;
+      const y0 = e.y + 8 + Math.sin(ang) * ring * 0.22;
+      const x1 = x0 + Math.cos(ang) * 2;
+      const y1 = y0 - h;
+      const yM = y0 - h * 0.55;
+
+      g.lineStyle(3.2, 0x3a1878, 0.22 * wobble * fade);
+      g.lineBetween(x0, y0, x1, y1);
+      g.lineStyle(2.0, 0x3a6a88, 0.3 * wobble * fade);
+      g.lineBetween(x0, y0, x0, yM);
+      g.lineStyle(1.1, 0x88aacc, 0.38 * wobble * fade);
+      g.lineBetween(x0, y0, x0, y0 - h * 0.35);
+      if (i % 3 === 0) {
+        g.lineStyle(1.0, spellColor, 0.35 * wobble * fade);
+        g.lineBetween(x0, y0, x0 + Math.cos(ang) * 1.5, y0 - h * 0.75);
+      }
+    }
+
+    // Halo na altura da cabeça
+    const headY = e.y + 6 - height;
+    g.lineStyle(6, 0x3a1878, 0.16 * aFade);
+    g.strokeCircle(e.x, headY, baseR * 0.35);
+    g.lineStyle(2.5, 0x88aacc, 0.28 * pulse * fade);
+    g.strokeCircle(e.x, headY, baseR * 0.28);
+    g.lineStyle(1.2, spellColor, 0.35 * fade);
+    g.strokeCircle(e.x, headY, baseR * 0.18);
+    g.fillStyle(0x88aacc, 0.2 * pulse * fade);
+    g.fillCircle(e.x, headY, 2.5);
+
+    // Partículas subindo do anel do chão
+    if (this.conjureFx && fade > 0.08) {
+      const steps = 10;
+      const frame = Math.floor(t / 70);
+      for (let i = 0; i < steps; i++) {
+        if ((i + frame) % 3 !== 0) continue;
+        const ang = (i / steps) * Math.PI * 2 + spin;
+        const r = baseR * (0.65 + 0.2 * Math.sin(t * 0.006 + i));
+        const x = e.x + Math.cos(ang) * r;
+        const y = e.y + 8 + Math.sin(ang) * r * 0.2;
+        this.conjureFx.emitParticleAt(x, y, 1);
+        if (this.conjureEmbers && (i + frame) % 5 === 0) {
+          this.conjureEmbers.emitParticleAt(x, y, 1);
+        }
+      }
+      // jato central sobe até a cabeça
+      if (frame % 2 === 0) {
+        this.conjureFx.emitParticleAt(e.x + (Math.random() - 0.5) * 6, e.y + 6, 1);
+      }
+    }
   }
 
   drawNova(e) {
