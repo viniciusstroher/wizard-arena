@@ -501,12 +501,20 @@ export class GameScene extends Phaser.Scene {
       .setScale(0.85);
 
     this.spellSlots = [];
-    // 1–3 magias, 4 = ultimate, Shift = dash, E = escudo (lv2), H = heal (lv3), B = blink (lv5)
+    // Linha de cima: 1–3 magias + 4 ultimate
+    // Linha de baixo: Shift = dash, E = escudo (lv2), H = heal (lv3), B = blink (lv5)
     const slotLabels = ['1', '2', '3', '4', 'Shift', 'E', 'H', 'B'];
+    const slotSize = 60;
+    const slotGap = 10;
+    const colPitch = slotSize + slotGap;
+    const rowPitch = slotSize + 8;
+    const baseX = 24 + slotSize / 2;
+    const bottomY = this.scale.height - 36;
     for (let i = 0; i < 8; i++) {
-      const gapAfterUlt = i >= 4 ? 24 : 0;
-      const x = 24 + i * 70 + gapAfterUlt;
-      const y = this.scale.height - 70;
+      const col = i % 4;
+      const row = i < 4 ? 0 : 1;
+      const x = baseX + col * colPitch;
+      const y = bottomY - (1 - row) * rowPitch;
       const slot = this.add.container(x, y).setScrollFactor(0).setDepth(100);
       const bg = this.add.rectangle(0, 0, 60, 60, 0x1a1430, 0.95).setStrokeStyle(2, 0x6b5cff);
       const icon = this.add.image(0, -4, 'spell_firebolt').setScale(1.35).setVisible(false);
