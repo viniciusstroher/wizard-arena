@@ -140,6 +140,7 @@ export class HomeScene extends Phaser.Scene {
         tab: link.tab,
         spellId: link.spellId,
         monsterId: link.monsterId,
+        floorId: link.floorId,
       });
     });
   }

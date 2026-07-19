@@ -326,6 +326,22 @@ export class Match {
       'sewer',
       'meadow',
       'lava_field',
+      // Expansão +15 terrenos
+      'glacier',
+      'oasis',
+      'canyon',
+      'marsh',
+      'aurora',
+      'obsidian',
+      'sandstone',
+      'storm',
+      'garden',
+      'battlefield',
+      'library',
+      'catacomb',
+      'abyss',
+      'bramble',
+      'saltflat',
     ];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
@@ -408,6 +424,22 @@ export class Match {
       sewer: swampTypes,
       meadow: dirtTypes,
       lava_field: volcanoTypes,
+      // Expansão +15 — packs temáticos
+      glacier: iceTypes,
+      oasis: desertTypes,
+      canyon: dirtTypes,
+      marsh: swampTypes,
+      aurora: crystalTypes,
+      obsidian: volcanoTypes,
+      sandstone: ruinsTypes,
+      storm: crystalTypes,
+      garden: dirtTypes,
+      battlefield: ruinsTypes,
+      library: woodTypes,
+      catacomb: ruinsTypes,
+      abyss: seaTypes,
+      bramble: dirtTypes,
+      saltflat: desertTypes,
     };
     const types = typesByFloor[this.floorType] || dirtTypes;
     const count =
@@ -466,13 +498,20 @@ export class Match {
       'enchanted',
       'meadow',
       'tundra',
+      'marsh',
+      'garden',
+      'bramble',
+      'oasis',
     ]);
     if (!forestFloors.has(this.floorType)) {
       this.trees = [];
       return;
     }
 
-    const swampLike = this.floorType === 'swamp' || this.floorType === 'mushroom';
+    const swampLike =
+      this.floorType === 'swamp' ||
+      this.floorType === 'mushroom' ||
+      this.floorType === 'marsh';
     const coldLike = this.floorType === 'tundra';
     const types = swampLike
       ? [

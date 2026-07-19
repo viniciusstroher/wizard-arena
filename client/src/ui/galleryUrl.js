@@ -4,31 +4,43 @@
  * Exemplos:
  *   ?gallery=monsters
  *   ?gallery=spells
+ *   ?gallery=floors
  *   ?gallery=spells&spell=firebolt
  *   ?gallery=monsters&monster=goblin
+ *   ?gallery=floors&floor=glacier
  */
+
+const GALLERY_TABS = new Set(['monsters', 'spells', 'floors']);
 
 export function parseGalleryUrl(search = window.location.search) {
   const params = new URLSearchParams(search);
   const gallery = String(params.get('gallery') || '').trim().toLowerCase();
-  if (gallery !== 'monsters' && gallery !== 'spells') return null;
+  if (!GALLERY_TABS.has(gallery)) return null;
 
   const spell = String(params.get('spell') || '').trim();
   const monster = String(params.get('monster') || '').trim();
+  const floor = String(params.get('floor') || '').trim();
 
   return {
     tab: gallery,
     spellId: spell || null,
     monsterId: monster || null,
+    floorId: floor || null,
   };
 }
 
-export function buildGalleryUrl({ tab, spellId = null, monsterId = null } = {}) {
+export function buildGalleryUrl({
+  tab,
+  spellId = null,
+  monsterId = null,
+  floorId = null,
+} = {}) {
   const url = new URL(window.location.href);
   if (!tab) {
     url.searchParams.delete('gallery');
     url.searchParams.delete('spell');
     url.searchParams.delete('monster');
+    url.searchParams.delete('floor');
     return url;
   }
 
@@ -36,12 +48,19 @@ export function buildGalleryUrl({ tab, spellId = null, monsterId = null } = {}) 
   if (tab === 'spells' && spellId) {
     url.searchParams.set('spell', spellId);
     url.searchParams.delete('monster');
+    url.searchParams.delete('floor');
   } else if (tab === 'monsters' && monsterId) {
     url.searchParams.set('monster', monsterId);
     url.searchParams.delete('spell');
+    url.searchParams.delete('floor');
+  } else if (tab === 'floors' && floorId) {
+    url.searchParams.set('floor', floorId);
+    url.searchParams.delete('spell');
+    url.searchParams.delete('monster');
   } else {
     url.searchParams.delete('spell');
     url.searchParams.delete('monster');
+    url.searchParams.delete('floor');
   }
   return url;
 }
@@ -58,7 +77,12 @@ export function clearGalleryUrl() {
   syncGalleryUrl({ tab: null });
 }
 
-export function galleryShareUrl({ tab, spellId = null, monsterId = null } = {}) {
-  const url = buildGalleryUrl({ tab, spellId, monsterId });
+export function galleryShareUrl({
+  tab,
+  spellId = null,
+  monsterId = null,
+  floorId = null,
+} = {}) {
+  const url = buildGalleryUrl({ tab, spellId, monsterId, floorId });
   return url.toString();
 }

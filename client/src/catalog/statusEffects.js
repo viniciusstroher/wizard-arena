@@ -30,6 +30,21 @@ export const FLOOR_SPEED_MUL = {
   sewer: 0.7,
   meadow: 1.1,
   lava_field: 0.75,
+  glacier: 0.7,
+  oasis: 1.05,
+  canyon: 0.9,
+  marsh: 0.65,
+  aurora: 1.1,
+  obsidian: 0.85,
+  sandstone: 1,
+  storm: 1.05,
+  garden: 1.1,
+  battlefield: 0.9,
+  library: 1.15,
+  catacomb: 0.95,
+  abyss: 0.9,
+  bramble: 0.8,
+  saltflat: 0.75,
 };
 
 export const FLOOR_INERTIA_MUL = {
@@ -63,13 +78,28 @@ export const FLOOR_INERTIA_MUL = {
   sewer: 1.25,
   meadow: 1,
   lava_field: 1,
+  glacier: 1.5,
+  oasis: 1.1,
+  canyon: 1,
+  marsh: 1.15,
+  aurora: 1.35,
+  obsidian: 1.1,
+  sandstone: 1,
+  storm: 1.45,
+  garden: 1,
+  battlefield: 1,
+  library: 1,
+  catacomb: 1,
+  abyss: 2.5,
+  bramble: 1,
+  saltflat: 1.2,
 };
 
 export const GALE_SPEED_MUL = 1.5;
 export const GALE_INERTIA_MUL = 0.75;
 export const PLAYER_RADIUS = 16;
 
-const FLOOR_META = {
+export const FLOOR_META = {
   dirt: { name: 'Terra', icon: 'spell_dash', color: 0xa08060 },
   grass: { name: 'Floresta', icon: 'spell_mend', color: 0x5dade2 },
   ice: { name: 'Gelo', icon: 'spell_ice_shard', color: 0x66ccff },
@@ -100,6 +130,21 @@ const FLOOR_META = {
   sewer: { name: 'Esgoto', icon: 'spell_poison_cloud', color: 0x556b2f },
   meadow: { name: 'Prado', icon: 'spell_mend', color: 0x82e0aa },
   lava_field: { name: 'Campo de Lava', icon: 'spell_flame_nova', color: 0xe67e22 },
+  glacier: { name: 'Geleira', icon: 'spell_ice_shard', color: 0x5dade2 },
+  oasis: { name: 'Oásis', icon: 'spell_mend', color: 0x58d68d },
+  canyon: { name: 'Cânion', icon: 'spell_dash', color: 0xd35400 },
+  marsh: { name: 'Charco', icon: 'spell_poison_cloud', color: 0x7d8a3a },
+  aurora: { name: 'Aurora', icon: 'spell_arc_lightning', color: 0x58d68d },
+  obsidian: { name: 'Obsidiana', icon: 'spell_flame_nova', color: 0x1c2833 },
+  sandstone: { name: 'Arenito', icon: 'spell_barrier', color: 0xd4a574 },
+  storm: { name: 'Tempestade', icon: 'spell_arc_lightning', color: 0x5b6b8a },
+  garden: { name: 'Jardim', icon: 'spell_mend', color: 0xf1948a },
+  battlefield: { name: 'Campo de Batalha', icon: 'spell_skull_bolt', color: 0x7b241c },
+  library: { name: 'Biblioteca', icon: 'spell_dash', color: 0xa04000 },
+  catacomb: { name: 'Catacumba', icon: 'spell_skull_bolt', color: 0x85929e },
+  abyss: { name: 'Abismo', icon: 'spell_time_freeze', color: 0x1a5276 },
+  bramble: { name: 'Espinhos', icon: 'spell_poison_cloud', color: 0x196f3d },
+  saltflat: { name: 'Salina', icon: 'spell_firebolt', color: 0xf5e6c8 },
 };
 
 function pctDelta(mul) {
@@ -109,7 +154,7 @@ function pctDelta(mul) {
   return `${sign}${pct}%`;
 }
 
-function floorDescription(speedMul, inertiaMul) {
+export function floorDescription(speedMul, inertiaMul) {
   const parts = [];
   const spd = pctDelta(speedMul);
   if (spd) parts.push(`Velocidade ${spd}`);
