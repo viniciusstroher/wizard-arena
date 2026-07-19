@@ -259,6 +259,8 @@ export const CONFIG = {
   PLAYER_DASH_DURATION: envNumber('PLAYER_DASH_DURATION', 0.12),
   /** Cooldown entre dashes em segundos. */
   PLAYER_DASH_COOLDOWN: envNumber('PLAYER_DASH_COOLDOWN', 0.7),
+  /** Cooldown do ultimate (autocast) em segundos. */
+  PLAYER_ULTIMATE_COOLDOWN: Math.max(0.2, envNumber('PLAYER_ULTIMATE_COOLDOWN', 20)),
   /** HP regenerado a cada janela (0 = desligado). */
   HP_REGEN_AMOUNT: envNumber('HP_REGEN_AMOUNT', 2),
   /** Janela em segundos entre regenerações. */

@@ -50,5 +50,5 @@ Para PvP real: abra duas abas/navegadores, entre com nomes diferentes e dê Read
 - 100 HP. Começa no nível 1 com Firebolt.
 - Ao subir de nível: escolha 1 de 3 magias (rogue-like). Máx. 4 magias.
 - Uma das 3 opções pode ser upgrade de magia já escolhida.
-- Nível 4+: pode aparecer um **ultimate** (1 uso por round; Phoenix é passivo).
+- Nível 4+: pode aparecer um **ultimate** (autocast; cooldown via `PLAYER_ULTIMATE_COOLDOWN`).
 - XP: matar monstro / matar jogador (maior) / sobreviver ao round (menor que kill de jogador).

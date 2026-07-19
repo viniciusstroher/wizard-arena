@@ -12,6 +12,8 @@ import {
   syncGalleryUrl,
 } from './galleryUrl.js';
 import { GallerySpellFx } from './gallerySpellFx.js';
+import { ensureCharacter } from '../character.js';
+import { ensureWizardColorTexture } from '../wizardSkin.js';
 
 const TIER_SECTIONS = [
   { id: 'normal', label: 'Normais', color: '#9a8bb8' },
@@ -1565,29 +1567,26 @@ export class GalleryModal {
     const floor = this._randomFloorEntry();
     if (floor) this._buildPlatformStage(floor);
 
-    const from = { x: -36, y: 12 };
-    const to = { x: 46, y: 12 };
+    const arenaR = this._previewArenaR || 78;
+    // Scale 1.5 no raio padrão (78), proporcional se a arena do preview mudar.
+    const wizardScale = 1.5 * (arenaR / 78);
+    const from = { x: -arenaR * 0.46, y: arenaR * 0.15 };
+    const to = { x: arenaR * 0.58, y: arenaR * 0.15 };
 
-    const iconKey = `spell_${entry.id}`;
-    if (this.scene.textures.exists(iconKey)) {
-      const icon = this.scene.add.image(from.x, from.y - 28, iconKey).setScale(1.8);
-      this.previewRoot.add(icon);
-      this.previewSprites.push(icon);
-      this.scene.tweens.add({
-        targets: icon,
-        scale: 2.0,
-        duration: 500,
-        yoyo: true,
-        repeat: -1,
-        ease: 'Sine.easeInOut',
-      });
-    } else {
-      const orb = this.scene.add.circle(from.x, from.y - 24, 14, entry.color, 0.95);
-      this.previewRoot.add(orb);
-      this.previewSprites.push(orb);
-    }
+    const char = ensureCharacter();
+    const tex = ensureWizardColorTexture(this.scene, char.color, char.skin);
+    const wizard = this.scene.add.sprite(from.x, from.y, tex).setScale(wizardScale);
+    this.previewRoot.add(wizard);
+    this.previewSprites.push(wizard);
+    wizard.setData('baseScale', wizardScale);
+    wizard.setData('baseY', from.y);
+    wizard.setFlipX(to.x < from.x);
 
-    const marker = this.scene.add.circle(to.x, to.y, 6, 0x884444, 0.7);
+    const walkKey = `${tex}_walk`;
+    if (this.scene.anims.exists(walkKey)) wizard.play(walkKey);
+
+    const markerR = Math.max(5, arenaR * 0.075);
+    const marker = this.scene.add.circle(to.x, to.y, markerR, 0x884444, 0.7);
     this.previewRoot.add(marker);
     this.previewSprites.push(marker);
 
@@ -1596,17 +1595,50 @@ export class GalleryModal {
     }
 
     const cast = () => {
-      if (!this.open || this.selectedSpellId !== entry.id) return;
-      this._animateSpellCast(entry.id, from.x, from.y, to.x, to.y, entry.color);
+      if (!this.open || this.selectedSpellId !== entry.id || !wizard.active) return;
+      this._castGalleryWizardSpell(entry, wizard, from, to);
     };
-    this.previewTimers.push(this.scene.time.delayedCall(350, cast));
+    this.previewTimers.push(this.scene.time.delayedCall(450, cast));
     this.previewTimers.push(
       this.scene.time.addEvent({
-        delay: 2200,
+        delay: 10000,
         loop: true,
         callback: cast,
       })
     );
+  }
+
+  /** Windup do mago + VFX da magia selecionada. */
+  _castGalleryWizardSpell(entry, wizard, from, to) {
+    if (!wizard?.active || !this.previewRoot) return;
+
+    const baseScale = wizard.getData('baseScale') ?? wizard.scaleX;
+    const baseY = wizard.getData('baseY') ?? from.y;
+
+    this.scene.tweens.killTweensOf(wizard);
+    wizard.setPosition(from.x, baseY).setScale(baseScale);
+    wizard.setTint(entry.color ?? 0xffffff);
+
+    this.scene.tweens.add({
+      targets: wizard,
+      scaleX: baseScale * 1.18,
+      scaleY: baseScale * 1.18,
+      y: baseY - Math.max(4, baseScale * 3),
+      duration: 220,
+      yoyo: true,
+      ease: 'Back.easeOut',
+      onYoyo: () => {
+        if (!wizard.active) return;
+        this._burstAt(from.x, baseY - 8, this._fxKindForSpell(entry.id), 10);
+        this._animateSpellCast(entry.id, from.x, from.y, to.x, to.y, entry.color);
+      },
+      onComplete: () => {
+        if (!wizard.active) return;
+        wizard.clearTint();
+        wizard.setScale(baseScale);
+        wizard.y = baseY;
+      },
+    });
   }
 
   /** VFX completo do jogo (fade começa em 100%), com projétil quando necessário. */

@@ -535,11 +535,11 @@ export const ULTIMATES = {
   apocalypse: {
     id: 'apocalypse',
     name: 'Apocalipse',
-    description: 'Chuva de meteoros em grande área. Ultimate — 1x por round.',
+    description: 'Chuva de meteoros em grande área. Ultimate — autocast.',
     type: 'ultimate',
     playerUsable: true,
-    cooldown: 9999,
-    oncePerRound: true,
+    /** Padrão; runtime usa CONFIG.PLAYER_ULTIMATE_COOLDOWN. */
+    cooldown: 20,
     damage: 70,
     radius: 200,
     color: 0xff2200,
@@ -547,11 +547,11 @@ export const ULTIMATES = {
   time_freeze: {
     id: 'time_freeze',
     name: 'Congelamento Temporal',
-    description: 'Congela inimigos próximos. Ultimate — 1x por round.',
+    description: 'Congela inimigos próximos. Ultimate — autocast.',
     type: 'ultimate',
     playerUsable: true,
-    cooldown: 9999,
-    oncePerRound: true,
+    /** Padrão; runtime usa CONFIG.PLAYER_ULTIMATE_COOLDOWN. */
+    cooldown: 20,
     duration: 3,
     radius: 220,
     color: 0xaaddff,
@@ -559,11 +559,11 @@ export const ULTIMATES = {
   storm_call: {
     id: 'storm_call',
     name: 'Chamado da Tempestade',
-    description: 'Cadeia de raios em todos os inimigos próximos. Ultimate — 1x por round.',
+    description: 'Cadeia de raios em todos os inimigos próximos. Ultimate — autocast.',
     type: 'ultimate',
     playerUsable: true,
-    cooldown: 9999,
-    oncePerRound: true,
+    /** Padrão; runtime usa CONFIG.PLAYER_ULTIMATE_COOLDOWN. */
+    cooldown: 20,
     damage: 45,
     range: 320,
     color: 0xffdd33,
@@ -627,9 +627,10 @@ export function spellStats(id, level = 1) {
     shield: base.shield != null ? Math.round(base.shield * mul) : undefined,
     radius: base.radius != null ? Math.round(base.radius * (1 + (level - 1) * 0.12)) : undefined,
     range: base.range != null ? Math.round(base.range * (1 + (level - 1) * 0.08)) : undefined,
-    cooldown: base.cooldown != null && !base.oncePerRound
-      ? Math.max(0.2, +(base.cooldown * (1 - (level - 1) * 0.08)).toFixed(2))
-      : base.cooldown,
+    cooldown:
+      base.cooldown != null
+        ? Math.max(0.2, +(base.cooldown * (1 - (level - 1) * 0.08)).toFixed(2))
+        : base.cooldown,
     level,
   };
 }

@@ -5222,8 +5222,8 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.setSpellSlotIcon(ultSlot, ult.id || ult.stats?.id);
       ultSlot.name.setText('ult');
-      ultSlot.cd.setText(ult.usedThisRound ? 'X' : 'OK');
-      ultSlot.icon.setAlpha(ult.usedThisRound ? 0.4 : 1);
+      ultSlot.cd.setText(ult.cooldownLeft > 0 ? ult.cooldownLeft.toFixed(1) : 'OK');
+      ultSlot.icon.setAlpha(ult.cooldownLeft > 0 ? 0.45 : 1);
       ultSlot.bg.setStrokeStyle(ultSelected ? 3 : 2, ultSelected ? 0xffffff : ult.stats.color || 0xffaa33);
       ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     }
@@ -5685,7 +5685,7 @@ export class GameScene extends Phaser.Scene {
           choice.kind === 'upgrade'
             ? `Lv ${choice.fromLevel} → ${choice.toLevel}`
             : choice.def?.type === 'ultimate'
-              ? 'Ultimate · 1x / round'
+              ? `Ultimate · CD ${choice.def?.cooldown ?? '-'}s`
               : `Dano ${choice.def?.damage ?? '-'} · CD ${choice.def?.cooldown ?? '-'}s`,
           {
             fontFamily: 'Trebuchet MS, sans-serif',

@@ -3579,12 +3579,6 @@ export class Match {
     }
     // Keep latched cast while on cooldown so a press queues until ready.
     if (spellInst.cooldownLeft > 0) return;
-    if (spellInst.type === 'ultimate' || spellStats(spellInst.id)?.oncePerRound) {
-      if (spellInst.usedThisRound) {
-        player.input.castSlot = -1;
-        return;
-      }
-    }
 
     const stats = spellStats(spellInst.id, spellInst.level);
     if (!stats || !isPlayerUsableSpell(spellInst.id)) {
@@ -3703,7 +3697,6 @@ export class Match {
           color: stats.color,
           seed: (Math.random() * 1e9) | 0,
         });
-        spellInst.usedThisRound = true;
         break;
       case 'time_freeze':
         for (const other of this.players.values()) {
@@ -3724,7 +3717,6 @@ export class Match {
           color: stats.color,
           seed: (Math.random() * 1e9) | 0,
         });
-        spellInst.usedThisRound = true;
         break;
       case 'storm_call': {
         const hostiles = this.listHostiles(player).filter((h) => dist(player, h) <= stats.range);
@@ -3754,7 +3746,6 @@ export class Match {
           });
           this.spawnSpellImpact(h.x, h.y, 'storm_call', stats.color, 30);
         }
-        spellInst.usedThisRound = true;
         break;
       }
       default:
@@ -3774,7 +3765,8 @@ export class Match {
     });
     this.announceNonProjectileCast(player, spellInst.id, true);
 
-    spellInst.cooldownLeft = stats.cooldown;
+    spellInst.cooldownLeft =
+      spellInst.type === 'ultimate' ? CONFIG.PLAYER_ULTIMATE_COOLDOWN : stats.cooldown;
     player.input.castSlot = -1;
   }
 
