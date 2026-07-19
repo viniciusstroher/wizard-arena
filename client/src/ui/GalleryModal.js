@@ -1027,49 +1027,296 @@ export class GalleryModal {
     this._clearPreview();
     if (!this.previewRoot) return;
 
-    const key = this.scene.textures.exists(entry.textureKey)
+    const arenaR = 78;
+    const floorKey = this.scene.textures.exists(entry.textureKey)
       ? entry.textureKey
       : this.scene.textures.exists('arena_brick')
         ? 'arena_brick'
         : null;
 
-    if (key) {
-      const tile = this.scene.add
-        .tileSprite(0, 0, PREVIEW_W - 24, PREVIEW_H - 24, key)
-        .setOrigin(0.5);
-      this.previewRoot.add(tile);
-      this.previewSprites.push(tile);
-
-      const rim = this.scene.add
-        .circle(0, 0, Math.min(PREVIEW_W, PREVIEW_H) / 2 - 18, 0x000000, 0)
-        .setStrokeStyle(3, entry.color ?? 0x6b5cff, 0.85);
-      this.previewRoot.add(rim);
-      this.previewSprites.push(rim);
-
+    // Fundo de lava (fora do círculo) — como na partida
+    if (this.scene.textures.exists('lava_tile')) {
+      const lava = this.scene.add
+        .tileSprite(0, 0, PREVIEW_W - 12, PREVIEW_H - 12, 'lava_tile')
+        .setOrigin(0.5)
+        .setTileScale(1.1, 1.1);
+      this.previewRoot.add(lava);
+      this.previewSprites.push(lava);
       this.previewTimers.push(
         this.scene.time.addEvent({
           delay: 40,
           loop: true,
           callback: () => {
-            if (!this.open || this.selectedFloorId !== entry.id || !tile.active) return;
-            tile.tilePositionX += 0.35;
-            tile.tilePositionY += 0.2;
+            if (!this.open || this.selectedFloorId !== entry.id || !lava.active) return;
+            lava.tilePositionX += 0.45;
+            lava.tilePositionY += 0.25;
           },
         })
       );
-      return;
+    } else {
+      const bg = this.scene.add.rectangle(0, 0, PREVIEW_W - 12, PREVIEW_H - 12, 0x1a0500, 1);
+      this.previewRoot.add(bg);
+      this.previewSprites.push(bg);
     }
 
-    const fallback = this.scene.add.rectangle(
-      0,
-      0,
-      PREVIEW_W - 40,
-      PREVIEW_H - 40,
-      entry.color ?? 0xa08060,
-      1
+    // Chão circular mascarado
+    if (floorKey) {
+      const floor = this.scene.add
+        .tileSprite(0, 0, arenaR * 2, arenaR * 2, floorKey)
+        .setOrigin(0.5);
+      this.previewRoot.add(floor);
+      this.previewSprites.push(floor);
+
+      const maskGfx = this.scene.add.graphics();
+      maskGfx.setPosition(this.previewRoot.x, this.previewRoot.y);
+      maskGfx.fillStyle(0xffffff, 1);
+      maskGfx.fillCircle(0, 0, arenaR);
+      maskGfx.setVisible(false);
+      floor.setMask(maskGfx.createGeometryMask());
+      this._floorMaskGfx = maskGfx;
+    } else {
+      const disc = this.scene.add.circle(0, 0, arenaR, entry.color ?? 0xa08060, 1);
+      this.previewRoot.add(disc);
+      this.previewSprites.push(disc);
+    }
+
+    // Obstáculos temáticos (layout determinístico por id)
+    this._spawnFloorPreviewProps(entry, arenaR);
+
+    // Anel de ferro no perímetro
+    this._spawnFloorPreviewIronRim(arenaR);
+
+    // Parede de energia por cima de tudo (como na partida)
+    if (this.stageGfx) this.previewRoot.bringToTop(this.stageGfx);
+    this.previewTimers.push(
+      this.scene.time.addEvent({
+        delay: 50,
+        loop: true,
+        callback: () => {
+          if (!this.open || this.selectedFloorId !== entry.id) return;
+          this._drawFloorPreviewFireWall(arenaR);
+        },
+      })
     );
-    this.previewRoot.add(fallback);
-    this.previewSprites.push(fallback);
+    this._drawFloorPreviewFireWall(arenaR);
+  }
+
+  _hashStr(s) {
+    let h = 0;
+    const str = String(s);
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return h;
+  }
+
+  _rockTextureVariants() {
+    return {
+      stone: ['rock_stone_0', 'rock_stone_1', 'rock_stone_2'],
+      rock: ['rock_rock_0', 'rock_rock_1', 'rock_rock_2'],
+      boulder: ['rock_boulder_0', 'rock_boulder_1', 'rock_boulder_2'],
+      ice_stone: ['rock_ice_stone_0', 'rock_ice_stone_1', 'rock_ice_stone_2'],
+      ice_rock: ['rock_ice_rock_0', 'rock_ice_rock_1', 'rock_ice_rock_2'],
+      ice_boulder: ['rock_ice_boulder_0', 'rock_ice_boulder_1', 'rock_ice_boulder_2'],
+      chair: ['furn_chair_0', 'furn_chair_1', 'furn_chair_2'],
+      crate: ['furn_crate_0', 'furn_crate_1', 'furn_crate_2'],
+      table: ['furn_table_0', 'furn_table_1', 'furn_table_2'],
+      cabinet: ['furn_cabinet_0', 'furn_cabinet_1', 'furn_cabinet_2'],
+      shell: ['shell_shell_0', 'shell_shell_1', 'shell_shell_2'],
+      conch: ['shell_conch_0', 'shell_conch_1', 'shell_conch_2'],
+      clam: ['shell_clam_0', 'shell_clam_1', 'shell_clam_2'],
+      cactus_small: ['cactus_small_0', 'cactus_small_1', 'cactus_small_2'],
+      cactus: ['cactus_med_0', 'cactus_med_1', 'cactus_med_2'],
+      cactus_tall: ['cactus_tall_0', 'cactus_tall_1', 'cactus_tall_2'],
+      puddle_small: ['puddle_small_0', 'puddle_small_1', 'puddle_small_2'],
+      puddle: ['puddle_med_0', 'puddle_med_1', 'puddle_med_2'],
+      puddle_large: ['puddle_large_0', 'puddle_large_1', 'puddle_large_2'],
+      ember_stone: ['volc_ember_0', 'volc_ember_1', 'volc_ember_2'],
+      lava_rock: ['volc_lava_0', 'volc_lava_1', 'volc_lava_2'],
+      obsidian: ['volc_obsidian_0', 'volc_obsidian_1', 'volc_obsidian_2'],
+      rubble: ['ruin_rubble_0', 'ruin_rubble_1', 'ruin_rubble_2'],
+      broken_pillar: ['ruin_pillar_0', 'ruin_pillar_1', 'ruin_pillar_2'],
+      statue: ['ruin_statue_0', 'ruin_statue_1', 'ruin_statue_2'],
+      crystal_small: ['crystal_small_0', 'crystal_small_1', 'crystal_small_2'],
+      crystal: ['crystal_med_0', 'crystal_med_1', 'crystal_med_2'],
+      crystal_large: ['crystal_large_0', 'crystal_large_1', 'crystal_large_2'],
+    };
+  }
+
+  _treeTextureVariants() {
+    return {
+      pine: ['tree_pine_0', 'tree_pine_1'],
+      oak: ['tree_oak_0', 'tree_oak_1'],
+      bush: ['tree_bush_0', 'tree_bush_1'],
+      mangrove: ['tree_mangrove_0', 'tree_mangrove_1'],
+      swamp_oak: ['tree_swamp_oak_0', 'tree_swamp_oak_1'],
+      swamp_bush: ['tree_swamp_bush_0', 'tree_swamp_bush_1'],
+    };
+  }
+
+  _spawnFloorPreviewProps(entry, arenaR) {
+    const variants = this._rockTextureVariants();
+    const obstacles = entry.obstacles || [];
+    if (!obstacles.length) return;
+
+    const seed = this._hashStr(entry.id);
+    const count = 5;
+    const placed = [];
+    let attempts = 0;
+
+    while (placed.length < count && attempts < 40) {
+      attempts += 1;
+      const h = (seed + attempts * 2654435761) >>> 0;
+      const def = obstacles[h % obstacles.length];
+      const ang = ((h >>> 8) % 360) * (Math.PI / 180);
+      const minR = 22;
+      const maxR = arenaR - def.radius * 0.45 - 10;
+      const dist = minR + ((h >>> 16) % 1000) / 1000 * Math.max(0, maxR - minR);
+      const x = Math.cos(ang) * dist;
+      const y = Math.sin(ang) * dist;
+
+      let overlaps = false;
+      for (const p of placed) {
+        if (Math.hypot(x - p.x, y - p.y) < p.radius + def.radius * 0.45 + 6) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) continue;
+
+      const list = variants[def.type] || variants.rock;
+      const key = list[h % list.length];
+      if (!this.scene.textures.exists(key)) continue;
+
+      const isPuddle = def.type.startsWith('puddle');
+      const isTall =
+        def.type.includes('tall') ||
+        def.type === 'boulder' ||
+        def.type === 'ice_boulder' ||
+        def.type === 'cabinet' ||
+        def.type === 'statue' ||
+        def.type === 'crystal_large' ||
+        def.type === 'obsidian' ||
+        def.type === 'clam';
+      const scale = (isTall ? 0.72 : def.radius >= 18 ? 0.62 : 0.52) * (0.92 + ((h >>> 4) % 20) / 100);
+      const img = this.scene.add
+        .image(x, y, key)
+        .setOrigin(0.5, isPuddle ? 0.5 : 0.7)
+        .setScale(scale)
+        .setFlipX((h & 1) === 1)
+        .setRotation(isPuddle ? (((h >>> 3) % 9) - 4) * 0.04 : (((h >>> 3) % 11) - 5) * 0.02);
+      this.previewRoot.add(img);
+      this.previewSprites.push(img);
+      placed.push({ x, y, radius: def.radius * 0.45 });
+    }
+
+    // Árvores em biomas florestais
+    const trees = entry.trees || [];
+    if (!trees.length) return;
+    const treeVariants = this._treeTextureVariants();
+    const treeCount = 3;
+    let tAttempts = 0;
+    while (placed.length < count + treeCount && tAttempts < 30) {
+      tAttempts += 1;
+      const h = (seed + 9000 + tAttempts * 2246822519) >>> 0;
+      const def = trees[h % trees.length];
+      const ang = ((h >>> 7) % 360) * (Math.PI / 180);
+      const dist = 28 + ((h >>> 15) % 1000) / 1000 * (arenaR - 36);
+      const x = Math.cos(ang) * dist;
+      const y = Math.sin(ang) * dist;
+      let overlaps = false;
+      for (const p of placed) {
+        if (Math.hypot(x - p.x, y - p.y) < p.radius + 12) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (overlaps) continue;
+
+      const list = treeVariants[def.type] || treeVariants.oak;
+      const key = list[h % list.length];
+      if (!this.scene.textures.exists(key)) continue;
+
+      const scale =
+        (def.type.includes('oak') ? 0.78 : def.type.includes('pine') || def.type.includes('mangrove') ? 0.72 : 0.62) *
+        (0.9 + ((h >>> 5) % 20) / 100);
+      const pad = this.scene.add.ellipse(x, y + 2, 18, 8, 0x101808, 0.5);
+      const img = this.scene.add
+        .image(x, y, key)
+        .setOrigin(0.5, 0.9)
+        .setScale(scale)
+        .setFlipX((h & 1) === 1);
+      this.previewRoot.add(pad);
+      this.previewRoot.add(img);
+      this.previewSprites.push(pad, img);
+      placed.push({ x, y, radius: 12 });
+    }
+  }
+
+  _spawnFloorPreviewIronRim(arenaR) {
+    if (!this.scene.textures.exists('iron_block')) return;
+    const scale = 0.42;
+    const rimInset = 6;
+    const r = Math.max(8, arenaR - rimInset);
+    const spacing = 32 * scale * 0.92;
+    const count = Math.max(14, Math.floor((Math.PI * 2 * r) / spacing));
+
+    for (let i = 0; i < count; i++) {
+      const ang = (i / count) * Math.PI * 2;
+      const sprite = this.scene.add
+        .image(Math.cos(ang) * r, Math.sin(ang) * r, 'iron_block')
+        .setOrigin(0.5)
+        .setScale(scale)
+        .setRotation(ang + Math.PI / 2);
+      this.previewRoot.add(sprite);
+      this.previewSprites.push(sprite);
+    }
+  }
+
+  _drawFloorPreviewFireWall(arenaR) {
+    const g = this.stageGfx;
+    if (!g) return;
+    g.clear();
+
+    const t = this.scene.time.now;
+    const pulse = 0.55 + 0.45 * Math.sin(t / 140);
+    const flicker = 0.7 + 0.3 * Math.sin(t / 80 + 1.1);
+    const spin = t * 0.00035;
+    const r = arenaR;
+
+    g.lineStyle(14, 0x2a0860, 0.22 * flicker);
+    g.strokeCircle(0, 0, r + 3);
+    g.lineStyle(10, 0x5a20c8, 0.28 * pulse);
+    g.strokeCircle(0, 0, r + 1);
+    g.lineStyle(7, 0x8844ff, 0.4 * flicker);
+    g.strokeCircle(0, 0, r);
+    g.lineStyle(4, 0x44ddff, 0.55 * pulse);
+    g.strokeCircle(0, 0, r - 1);
+    g.lineStyle(1.5, 0xe8f6ff, 0.85 * flicker);
+    g.strokeCircle(0, 0, r - 2);
+
+    const arcs = 5;
+    for (let k = 0; k < arcs; k++) {
+      const start = spin * (k % 2 === 0 ? 1 : -1) + (k / arcs) * Math.PI * 2;
+      const sweep = 0.55 + 0.15 * Math.sin(t * 0.008 + k);
+      g.lineStyle(2.4, k % 2 === 0 ? 0xaa66ff : 0x66e0ff, 0.55 * pulse);
+      g.beginPath();
+      g.arc(0, 0, r + 2, start, start + sweep, false);
+      g.strokePath();
+    }
+
+    const tongues = 28;
+    for (let i = 0; i < tongues; i++) {
+      const ang = (i / tongues) * Math.PI * 2 + spin * 0.35;
+      const wobble = 0.55 + 0.45 * Math.sin(t * 0.012 + i * 2.1);
+      const height = (6 + (i % 5) * 1.4 + 4 * Math.sin(t * 0.009 + i * 1.4)) * wobble;
+      const x0 = Math.cos(ang) * (r - 1);
+      const y0 = Math.sin(ang) * (r - 1);
+      const x1 = Math.cos(ang) * (r + height);
+      const y1 = Math.sin(ang) * (r + height);
+      g.lineStyle(3.2, 0x5a20c8, 0.32 * wobble);
+      g.lineBetween(x0, y0, x1, y1);
+      g.lineStyle(1.8, 0x44ddff, 0.55 * wobble);
+      g.lineBetween(x0, y0, Math.cos(ang) * (r + height * 0.55), Math.sin(ang) * (r + height * 0.55));
+    }
   }
 
   _playMonsterPreview(entry) {
@@ -1522,9 +1769,14 @@ export class GalleryModal {
     }
     this.previewTimers = [];
     for (const s of this.previewSprites) {
+      if (s?.clearMask) s.clearMask(false);
       s?.destroy?.();
     }
     this.previewSprites = [];
+    if (this._floorMaskGfx) {
+      this._floorMaskGfx.destroy();
+      this._floorMaskGfx = null;
+    }
     if (this.stageGfx) this.stageGfx.clear();
     // Limpar tweens do previewRoot
     if (this.previewRoot) {

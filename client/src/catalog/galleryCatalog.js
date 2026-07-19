@@ -114,6 +114,137 @@ const FLOOR_TEXTURE = {
   saltflat: 'arena_saltflat',
 };
 
+/** Pack de obstáculos por terreno (espelha server/Match.typesByFloor). */
+const FLOOR_OBSTACLE_PACK = {
+  grass: 'dirt',
+  dirt: 'dirt',
+  ice: 'ice',
+  wood: 'wood',
+  sea: 'sea',
+  desert: 'desert',
+  swamp: 'swamp',
+  volcano: 'volcano',
+  ruins: 'ruins',
+  crystal: 'crystal',
+  snow: 'ice',
+  tundra: 'ice',
+  cave: 'dirt',
+  dungeon: 'wood',
+  graveyard: 'ruins',
+  hell: 'volcano',
+  sky: 'crystal',
+  mushroom: 'swamp',
+  jungle: 'dirt',
+  mountain: 'dirt',
+  beach: 'sea',
+  coral: 'sea',
+  ashland: 'volcano',
+  enchanted: 'crystal',
+  blood: 'ruins',
+  shadow: 'crystal',
+  temple: 'ruins',
+  sewer: 'swamp',
+  meadow: 'dirt',
+  lava_field: 'volcano',
+  glacier: 'ice',
+  oasis: 'desert',
+  canyon: 'dirt',
+  marsh: 'swamp',
+  aurora: 'crystal',
+  obsidian: 'volcano',
+  sandstone: 'ruins',
+  storm: 'crystal',
+  garden: 'dirt',
+  battlefield: 'ruins',
+  library: 'wood',
+  catacomb: 'ruins',
+  abyss: 'sea',
+  bramble: 'dirt',
+  saltflat: 'desert',
+};
+
+/** Estilo de árvore: null = sem árvores. */
+const FLOOR_TREE_STYLE = {
+  grass: 'forest',
+  swamp: 'swamp',
+  jungle: 'forest',
+  mushroom: 'swamp',
+  enchanted: 'forest',
+  meadow: 'forest',
+  tundra: 'cold',
+  marsh: 'swamp',
+  garden: 'forest',
+  bramble: 'forest',
+  oasis: 'forest',
+};
+
+const OBSTACLE_PACK_TYPES = {
+  dirt: [
+    { type: 'stone', radius: 12 },
+    { type: 'rock', radius: 18 },
+    { type: 'boulder', radius: 26 },
+  ],
+  ice: [
+    { type: 'ice_stone', radius: 12 },
+    { type: 'ice_rock', radius: 18 },
+    { type: 'ice_boulder', radius: 26 },
+  ],
+  wood: [
+    { type: 'chair', radius: 12 },
+    { type: 'crate', radius: 14 },
+    { type: 'table', radius: 18 },
+    { type: 'cabinet', radius: 26 },
+  ],
+  sea: [
+    { type: 'shell', radius: 12 },
+    { type: 'conch', radius: 18 },
+    { type: 'clam', radius: 26 },
+  ],
+  desert: [
+    { type: 'cactus_small', radius: 12 },
+    { type: 'cactus', radius: 18 },
+    { type: 'cactus_tall', radius: 26 },
+  ],
+  swamp: [
+    { type: 'puddle_small', radius: 14 },
+    { type: 'puddle', radius: 20 },
+    { type: 'puddle_large', radius: 28 },
+  ],
+  volcano: [
+    { type: 'ember_stone', radius: 12 },
+    { type: 'lava_rock', radius: 18 },
+    { type: 'obsidian', radius: 26 },
+  ],
+  ruins: [
+    { type: 'rubble', radius: 12 },
+    { type: 'broken_pillar', radius: 18 },
+    { type: 'statue', radius: 26 },
+  ],
+  crystal: [
+    { type: 'crystal_small', radius: 12 },
+    { type: 'crystal', radius: 18 },
+    { type: 'crystal_large', radius: 26 },
+  ],
+};
+
+const TREE_STYLE_TYPES = {
+  forest: [
+    { type: 'pine', radius: 14 },
+    { type: 'oak', radius: 16 },
+    { type: 'bush', radius: 10 },
+  ],
+  swamp: [
+    { type: 'mangrove', radius: 14 },
+    { type: 'swamp_oak', radius: 16 },
+    { type: 'swamp_bush', radius: 10 },
+  ],
+  cold: [
+    { type: 'pine', radius: 14 },
+    { type: 'pine', radius: 16 },
+    { type: 'bush', radius: 10 },
+  ],
+};
+
 const TIER_LABEL = {
   normal: 'Normal',
   elite: 'Elite',
@@ -226,6 +357,8 @@ export function getFloorEntries() {
       const speedMul = FLOOR_SPEED_MUL[id] ?? 1;
       const inertiaMul = FLOOR_INERTIA_MUL[id] ?? 1;
       const group = FLOOR_GROUP_OF[id] || 'soil';
+      const pack = FLOOR_OBSTACLE_PACK[id] || 'dirt';
+      const treeStyle = FLOOR_TREE_STYLE[id] || null;
       return {
         id,
         name: meta.name,
@@ -237,6 +370,10 @@ export function getFloorEntries() {
         inertiaMul,
         description: floorDescription(speedMul, inertiaMul),
         typeLabel: FLOOR_GROUP_LABEL[group] || 'Solo',
+        obstaclePack: pack,
+        obstacles: OBSTACLE_PACK_TYPES[pack] || OBSTACLE_PACK_TYPES.dirt,
+        treeStyle,
+        trees: treeStyle ? TREE_STYLE_TYPES[treeStyle] || TREE_STYLE_TYPES.forest : [],
       };
     })
     .sort((a, b) => {
