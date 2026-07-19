@@ -2002,12 +2002,39 @@ export class Match {
     const mx = target.x;
     const my = target.y;
     const wasBoss = !!target.isBoss;
+    const mobMaxHp = target.maxHp || 0;
     const bones = this.spawnBones(mx, my);
     this.spawnMonsterDrop(bones);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
       this.grantXp(killer, CONFIG.XP_MONSTER, 'monster');
+      // Cura % da vida máxima do mob (MONSTER_KILL_HEAL_PERCENT); efeito só se > 0 e curar de fato
+      const healPct = CONFIG.MONSTER_KILL_HEAL_PERCENT || 0;
+      if (healPct > 0 && killer.alive && mobMaxHp > 0) {
+        const amount = Math.max(1, Math.round(mobMaxHp * healPct));
+        const before = killer.hp;
+        killer.hp = Math.min(killer.maxHp, killer.hp + amount);
+        const gained = killer.hp - before;
+        if (gained > 0) {
+          this.effects.push({
+            type: 'heal',
+            x: killer.x,
+            y: killer.y,
+            life: 0.75,
+            maxLife: 0.75,
+            color: 0x55ff88,
+            radius: 42,
+          });
+          this.pushEvent({
+            type: 'heal',
+            playerId: killer.id,
+            amount: gained,
+            x: killer.x,
+            y: killer.y,
+          });
+        }
+      }
     }
     this.monsters = this.monsters.filter((m) => m.entityId !== target.entityId);
     this.pushEvent({ type: 'monster_kill', monsterId: target.entityId, killerId: sourcePlayerId, x: mx, y: my });

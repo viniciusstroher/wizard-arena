@@ -187,6 +187,11 @@ export const CONFIG = {
   HP_REGEN_AMOUNT: envNumber('HP_REGEN_AMOUNT', 2),
   /** Janela em segundos entre regenerações. */
   HP_REGEN_INTERVAL: envNumber('HP_REGEN_INTERVAL', 2),
+  /**
+   * Fração da vida máxima do mob curada no killer ao matá-lo (0–1).
+   * Ex.: 0.1 = 10%. 0 = desligado (sem cura nem efeito).
+   */
+  MONSTER_KILL_HEAL_PERCENT: Math.max(0, Math.min(1, envNumber('MONSTER_KILL_HEAL_PERCENT', 0))),
   /** Chance de crítico de jogadores/bots (0–1). */
   PLAYER_CRIT_CHANCE: envNumber('PLAYER_CRIT_CHANCE', 0.15),
   /** Multiplicador de dano em crítico (jogadores/bots). */
