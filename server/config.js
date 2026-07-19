@@ -307,11 +307,11 @@ export const CONFIG = {
   MONSTER_ATTACK_COOLDOWN: 1.0,
   /**
    * Multiplicador de taxa de magia (casters). CD efetivo = attackCooldown / rate.
-   * Normal < 1 (casta menos); elite 3×; boss 5×.
+   * Normal < 1 (casta menos); elite/boss mais altos. Valores = baseline −15%.
    */
-  MONSTER_CAST_RATE_NORMAL: Math.max(0.1, envNumber('MONSTER_CAST_RATE_NORMAL', 0.4)),
-  MONSTER_CAST_RATE_ELITE: Math.max(0.1, envNumber('MONSTER_CAST_RATE_ELITE', 3)),
-  MONSTER_CAST_RATE_BOSS: Math.max(0.1, envNumber('MONSTER_CAST_RATE_BOSS', 5)),
+  MONSTER_CAST_RATE_NORMAL: Math.max(0.1, envNumber('MONSTER_CAST_RATE_NORMAL', 0.34)),
+  MONSTER_CAST_RATE_ELITE: Math.max(0.1, envNumber('MONSTER_CAST_RATE_ELITE', 2.55)),
+  MONSTER_CAST_RATE_BOSS: Math.max(0.1, envNumber('MONSTER_CAST_RATE_BOSS', 4.25)),
   /**
    * Legado: a IA dos mobs não usa mais limite de aggro — eles sempre
    * perseguem o jogador/bot vivo mais próximo e permanecem na plataforma.

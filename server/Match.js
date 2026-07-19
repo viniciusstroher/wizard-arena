@@ -2407,10 +2407,10 @@ export class Match {
     const castRate =
       attack === 'caster'
         ? isBoss
-          ? CONFIG.MONSTER_CAST_RATE_BOSS || 5
+          ? CONFIG.MONSTER_CAST_RATE_BOSS || 4.25
           : isElite
-            ? CONFIG.MONSTER_CAST_RATE_ELITE || 3
-            : CONFIG.MONSTER_CAST_RATE_NORMAL || 0.4
+            ? CONFIG.MONSTER_CAST_RATE_ELITE || 2.55
+            : CONFIG.MONSTER_CAST_RATE_NORMAL || 0.34
         : 1;
     const baseAtkCd = def.attackCooldown || CONFIG.MONSTER_ATTACK_COOLDOWN;
     const baseNovaCd = def.novaCooldown || 4;

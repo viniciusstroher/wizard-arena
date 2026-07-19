@@ -9,11 +9,14 @@
     "tunnel": "ngrok http 3080",
     "start": "NODE_ENV=production node server/index.js",
     "build": "vite build",
+    "postinstall": "node scripts/ensure-sqlite3.mjs",
     "db:sync": "node --input-type=module -e \"import { initDatabase } from './server/db/index.js'; await initDatabase();\""
   },
   "dependencies": {
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
+    "pg": "^8.22.0",
+    "pg-hstore": "^2.3.4",
     "phaser": "^3.87.0",
     "sequelize": "^6.37.8",
     "socket.io": "^4.8.1",

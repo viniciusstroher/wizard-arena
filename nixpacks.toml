@@ -1,0 +1,6 @@
+# Force sqlite3 to compile against the image glibc (prebuilds need GLIBC_2.38+).
+[phases.setup]
+nixPkgs = ["python3", "gcc", "gnumake"]
+
+[phases.install]
+cmds = ["npm ci", "node scripts/ensure-sqlite3.mjs"]
