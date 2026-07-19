@@ -227,7 +227,7 @@ export class LobbyScene extends Phaser.Scene {
     this.leaveBtn = this.makeButton(
       panelX,
       btnStartY + step * 3,
-      'Sair da sala',
+      'Sair',
       0xc0392b,
       () => this.leaveToMatchmaking(),
       btnW
