@@ -1624,17 +1624,17 @@ export class GameScene extends Phaser.Scene {
       if (Phaser.Input.Keyboard.JustDown(this.cursors.tab)) this.cycleSpellSlot();
     }
 
-    // Magias equipadas, escudo, heal e blink: autocast no servidor / pedido contínuo.
+    // Magias equipadas + escudo/heal: autocast. Blink só por hotkey (B) ou clique no slot.
     // 1–4 / Tab só destacam o slot na UI.
     const castSlot = this.selectedSpellSlot;
     const dash = this.pendingDash || this.detectDash();
     if (dash) this.pendingDash = null;
     this.pendingBarrier = false;
     this.pendingMend = false;
-    this.pendingBlink = false;
     const barrier = true;
     const mend = true;
-    const blink = true;
+    const blink = !!this.pendingBlink || Phaser.Input.Keyboard.JustDown(this.cursors.blink);
+    this.pendingBlink = false;
 
     this.socket.emit('player_input', {
       up: this.cursors.up.isDown,

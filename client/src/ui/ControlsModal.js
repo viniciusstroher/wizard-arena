@@ -51,7 +51,8 @@ export class ControlsModal {
       ['Mouse', 'Mirar'],
       ['1 – 4', 'Destacar magia (todas autocast)'],
       ['Tab', 'Ciclar destaque 1→2→3→4'],
-      ['E / H / B', 'Escudo / Heal / Blink (autocast)'],
+      ['E / H', 'Escudo / Heal (autocast)'],
+      ['B', 'Blink'],
     ];
 
     const rows = [];
