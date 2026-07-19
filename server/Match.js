@@ -305,6 +305,27 @@ export class Match {
       'volcano',
       'ruins',
       'crystal',
+      // Expansão +20 terrenos
+      'snow',
+      'tundra',
+      'cave',
+      'dungeon',
+      'graveyard',
+      'hell',
+      'sky',
+      'mushroom',
+      'jungle',
+      'mountain',
+      'beach',
+      'coral',
+      'ashland',
+      'enchanted',
+      'blood',
+      'shadow',
+      'temple',
+      'sewer',
+      'meadow',
+      'lava_field',
     ];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
@@ -366,6 +387,27 @@ export class Match {
       crystal: crystalTypes,
       grass: dirtTypes,
       dirt: dirtTypes,
+      // Expansão — reutiliza packs de obstáculos temáticos (mesmas regras)
+      snow: iceTypes,
+      tundra: iceTypes,
+      cave: dirtTypes,
+      dungeon: woodTypes,
+      graveyard: ruinsTypes,
+      hell: volcanoTypes,
+      sky: crystalTypes,
+      mushroom: swampTypes,
+      jungle: dirtTypes,
+      mountain: dirtTypes,
+      beach: seaTypes,
+      coral: seaTypes,
+      ashland: volcanoTypes,
+      enchanted: crystalTypes,
+      blood: ruinsTypes,
+      shadow: crystalTypes,
+      temple: ruinsTypes,
+      sewer: swampTypes,
+      meadow: dirtTypes,
+      lava_field: volcanoTypes,
     };
     const types = typesByFloor[this.floorType] || dirtTypes;
     const count =
@@ -414,19 +456,35 @@ export class Match {
     this.generateTrees();
   }
 
-  /** Árvores em grama/pântano e apenas dentro do círculo da arena. */
+  /** Árvores em biomas florestais e apenas dentro do círculo da arena. */
   generateTrees() {
-    if (this.floorType !== 'grass' && this.floorType !== 'swamp') {
+    const forestFloors = new Set([
+      'grass',
+      'swamp',
+      'jungle',
+      'mushroom',
+      'enchanted',
+      'meadow',
+      'tundra',
+    ]);
+    if (!forestFloors.has(this.floorType)) {
       this.trees = [];
       return;
     }
 
-    const types =
-      this.floorType === 'swamp'
+    const swampLike = this.floorType === 'swamp' || this.floorType === 'mushroom';
+    const coldLike = this.floorType === 'tundra';
+    const types = swampLike
+      ? [
+          { type: 'mangrove', radius: 14 },
+          { type: 'swamp_oak', radius: 16 },
+          { type: 'swamp_bush', radius: 10 },
+        ]
+      : coldLike
         ? [
-            { type: 'mangrove', radius: 14 },
-            { type: 'swamp_oak', radius: 16 },
-            { type: 'swamp_bush', radius: 10 },
+            { type: 'pine', radius: 14 },
+            { type: 'pine', radius: 16 },
+            { type: 'bush', radius: 10 },
           ]
         : [
             { type: 'pine', radius: 14 },
@@ -2203,11 +2261,27 @@ export class Match {
       aliveCount[m.type] = (aliveCount[m.type] || 0) + 1;
     }
 
+    const floor = this.floorType || 'dirt';
+    const fitsFloor = (id) => {
+      const floors = types[id]?.floors;
+      // Sem habitat definido → pode aparecer em qualquer terreno.
+      if (!Array.isArray(floors) || !floors.length) return true;
+      return floors.includes(floor);
+    };
+
     // Spawn contínuo nunca inclui bosses — eles só aparecem em BOSS_APPEARS.
-    const ids = Object.keys(types).filter((id) => {
+    let ids = Object.keys(types).filter((id) => {
       const isBoss = !!types[id].isBoss;
-      return bossesOnly ? isBoss : !isBoss;
+      if (bossesOnly ? !isBoss : isBoss) return false;
+      return fitsFloor(id);
     });
+    // Fallback: se o terreno tiver pool vazio, usa todos do tier.
+    if (!ids.length) {
+      ids = Object.keys(types).filter((id) => {
+        const isBoss = !!types[id].isBoss;
+        return bossesOnly ? isBoss : !isBoss;
+      });
+    }
     if (!ids.length) return null;
 
     let totalWeight = 0;

@@ -3,12 +3,14 @@
  * Inspirado em fantasia clássica (D&D / WoW / Tibia) — nomes originais.
  */
 
+import { MONSTER_FLOORS } from './monsterHabitats.js';
+
 export function createMonsterTypeDefs(CONFIG) {
   const common = CONFIG.MONSTER_WEIGHT_COMMON;
   const elite = CONFIG.MONSTER_WEIGHT_ELITE;
   const boss = CONFIG.MONSTER_WEIGHT_BOSS;
 
-  return {
+  const defs = {
     // ─── Normal ───────────────────────────────────────────────
     imp: {
       hpMul: 1,
@@ -2477,4 +2479,11 @@ export function createMonsterTypeDefs(CONFIG) {
       weight: boss, isBoss: true, difficulty: 'hard',
     },
   };
+
+  // Habitats RPG — em quais terrenos cada monstro pode aparecer.
+  for (const [id, def] of Object.entries(defs)) {
+    const floors = MONSTER_FLOORS[id];
+    if (floors?.length) def.floors = floors;
+  }
+  return defs;
 }

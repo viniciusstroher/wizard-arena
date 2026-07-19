@@ -2458,6 +2458,26 @@ export class GameScene extends Phaser.Scene {
       volcano: 'Vulcão',
       ruins: 'Ruínas',
       crystal: 'Cristal',
+      snow: 'Neve',
+      tundra: 'Tundra',
+      cave: 'Caverna',
+      dungeon: 'Masmorra',
+      graveyard: 'Cemitério',
+      hell: 'Inferno',
+      sky: 'Céu',
+      mushroom: 'Cogumelos',
+      jungle: 'Selva',
+      mountain: 'Montanha',
+      beach: 'Praia',
+      coral: 'Recife',
+      ashland: 'Cinzas',
+      enchanted: 'Encantado',
+      blood: 'Sangue',
+      shadow: 'Sombras',
+      temple: 'Templo',
+      sewer: 'Esgoto',
+      meadow: 'Prado',
+      lava_field: 'Campo de Lava',
     };
     return names[floorType] || 'Arena';
   }
@@ -2540,26 +2560,39 @@ export class GameScene extends Phaser.Scene {
 
     this.updateLavaEffects(a);
 
-    const floorKey =
-      a.floorType === 'grass'
-        ? 'arena_grass'
-        : a.floorType === 'ice'
-          ? 'arena_ice'
-          : a.floorType === 'wood'
-            ? 'arena_wood'
-            : a.floorType === 'sea'
-              ? 'arena_sea'
-              : a.floorType === 'desert'
-                ? 'arena_desert'
-                : a.floorType === 'swamp'
-                  ? 'arena_swamp'
-                  : a.floorType === 'volcano'
-                    ? 'arena_volcano'
-                    : a.floorType === 'ruins'
-                      ? 'arena_ruins'
-                      : a.floorType === 'crystal'
-                        ? 'arena_crystal'
-                        : 'arena_brick';
+    const floorTextures = {
+      grass: 'arena_grass',
+      ice: 'arena_ice',
+      wood: 'arena_wood',
+      sea: 'arena_sea',
+      desert: 'arena_desert',
+      swamp: 'arena_swamp',
+      volcano: 'arena_volcano',
+      ruins: 'arena_ruins',
+      crystal: 'arena_crystal',
+      snow: 'arena_snow',
+      tundra: 'arena_tundra',
+      cave: 'arena_cave',
+      dungeon: 'arena_dungeon',
+      graveyard: 'arena_graveyard',
+      hell: 'arena_hell',
+      sky: 'arena_sky',
+      mushroom: 'arena_mushroom',
+      jungle: 'arena_jungle',
+      mountain: 'arena_mountain',
+      beach: 'arena_beach',
+      coral: 'arena_coral',
+      ashland: 'arena_ashland',
+      enchanted: 'arena_enchanted',
+      blood: 'arena_blood',
+      shadow: 'arena_shadow',
+      temple: 'arena_temple',
+      sewer: 'arena_sewer',
+      meadow: 'arena_meadow',
+      lava_field: 'arena_lava_field',
+      dirt: 'arena_brick',
+    };
+    const floorKey = floorTextures[a.floorType] || 'arena_brick';
     if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
       this.arenaFloor.setTexture(floorKey);
     }

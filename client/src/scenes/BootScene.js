@@ -353,6 +353,7 @@ export class BootScene extends Phaser.Scene {
     this.createArenaVolcanoTexture();
     this.createArenaRuinsTexture();
     this.createArenaCrystalTexture();
+    this.createExpandedArenaFloors();
     this.createIronBlockTexture();
     this.createLavaTextures();
     this.createRockSprites();
@@ -3727,6 +3728,111 @@ export class BootScene extends Phaser.Scene {
     g.generateTexture('arena_crystal', tw, th);
     g.destroy();
     this.textures.get('arena_crystal').setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  /**
+   * Gera tile seamless 64×64 a partir de paleta (mesmas regras dos arenas legados).
+   * @param {string} key
+   * @param {number[]} tones — 10 cores
+   * @param {{x:number,y:number,r:number,c:number}[]} [patches]
+   */
+  createArenaFloorFromPalette(key, tones, patches = []) {
+    const tw = 64;
+    const th = 64;
+    const g = this.make.graphics({ x: 0, y: 0, add: false });
+    const hash = (x, y) => {
+      let n = (x * 374761393 + y * 668265263) ^ 0x9e3779b9;
+      n = (n ^ (n >>> 13)) * 1274126177;
+      return (n ^ (n >>> 16)) >>> 0;
+    };
+    const wrap = (v, m) => ((v % m) + m) % m;
+    const cell = 8;
+    const valueAt = (x, y) => {
+      const gx = Math.floor(x / cell);
+      const gy = Math.floor(y / cell);
+      const fx = (x % cell) / cell;
+      const fy = (y % cell) / cell;
+      const sx = fx * fx * (3 - 2 * fx);
+      const sy = fy * fy * (3 - 2 * fy);
+      const g00 = (hash(wrap(gx, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g10 = (hash(wrap(gx + 1, tw / cell), wrap(gy, th / cell)) & 255) / 255;
+      const g01 = (hash(wrap(gx, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const g11 = (hash(wrap(gx + 1, tw / cell), wrap(gy + 1, th / cell)) & 255) / 255;
+      const a = g00 + (g10 - g00) * sx;
+      const b = g01 + (g11 - g01) * sx;
+      return a + (b - a) * sy;
+    };
+
+    for (let y = 0; y < th; y++) {
+      for (let x = 0; x < tw; x++) {
+        const n1 = valueAt(x, y);
+        const n2 = valueAt(wrap(x + 17, tw), wrap(y + 9, th));
+        const n3 = valueAt(wrap(x + 31, tw), wrap(y + 21, th));
+        const h = hash(x, y);
+        let tone;
+        if (n1 < 0.2) tone = tones[3];
+        else if (n1 < 0.38) tone = tones[0];
+        else if (n1 < 0.55) tone = tones[1];
+        else if (n1 < 0.72) tone = tones[2];
+        else if (n1 < 0.88) tone = tones[4];
+        else tone = tones[5];
+        if (n2 > 0.88) tone = tones[6];
+        if (n2 > 0.94) tone = tones[7];
+        if (n3 > 0.92) tone = tones[8];
+        if ((h & 31) === 0) tone = tones[1];
+        if ((h & 47) === 7) tone = tones[9] ?? tones[2];
+        g.fillStyle(tone, 1);
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+
+    for (const p of patches) {
+      for (let dy = -p.r; dy <= p.r; dy++) {
+        for (let dx = -p.r; dx <= p.r; dx++) {
+          const d2 = dx * dx + dy * dy;
+          if (d2 > p.r * p.r) continue;
+          const px = wrap(p.x + dx, tw);
+          const py = wrap(p.y + dy, th);
+          const edge = d2 / (p.r * p.r);
+          if (edge > 0.55 && (hash(px, py) & 3) !== 0) continue;
+          g.fillStyle(p.c, edge > 0.35 ? 0.5 : 0.8);
+          g.fillRect(px, py, 1, 1);
+        }
+      }
+    }
+
+    g.generateTexture(key, tw, th);
+    g.destroy();
+    this.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  /** Expansão +20 terrenos com as mesmas regras de tile procedural. */
+  createExpandedArenaFloors() {
+    const floors = [
+      ['arena_snow', [0xe8eef5, 0xf5f8fc, 0xd0d8e4, 0xb8c4d4, 0xffffff, 0xc8d4e4, 0xa8b8cc, 0x90a4bc, 0xdde6f0, 0x7a8ea8], [{ x: 20, y: 22, r: 6, c: 0xffffff }, { x: 48, y: 40, r: 5, c: 0xd0d8e4 }]],
+      ['arena_tundra', [0xb8c8b0, 0xd0dcc8, 0x98a890, 0x7a8a70, 0xe0e8d8, 0xa8b898, 0xc0d0b8, 0x889878, 0xd8e4cc, 0x6a7a60], [{ x: 16, y: 30, r: 5, c: 0xd0dcc8 }, { x: 44, y: 18, r: 4, c: 0xe0e8d8 }]],
+      ['arena_cave', [0x2a3038, 0x3a424c, 0x1a1e24, 0x101418, 0x4a5460, 0x242a32, 0x5a6470, 0x181c22, 0x6a7480, 0x0c1014], [{ x: 28, y: 24, r: 5, c: 0x3a424c }, { x: 50, y: 48, r: 6, c: 0x1a1e24 }]],
+      ['arena_dungeon', [0x3a3a42, 0x4a4a54, 0x2a2a32, 0x1c1c22, 0x5a5a66, 0x34343c, 0x6a6a78, 0x222228, 0x787888, 0x141418], [{ x: 12, y: 12, r: 4, c: 0x4a4a54 }, { x: 40, y: 40, r: 5, c: 0x2a2a32 }]],
+      ['arena_graveyard', [0x3a4238, 0x4a5448, 0x2a3228, 0x1a2018, 0x5a6458, 0x343c30, 0x6a7468, 0x222820, 0x788078, 0x121610], [{ x: 22, y: 36, r: 5, c: 0x4a5448 }, { x: 50, y: 20, r: 4, c: 0x2a3228 }]],
+      ['arena_hell', [0x4a1410, 0x6a2018, 0x2a0c08, 0x180604, 0x8a3020, 0x3a100c, 0xaa4422, 0xc05030, 0xff6622, 0x100402], [{ x: 18, y: 20, r: 6, c: 0xaa4422 }, { x: 46, y: 44, r: 7, c: 0x6a2018 }]],
+      ['arena_sky', [0x7eb8e8, 0xa0d0f5, 0x5a98d0, 0x3a78b0, 0xc8e8ff, 0x88c0e8, 0xffffff, 0xd8f0ff, 0x4a88c0, 0xb0dcff], [{ x: 24, y: 18, r: 8, c: 0xffffff }, { x: 48, y: 42, r: 6, c: 0xd8f0ff }]],
+      ['arena_mushroom', [0x4a3a58, 0x6a5080, 0x2a2038, 0x1a1428, 0x8a70a8, 0x3a2a48, 0xb090c8, 0x705090, 0xd0b0e0, 0x181028], [{ x: 20, y: 28, r: 5, c: 0xb090c8 }, { x: 44, y: 16, r: 4, c: 0x8a70a8 }]],
+      ['arena_jungle', [0x145a32, 0x1e8449, 0x0a3018, 0x062010, 0x27ae60, 0x0e4020, 0x58d68d, 0x0a2814, 0x82e0aa, 0x041808], [{ x: 16, y: 22, r: 6, c: 0x1e8449 }, { x: 42, y: 48, r: 5, c: 0x145a32 }]],
+      ['arena_mountain', [0x6a7078, 0x8a9098, 0x4a5058, 0x323840, 0xaab0b8, 0x5a6068, 0xc0c6cc, 0x404850, 0xd8dce0, 0x282e34], [{ x: 30, y: 20, r: 6, c: 0x8a9098 }, { x: 14, y: 46, r: 5, c: 0x4a5058 }]],
+      ['arena_beach', [0xe8d4a8, 0xf5e6c8, 0xd0b888, 0xb89868, 0xfff4dc, 0xdcc898, 0xa88858, 0xc8b078, 0xf0e0b8, 0x887848], [{ x: 18, y: 40, r: 5, c: 0x7eb8e8 }, { x: 50, y: 24, r: 4, c: 0xf5e6c8 }]],
+      ['arena_coral', [0x2a6a8a, 0x3a8ab0, 0x1a4a68, 0x0e3048, 0x5ab0d0, 0x245870, 0xe74c3c, 0xf1948a, 0x48c9b0, 0x163848], [{ x: 22, y: 26, r: 5, c: 0xe74c3c }, { x: 46, y: 44, r: 5, c: 0x48c9b0 }]],
+      ['arena_ashland', [0x3a2a20, 0x4a3830, 0x2a1c14, 0x181008, 0x5a4840, 0x322820, 0x6e2c00, 0xa04000, 0x7a6860, 0x100c08], [{ x: 28, y: 32, r: 6, c: 0x6e2c00 }, { x: 12, y: 14, r: 4, c: 0x4a3830 }]],
+      ['arena_enchanted', [0x3a2858, 0x5a40a0, 0x241848, 0x140c28, 0x80c0e8, 0x342060, 0xc090ff, 0x7dcea0, 0xd2b4de, 0x1a1030], [{ x: 20, y: 20, r: 5, c: 0xc090ff }, { x: 48, y: 40, r: 6, c: 0x80c0e8 }]],
+      ['arena_blood', [0x4a1010, 0x6a1818, 0x2a0808, 0x180404, 0x8a2020, 0x3a0c0c, 0xc0392b, 0x922b21, 0xe74c3c, 0x100202], [{ x: 24, y: 28, r: 6, c: 0xc0392b }, { x: 50, y: 16, r: 5, c: 0x6a1818 }]],
+      ['arena_shadow', [0x140018, 0x220028, 0x0a0010, 0x050008, 0x3a1048, 0x180020, 0x5a2080, 0x2c003e, 0x8e44ad, 0x080010], [{ x: 30, y: 30, r: 6, c: 0x5a2080 }, { x: 14, y: 48, r: 4, c: 0x2c003e }]],
+      ['arena_temple', [0xc4a060, 0xd8b878, 0xa88848, 0x7a6028, 0xe8d090, 0xb89858, 0xf4d03f, 0x8a7030, 0xffe8a8, 0x5a4818], [{ x: 20, y: 20, r: 5, c: 0xd8b878 }, { x: 44, y: 44, r: 5, c: 0xa88848 }]],
+      ['arena_sewer', [0x3a4230, 0x4a5440, 0x2a3220, 0x1a2010, 0x5a6450, 0x343c28, 0x556b2f, 0x334018, 0x6a7858, 0x121608], [{ x: 18, y: 36, r: 5, c: 0x334018 }, { x: 46, y: 18, r: 6, c: 0x4a5440 }]],
+      ['arena_meadow', [0x7dcea0, 0xa9dfbf, 0x58d68d, 0x27ae60, 0xd5f5e3, 0x6fcf9a, 0xf9e79f, 0x1e8449, 0x82e0aa, 0x145a32], [{ x: 24, y: 24, r: 5, c: 0xf9e79f }, { x: 48, y: 40, r: 4, c: 0xa9dfbf }]],
+      ['arena_lava_field', [0x3a1808, 0x5a280c, 0x2a1004, 0x180802, 0x8a3a10, 0x4a2008, 0xe67e22, 0xff6622, 0xcb4335, 0x100401], [{ x: 22, y: 22, r: 7, c: 0xe67e22 }, { x: 46, y: 46, r: 6, c: 0xff6622 }]],
+    ];
+    for (const [key, tones, patches] of floors) {
+      this.createArenaFloorFromPalette(key, tones, patches);
+    }
   }
 
   createCactusSprites() {
