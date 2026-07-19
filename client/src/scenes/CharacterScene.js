@@ -107,12 +107,20 @@ export class CharacterScene extends Phaser.Scene {
     styleDomInput(inputEl);
     this.nameInput = this.add.dom(editorX, height / 2 - 15, inputEl).setOrigin(0.5).setDepth(uiDepth);
 
+    const createdLabel = formatDate(this.character.createdAt);
     this.idText = this.add
-      .text(editorX, height / 2 + 28, `ID: ${this.character.id}`, {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '11px',
-        color: '#6b6088',
-      })
+      .text(
+        editorX,
+        height / 2 + 28,
+        `ID: ${this.character.id}  ·  Criado: ${createdLabel}`,
+        {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '11px',
+          color: '#6b6088',
+          align: 'center',
+          wordWrap: { width: 360 },
+        }
+      )
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
@@ -495,6 +503,7 @@ export class CharacterScene extends Phaser.Scene {
       name,
       color: this.selectedColor,
       skin: this.selectedSkin,
+      createdAt: this.character.createdAt,
     });
     if (!result.ok) {
       this.errorText.setText(result.error);

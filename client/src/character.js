@@ -65,6 +65,14 @@ function normalizeCharacterId(value, fallback = null) {
   return fallback;
 }
 
+function normalizeCreatedAt(value, fallback = null) {
+  if (value != null && value !== '') {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d.toISOString();
+  }
+  return fallback ?? new Date().toISOString();
+}
+
 export function randomCharacter() {
   const prefix = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
   return {
@@ -72,6 +80,7 @@ export function randomCharacter() {
     name: `${prefix}${Math.floor(Math.random() * 900 + 100)}`,
     color: WIZARD_COLORS[Math.floor(Math.random() * WIZARD_COLORS.length)],
     skin: WIZARD_SKIN_IDS[Math.floor(Math.random() * WIZARD_SKIN_IDS.length)],
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -83,14 +92,17 @@ export function loadCharacter() {
       const name = String(data?.name || '').trim().slice(0, 16);
       if (name) {
         const id = normalizeCharacterId(data.id) || newCharacterId();
+        const hadId = !!normalizeCharacterId(data.id);
+        const hadCreatedAt = data.createdAt != null && data.createdAt !== '';
         const char = {
           id,
           name,
           color: normalizeColor(data.color),
           skin: normalizeSkinId(data.skin),
+          createdAt: normalizeCreatedAt(data.createdAt),
         };
-        // Migra personagens antigos sem UUID
-        if (!normalizeCharacterId(data.id)) {
+        // Migra personagens antigos sem UUID ou sem data de criação
+        if (!hadId || !hadCreatedAt) {
           saveCharacter(char);
         }
         return char;
@@ -108,6 +120,7 @@ export function loadCharacter() {
       name: legacyName,
       color: WIZARD_COLORS[Math.floor(Math.random() * WIZARD_COLORS.length)],
       skin: DEFAULT_SKIN,
+      createdAt: new Date().toISOString(),
     };
     saveCharacter(char);
     return char;
@@ -129,19 +142,27 @@ export function saveCharacter(character) {
   const name = String(character?.name || '').trim().slice(0, 16);
   if (!name) return { ok: false, error: 'Digite um nome para o personagem.' };
 
-  let previousId = null;
+  let previous = null;
   try {
     const raw = localStorage.getItem(CHARACTER_KEY);
-    if (raw) previousId = normalizeCharacterId(JSON.parse(raw)?.id);
+    if (raw) previous = JSON.parse(raw);
   } catch {
     // ignore
   }
 
+  const previousId = normalizeCharacterId(previous?.id);
+  const id = normalizeCharacterId(character?.id, previousId) || newCharacterId();
+  const sameId = previousId && id === previousId;
+  const createdAt = sameId
+    ? normalizeCreatedAt(character?.createdAt ?? previous?.createdAt)
+    : normalizeCreatedAt(character?.createdAt);
+
   const data = {
-    id: normalizeCharacterId(character?.id, previousId) || newCharacterId(),
+    id,
     name,
     color: normalizeColor(character?.color),
     skin: normalizeSkinId(character?.skin),
+    createdAt,
   };
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data));
   localStorage.setItem('wa_name', data.name);
