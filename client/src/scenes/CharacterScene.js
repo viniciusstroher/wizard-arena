@@ -107,25 +107,26 @@ export class CharacterScene extends Phaser.Scene {
     styleDomInput(inputEl);
     this.nameInput = this.add.dom(editorX, height / 2 - 15, inputEl).setOrigin(0.5).setDepth(uiDepth);
 
-    const createdLabel = formatDate(this.character.createdAt);
     this.idText = this.add
-      .text(
-        editorX,
-        height / 2 + 28,
-        `ID: ${this.character.id}  ·  Criado: ${createdLabel}`,
-        {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '11px',
-          color: '#6b6088',
-          align: 'center',
-          wordWrap: { width: 360 },
-        }
-      )
+      .text(editorX, height / 2 + 24, `ID: ${this.character.id}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#6b6088',
+      })
+      .setOrigin(0.5)
+      .setDepth(uiDepth);
+
+    this.createdText = this.add
+      .text(editorX, height / 2 + 40, `Criado: ${formatDate(this.character.createdAt)}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#6b6088',
+      })
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
     this.add
-      .text(editorX, height / 2 + 60, 'Cor do bruxo', {
+      .text(editorX, height / 2 + 66, 'Cor do bruxo', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -250,7 +251,7 @@ export class CharacterScene extends Phaser.Scene {
 
   buildHistoryPanel(x, y, depth) {
     this.add
-      .text(x, y - 292, 'Histórico de partidas', {
+      .text(x, y - 256, 'Histórico de partidas', {
         fontFamily: 'Georgia, serif',
         fontSize: '22px',
         color: '#f4e8ff',
@@ -259,7 +260,7 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth);
 
     this.historyWinsText = this.add
-      .text(x - 70, y - 258, 'Vitórias: —', {
+      .text(x - 70, y - 222, 'Vitórias: —', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#2ecc71',
@@ -268,7 +269,7 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth);
 
     this.historyLossesText = this.add
-      .text(x + 70, y - 258, 'Derrotas: —', {
+      .text(x + 70, y - 222, 'Derrotas: —', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#ff6b6b',
@@ -277,7 +278,7 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth);
 
     this.historyStatus = this.add
-      .text(x, y - 232, 'Carregando...', {
+      .text(x, y - 196, 'Carregando...', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#9a8bb8',
@@ -288,7 +289,7 @@ export class CharacterScene extends Phaser.Scene {
     const listEl = document.createElement('div');
     listEl.style.cssText = [
       'width: 460px',
-      'height: 440px',
+      'height: 410px',
       'overflow-y: auto',
       'box-sizing: border-box',
       'padding: 8px',
@@ -301,7 +302,7 @@ export class CharacterScene extends Phaser.Scene {
       'scrollbar-color: #6b5cff #1a1430',
     ].join(';');
     this.historyEl = listEl;
-    this.historyDom = this.add.dom(x, y + 20, listEl).setOrigin(0.5).setDepth(depth);
+    this.historyDom = this.add.dom(x, y + 36, listEl).setOrigin(0.5).setDepth(depth);
     this.loadHistory();
   }
 
