@@ -33,7 +33,6 @@ export class BotController {
   constructor(match, playerId) {
     this.match = match;
     this.playerId = playerId;
-    this.castTimer = 0.5 + Math.random();
     this.strafe = Math.random() < 0.5 ? 1 : -1;
     this.retargetTimer = 0;
     this.target = null;
@@ -190,7 +189,6 @@ export class BotController {
     }
 
     this.retargetTimer -= dt;
-    this.castTimer -= dt;
 
     const hostiles = [];
     if (this.match.pvpEnabled) {
@@ -305,33 +303,7 @@ export class BotController {
       }
     }
 
-    let castSlot = -1;
-    if (this.castTimer <= 0 && this.target && !fleeMeteor) {
-      // Prefere slot com cooldown pronto
-      for (let i = 0; i < player.spells.length; i++) {
-        if (player.spells[i].cooldownLeft <= 0) {
-          castSlot = i;
-          break;
-        }
-      }
-      if (castSlot < 0 && player.ultimate && !player.ultimate.usedThisRound && player.hp < 50) {
-        castSlot = 3;
-      }
-      this.castTimer = 0.6 + Math.random() * 0.8;
-    }
-
-    const level = player.level || 1;
-
-    // Escudo inato (lv1+): sempre que possível (ainda mais útil sob meteoro)
-    const barrier =
-      level >= 1 && (player.barrierCooldown || 0) <= 0 && (player.shield || 0) <= 0;
-
-    // Heal inato (lv1+): sempre que possível (ferido e fora de CD)
-    const mend = level >= 1 && (player.mendCooldown || 0) <= 0 && player.hp < player.maxHp;
-
-    // Blink inato (lv5+): prioriza fuga/cura; no combate usa sempre que possível
-    const blink = level >= 5 && (player.blinkCooldown || 0) <= 0;
-
+    // Magias / inatas: servidor autocasta fora de CD (castSlot não é mais necessário).
     this.match.setInput(this.playerId, {
       up,
       down,
@@ -339,10 +311,10 @@ export class BotController {
       right,
       aimX,
       aimY,
-      castSlot,
-      barrier,
-      mend,
-      blink,
+      castSlot: -1,
+      barrier: true,
+      mend: true,
+      blink: true,
     });
   }
 }

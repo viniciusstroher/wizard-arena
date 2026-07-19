@@ -3491,6 +3491,14 @@ export class Match {
     this.flashMonsterPose(monster, 'attack', 0.32);
   }
 
+  /** Tenta castar cada magia equipada cujo cooldown já acabou. */
+  autocastPlayerSpells(player) {
+    if (!player?.alive || this.phase !== 'playing') return;
+    const n = player.spells?.length || 0;
+    for (let i = 0; i < n; i++) this.castSpell(player, i);
+    if (player.ultimate) this.castSpell(player, 3);
+  }
+
   castSpell(player, slot) {
     if (!player.alive || player.stunTimer > 0) return;
     if (this.phase !== 'playing') return;
@@ -4051,9 +4059,8 @@ export class Match {
         p.zoneDmgAcc = 0;
       }
 
-      if (p.input.castSlot >= 0) {
-        this.castSpell(p, p.input.castSlot);
-      }
+      // Todas as magias equipadas (básicas + ultimate) autocastam fora de CD.
+      this.autocastPlayerSpells(p);
     }
 
     // Monsters AI — sempre na plataforma; sempre tentam engajar jogador/bot

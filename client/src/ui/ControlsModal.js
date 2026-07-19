@@ -49,10 +49,9 @@ export class ControlsModal {
       ['WASD', 'Mover'],
       ['Shift + WASD', 'Dash'],
       ['Mouse', 'Mirar'],
-      ['1 – 4', 'Selecionar magia (autocast)'],
-      ['Tab', 'Ciclar magia 1→2→3→4'],
-      ['E / H', 'Escudo / Heal (autocast)'],
-      ['B', 'Blink'],
+      ['1 – 4', 'Destacar magia (todas autocast)'],
+      ['Tab', 'Ciclar destaque 1→2→3→4'],
+      ['E / H / B', 'Escudo / Heal / Blink (autocast)'],
     ];
 
     const rows = [];
