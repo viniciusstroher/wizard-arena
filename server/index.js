@@ -42,9 +42,41 @@ function findMatchBySocket(socketId) {
   return null;
 }
 
+/** Partida ativa (lobby ou em andamento) onde o personagem já ocupa um assento. */
+function findActiveMatchByCharacterId(characterId) {
+  if (!characterId) return null;
+  for (const match of matches.values()) {
+    if (match.phase === 'ended') continue;
+    for (const p of match.players.values()) {
+      if (!p.isBot && p.characterId === characterId) return match;
+    }
+  }
+  return null;
+}
+
+function findSocketIdByCharacterId(match, characterId) {
+  if (!match || !characterId) return null;
+  for (const [sid, p] of match.players) {
+    if (!p.isBot && p.characterId === characterId) return sid;
+  }
+  return null;
+}
+
+/** true se o personagem já está em alguma sala com outro socket (outra aba/navegador). */
+function isCharacterSeatedElsewhere(characterId, socketId) {
+  const match = findActiveMatchByCharacterId(characterId);
+  if (!match) return false;
+  const seatedSocketId = findSocketIdByCharacterId(match, characterId);
+  return Boolean(seatedSocketId && seatedSocketId !== socketId);
+}
+
 function lobbyListItem(match) {
   const humans = [...match.players.values()].filter((p) => !p.isBot);
   const host = humans[0] || [...match.players.values()][0];
+  const createdAt =
+    match.createdAt instanceof Date
+      ? match.createdAt.toISOString()
+      : new Date(match.createdAt || Date.now()).toISOString();
   return {
     id: match.id,
     playerCount: match.players.size,
@@ -52,13 +84,20 @@ function lobbyListItem(match) {
     hasPassword: Boolean(match.password),
     hostName: host?.name || 'Wizard',
     phase: match.phase,
+    createdAt,
   };
 }
 
+function isOpenLobby(match) {
+  return (
+    match.phase === 'lobby' &&
+    !match.startedAt &&
+    match.players.size > 0
+  );
+}
+
 function listOpenLobbies() {
-  return [...matches.values()]
-    .filter((m) => m.phase === 'lobby' && m.players.size > 0)
-    .map(lobbyListItem);
+  return [...matches.values()].filter(isOpenLobby).map(lobbyListItem);
 }
 
 function broadcastLobbies() {
@@ -138,11 +177,23 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const appearance = appearanceFromPayload(payload);
+    if (isCharacterSeatedElsewhere(appearance.characterId, socket.id)) {
+      socket.emit('error_msg', {
+        message: 'Usuário já está em um lobby.',
+        code: 'already_in_lobby',
+      });
+      return;
+    }
+
     const id = randomUUID();
-    const match = new Match(id, io, { maxPlayers, password });
+    const match = new Match(id, io, {
+      maxPlayers,
+      password,
+      onLobbyListChange: broadcastLobbies,
+    });
     matches.set(id, match);
 
-    const appearance = appearanceFromPayload(payload);
     const result = match.addPlayer(socket, appearance.name, {
       color: appearance.color,
       skin: appearance.skin,
@@ -151,7 +202,10 @@ io.on('connection', (socket) => {
     });
     if (!result.ok) {
       destroyMatch(match);
-      socket.emit('error_msg', { message: result.error });
+      socket.emit('error_msg', {
+        message: result.error,
+        code: result.code || 'join_failed',
+      });
       return;
     }
 
@@ -181,12 +235,27 @@ io.on('connection', (socket) => {
     }
 
     const match = matches.get(matchId);
-    if (!match || match.phase !== 'lobby') {
+    if (!match) {
       socket.emit('error_msg', { message: 'Lobby não existe.', code: 'lobby_not_found' });
+      return;
+    }
+    if (match.phase !== 'lobby' || match.startedAt) {
+      socket.emit('error_msg', {
+        message: 'Partida já iniciada.',
+        code: 'match_started',
+      });
       return;
     }
 
     const appearance = appearanceFromPayload(payload);
+    if (isCharacterSeatedElsewhere(appearance.characterId, socket.id)) {
+      socket.emit('error_msg', {
+        message: 'Usuário já está em um lobby.',
+        code: 'already_in_lobby',
+      });
+      return;
+    }
+
     const result = match.addPlayer(socket, appearance.name, {
       color: appearance.color,
       skin: appearance.skin,

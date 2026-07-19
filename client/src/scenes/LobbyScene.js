@@ -508,11 +508,15 @@ export class LobbyScene extends Phaser.Scene {
     this.socket.on('error_msg', (payload) => {
       const code = payload?.code;
       const message = payload?.message || 'Erro';
-      if (code === 'lobby_not_found' || code === 'bad_password') {
+      const redirectCodes = {
+        lobby_not_found: 'Lobby não existe.',
+        bad_password: 'Senha incorreta.',
+        match_started: 'Partida já iniciada.',
+        already_in_lobby: 'Usuário já está em um lobby.',
+      };
+      if (code && redirectCodes[code]) {
         this.leavingToMenu = true;
-        const banner =
-          code === 'lobby_not_found' ? 'Lobby não existe.' : 'Senha incorreta.';
-        sessionStorage.setItem('wa_mm_message', banner);
+        sessionStorage.setItem('wa_mm_message', redirectCodes[code]);
         navigate('/matchmaking', { replace: true });
         return;
       }

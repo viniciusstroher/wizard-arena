@@ -154,6 +154,8 @@ export class Match {
       ? Math.min(8, Math.max(1, max))
       : CONFIG.MAX_PLAYERS;
     this.password = options.password ? String(options.password) : null;
+    this.onLobbyListChange =
+      typeof options.onLobbyListChange === 'function' ? options.onLobbyListChange : null;
     this.players = new Map(); // socketId -> player
     this.monsters = [];
     this.projectiles = [];
@@ -198,6 +200,8 @@ export class Match {
     /** Log persistente da partida (não limpa a cada tick). */
     this.eventLog = [];
     this.chatLog = [];
+    /** Momento em que a sala (lobby) foi criada. */
+    this.createdAt = new Date();
     this.startedAt = null;
     this.endReason = null;
     this.maxRoundsSaved = CONFIG.MAX_ROUNDS;
@@ -655,8 +659,8 @@ export class Match {
   }
 
   addPlayer(socket, name, opts = {}) {
-    if (this.phase !== 'lobby') {
-      return { ok: false, error: 'Partida já iniciada', code: 'match_started' };
+    if (this.phase !== 'lobby' || this.startedAt) {
+      return { ok: false, error: 'Partida já iniciada.', code: 'match_started' };
     }
     if (this.players.size >= this.maxPlayers) {
       return { ok: false, error: 'Lobby cheio', code: 'lobby_full' };
@@ -669,10 +673,23 @@ export class Match {
       }
     }
 
+    const characterId = opts.characterId || null;
+    if (characterId) {
+      for (const [sid, p] of this.players) {
+        if (!p.isBot && p.characterId === characterId && sid !== socket.id) {
+          return {
+            ok: false,
+            error: 'Usuário já está em um lobby.',
+            code: 'already_in_lobby',
+          };
+        }
+      }
+    }
+
     const player = this.createPlayerState(socket.id, name, false, {
       color: opts.color,
       skin: opts.skin,
-      characterId: opts.characterId,
+      characterId,
     });
     this.players.set(socket.id, player);
     socket.join(this.id);
@@ -857,12 +874,15 @@ export class Match {
   startCountdown() {
     this.afterLevelUp = null;
     this.prepareRound();
+    const leftLobbyBrowser = this.phase === 'lobby';
     this.phase = 'countdown';
     this.countdown = 3;
     if (!this.startedAt) this.startedAt = new Date();
     this.broadcast({ type: 'countdown', seconds: this.countdown });
     this.broadcastState(true);
     this.ensureLoop();
+    // Remove a sala da listagem assim que a partida inicia.
+    if (leftLobbyBrowser) this.onLobbyListChange?.();
   }
 
   isBossAppearRound(round = this.round) {

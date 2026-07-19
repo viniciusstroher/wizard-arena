@@ -39,6 +39,8 @@ export class MatchmakingScene extends Phaser.Scene {
     this.lobbies = [];
     this.maxPlayers = 4;
     this.passwordPrompt = null;
+    this.lobbyAgeEls = [];
+    this._lobbyAgeAcc = 0;
 
     drawMenuBackground(this, { subtitle: 'Salas' });
     createAmbientCreatures(this);
@@ -145,7 +147,8 @@ export class MatchmakingScene extends Phaser.Scene {
     passEl.addEventListener('input', () => {
       passEl.value = passEl.value.replace(/\D/g, '').slice(0, 4);
     });
-    this.passInputDom = this.add.dom(x, y + 20, passEl).setOrigin(0.5).setDepth(uiDepth);
+    const passWrap = wrapPasswordInput(passEl, '220px');
+    this.passInputDom = this.add.dom(x, y + 20, passWrap).setOrigin(0.5).setDepth(uiDepth);
     this.passInputEl = passEl;
 
     makeMenuButton(this, x, y + 90, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
@@ -195,7 +198,9 @@ export class MatchmakingScene extends Phaser.Scene {
     this.socket.off('error_msg');
 
     this.socket.on('lobbies_list', (payload) => {
-      this.lobbies = Array.isArray(payload?.lobbies) ? payload.lobbies : [];
+      const list = Array.isArray(payload?.lobbies) ? payload.lobbies : [];
+      // Só salas ainda em lobby (partida iniciada some da listagem).
+      this.lobbies = list.filter((l) => !l?.phase || l.phase === 'lobby');
       this.renderLobbyList();
     });
 
@@ -206,7 +211,12 @@ export class MatchmakingScene extends Phaser.Scene {
 
     this.socket.on('error_msg', (payload) => {
       this.statusText.setColor('#ff6b6b');
-      this.statusText.setText(payload?.message || 'Erro');
+      const code = payload?.code;
+      const message =
+        code === 'already_in_lobby'
+          ? 'Usuário já está em um lobby.'
+          : payload?.message || 'Erro';
+      this.statusText.setText(message);
     });
   }
 
@@ -229,9 +239,44 @@ export class MatchmakingScene extends Phaser.Scene {
     });
   }
 
+  formatLobbyCreatedAt(value) {
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '—';
+      return d.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    } catch {
+      return '—';
+    }
+  }
+
+  formatLobbyOpenAge(createdAt) {
+    const created = new Date(createdAt).getTime();
+    if (!Number.isFinite(created)) return '0m 00s';
+    const totalSec = Math.max(0, Math.floor((Date.now() - created) / 1000));
+    const minutes = Math.floor(totalSec / 60);
+    const seconds = totalSec % 60;
+    return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
+  }
+
+  refreshLobbyAges() {
+    if (!this.lobbyAgeEls?.length) return;
+    for (const item of this.lobbyAgeEls) {
+      if (!item?.el) continue;
+      item.el.textContent = `Aberta há ${this.formatLobbyOpenAge(item.createdAt)}`;
+    }
+  }
+
   renderLobbyList() {
     if (!this.listEl) return;
     this.listEl.innerHTML = '';
+    this.lobbyAgeEls = [];
 
     if (!this.lobbies.length) {
       const empty = document.createElement('div');
@@ -261,12 +306,25 @@ export class MatchmakingScene extends Phaser.Scene {
       const title = document.createElement('div');
       title.style.cssText = 'font-size: 15px; color: #f4e8ff; font-weight: 600;';
       title.textContent = lobby.hostName ? `Sala de ${lobby.hostName}` : 'Sala';
+
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size: 12px; color: #9a8bb8; margin-top: 4px;';
       const lock = lobby.hasPassword ? ' · 🔒 privada' : '';
       meta.textContent = `${lobby.playerCount}/${lobby.maxPlayers} jogadores${lock}`;
+
+      const created = document.createElement('div');
+      created.style.cssText = 'font-size: 11px; color: #7a6e96; margin-top: 4px;';
+      created.textContent = `Criada em ${this.formatLobbyCreatedAt(lobby.createdAt)}`;
+
+      const age = document.createElement('div');
+      age.style.cssText = 'font-size: 11px; color: #c4b5e0; margin-top: 2px;';
+      age.textContent = `Aberta há ${this.formatLobbyOpenAge(lobby.createdAt)}`;
+      this.lobbyAgeEls.push({ el: age, createdAt: lobby.createdAt });
+
       info.appendChild(title);
       info.appendChild(meta);
+      info.appendChild(created);
+      info.appendChild(age);
 
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -329,12 +387,11 @@ export class MatchmakingScene extends Phaser.Scene {
     input.maxLength = 4;
     input.placeholder = '••••';
     styleDomInput(input);
-    input.style.width = '160px';
-    input.style.margin = '0 auto 14px';
-    input.style.display = 'block';
     input.addEventListener('input', () => {
       input.value = input.value.replace(/\D/g, '').slice(0, 4);
     });
+    const passWrap = wrapPasswordInput(input, '160px');
+    passWrap.style.margin = '0 auto 14px';
 
     const err = document.createElement('div');
     err.style.cssText = 'min-height: 18px; font-size: 13px; color: #ff6b6b; margin-bottom: 10px;';
@@ -370,7 +427,7 @@ export class MatchmakingScene extends Phaser.Scene {
     actions.appendChild(ok);
     wrap.appendChild(title);
     wrap.appendChild(hint);
-    wrap.appendChild(input);
+    wrap.appendChild(passWrap);
     wrap.appendChild(err);
     wrap.appendChild(actions);
 
@@ -403,5 +460,79 @@ export class MatchmakingScene extends Phaser.Scene {
   update(_time, delta) {
     updateMenuFlames(this);
     updateAmbientCreatures(this, delta);
+    this._lobbyAgeAcc = (this._lobbyAgeAcc || 0) + delta;
+    if (this._lobbyAgeAcc >= 1000) {
+      this._lobbyAgeAcc = 0;
+      this.refreshLobbyAges();
+    }
   }
+}
+
+const EYE_OPEN_SVG =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#c4b5e0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+
+const EYE_OFF_SVG =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#c4b5e0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+/** Wrap a password <input> with a show/hide eye toggle. */
+function wrapPasswordInput(input, width) {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = [
+    'position: relative',
+    `width: ${width}`,
+    'margin: 0 auto',
+    'box-sizing: border-box',
+  ].join(';');
+
+  input.style.width = '100%';
+  input.style.paddingRight = '40px';
+  input.style.boxSizing = 'border-box';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.style.cssText = [
+    'position: absolute',
+    'right: 6px',
+    'top: 50%',
+    'transform: translateY(-50%)',
+    'width: 28px',
+    'height: 28px',
+    'padding: 0',
+    'border: none',
+    'background: transparent',
+    'cursor: pointer',
+    'display: flex',
+    'align-items: center',
+    'justify-content: center',
+    'opacity: 0.8',
+  ].join(';');
+
+  let visible = false;
+  const sync = () => {
+    btn.innerHTML = visible ? EYE_OFF_SVG : EYE_OPEN_SVG;
+    const label = visible ? 'Ocultar senha' : 'Mostrar senha';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  };
+  sync();
+
+  btn.addEventListener('pointerdown', (e) => e.preventDefault());
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    visible = !visible;
+    input.type = visible ? 'text' : 'password';
+    input.inputMode = 'numeric';
+    sync();
+  });
+  btn.addEventListener('mouseenter', () => {
+    btn.style.opacity = '1';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.opacity = '0.8';
+  });
+
+  wrap.appendChild(input);
+  wrap.appendChild(btn);
+  return wrap;
 }
