@@ -2711,9 +2711,9 @@ export class GameScene extends Phaser.Scene {
     return sprite;
   }
 
-  wizardTexture(type, color) {
+  wizardTexture(type, color, skin) {
     if (color != null && Number.isFinite(Number(color))) {
-      return ensureWizardColorTexture(this, Number(color) >>> 0);
+      return ensureWizardColorTexture(this, Number(color) >>> 0, skin);
     }
     const key = `wizard_${type}`;
     return this.textures.exists(key) ? key : 'wizard';
@@ -2751,7 +2751,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const p of this.state.players) {
       seen.add(p.id);
-      const tex = this.wizardTexture(p.wizardType, p.color);
+      const tex = this.wizardTexture(p.wizardType, p.color, p.skin);
       const s = this.ensureActor(this.playerSprites, p.id, tex, 20);
       s.clearTint();
       s.setAlpha(p.alive ? 1 : 0.25);

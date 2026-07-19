@@ -1093,6 +1093,7 @@ export class LobbyScene extends Phaser.Scene {
       matchId: this.matchId,
       name: this.character.name,
       color: this.character.color,
+      skin: this.character.skin,
     };
     if (this.joinPassword) payload.password = this.joinPassword;
     this.socket.emit('join_lobby', payload);

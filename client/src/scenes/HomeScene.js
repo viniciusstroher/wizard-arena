@@ -19,7 +19,7 @@ export class HomeScene extends Phaser.Scene {
     const panelX = width / 2;
     const panelY = height / 2 + 20;
 
-    const tex = ensureWizardColorTexture(this, this.character.color);
+    const tex = ensureWizardColorTexture(this, this.character.color, this.character.skin);
     this.preview = this.add
       .sprite(panelX, panelY - 120, tex)
       .setScale(3.2)

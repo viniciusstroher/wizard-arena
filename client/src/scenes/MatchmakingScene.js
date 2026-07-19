@@ -216,6 +216,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.socket.emit('create_lobby', {
       name: this.character.name,
       color: this.character.color,
+      skin: this.character.skin,
       maxPlayers: this.maxPlayers,
       password: password || null,
     });

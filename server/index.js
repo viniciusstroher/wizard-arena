@@ -78,11 +78,26 @@ function leaveCurrentMatch(socket) {
   }
 }
 
+const WIZARD_SKIN_IDS = new Set([
+  'classic',
+  'hooded',
+  'crowned',
+  'battle',
+  'mystic',
+  'shadow',
+]);
+
+function normalizeSkin(skin) {
+  const id = String(skin || 'classic');
+  return WIZARD_SKIN_IDS.has(id) ? id : 'classic';
+}
+
 function appearanceFromPayload(payload = {}) {
   const color = Number(payload.color);
   return {
     name: payload.name,
     color: Number.isFinite(color) ? color >>> 0 : undefined,
+    skin: normalizeSkin(payload.skin),
   };
 }
 
@@ -115,6 +130,7 @@ io.on('connection', (socket) => {
     const appearance = appearanceFromPayload(payload);
     const result = match.addPlayer(socket, appearance.name, {
       color: appearance.color,
+      skin: appearance.skin,
       skipPassword: true,
     });
     if (!result.ok) {
@@ -156,6 +172,7 @@ io.on('connection', (socket) => {
     const appearance = appearanceFromPayload(payload);
     const result = match.addPlayer(socket, appearance.name, {
       color: appearance.color,
+      skin: appearance.skin,
       password: payload.password,
     });
     if (!result.ok) {

@@ -77,11 +77,30 @@ const WIZARD_TYPES = [
   { type: 'necromancer', color: 0x8844cc },
 ];
 
-function randomWizard() {
-  return WIZARD_TYPES[Math.floor(Math.random() * WIZARD_TYPES.length)];
+const WIZARD_SKIN_IDS = [
+  'classic',
+  'hooded',
+  'crowned',
+  'battle',
+  'mystic',
+  'shadow',
+];
+
+function normalizeSkin(skin) {
+  const id = String(skin || 'classic');
+  return WIZARD_SKIN_IDS.includes(id) ? id : 'classic';
 }
 
-function nearestWizard(color) {
+function randomSkin() {
+  return WIZARD_SKIN_IDS[Math.floor(Math.random() * WIZARD_SKIN_IDS.length)];
+}
+
+function randomWizard() {
+  const w = WIZARD_TYPES[Math.floor(Math.random() * WIZARD_TYPES.length)];
+  return { ...w, skin: randomSkin() };
+}
+
+function nearestWizard(color, skin) {
   const hex = Number(color) >>> 0;
   const r = (hex >> 16) & 0xff;
   const g = (hex >> 8) & 0xff;
@@ -98,12 +117,12 @@ function nearestWizard(color) {
       best = w;
     }
   }
-  return { type: best.type, color: hex };
+  return { type: best.type, color: hex, skin: normalizeSkin(skin) };
 }
 
 function resolveWizard(appearance = {}) {
   if (appearance.color != null && Number.isFinite(Number(appearance.color))) {
-    return nearestWizard(appearance.color);
+    return nearestWizard(appearance.color, appearance.skin);
   }
   return randomWizard();
 }
@@ -610,6 +629,7 @@ export class Match {
       critMult: CONFIG.PLAYER_CRIT_MULT,
       wizardType: wizard.type,
       color: wizard.color,
+      skin: wizard.skin || 'classic',
       zoneDmgAcc: 0,
       score: 0,
     };
@@ -632,6 +652,7 @@ export class Match {
 
     const player = this.createPlayerState(socket.id, name, false, {
       color: opts.color,
+      skin: opts.skin,
     });
     this.players.set(socket.id, player);
     socket.join(this.id);
@@ -4136,6 +4157,7 @@ export class Match {
         ready: p.ready,
         wizardType: p.wizardType,
         color: p.color,
+        skin: p.skin || 'classic',
         isBot: !!p.isBot,
       })),
     };
@@ -4163,6 +4185,7 @@ export class Match {
       xpToNext: p.xpToNext,
       wizardType: p.wizardType,
       color: p.color,
+      skin: p.skin || 'classic',
       shield: p.shield,
       maxShield: p.maxShield || 0,
       shieldTimer: +Math.max(0, p.shieldTimer || 0).toFixed(2),
