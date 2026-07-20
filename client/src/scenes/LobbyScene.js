@@ -622,7 +622,11 @@ export class LobbyScene extends Phaser.Scene {
       : null;
     const durSec = Number(this.lobby.roundDuration);
     const dur =
-      Number.isFinite(durSec) && durSec > 0 ? `${Math.round(durSec / 60)} min` : null;
+      Number.isFinite(durSec) && durSec > 0
+        ? durSec < 60
+          ? `${durSec}s`
+          : `${Math.round(durSec / 60)} min`
+        : null;
     const rules = [rounds, dur].filter(Boolean).join(' · ');
     this.titleText?.setText(rules ? `${roomName} · ${mode} · ${rules}` : `${roomName} · ${mode}`);
     this.statusText.setText(

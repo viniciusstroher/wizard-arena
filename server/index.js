@@ -30,7 +30,7 @@ function clampMaxPlayers(n) {
 }
 
 const LOBBY_MAX_ROUNDS = [1, 5, 10, 15, 20];
-const LOBBY_ROUND_DURATIONS = [60, 120, 180];
+const LOBBY_ROUND_DURATIONS = [30, 60, 120, 180];
 
 function clampMaxRounds(n) {
   const v = Math.floor(Number(n));

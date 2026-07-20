@@ -176,6 +176,7 @@ export class MatchmakingScene extends Phaser.Scene {
     const durationEl = document.createElement('select');
     durationEl.style.cssText = selectStyle;
     for (const [secs, label] of [
+      [30, '30 segundos'],
       [60, '1 minuto'],
       [120, '2 minutos'],
       [180, '3 minutos'],
@@ -346,7 +347,7 @@ export class MatchmakingScene extends Phaser.Scene {
       this.roundDuration = Number(this.durationSelectEl.value) || this.roundDuration;
     }
     const maxRounds = [1, 5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 5;
-    const roundDuration = [60, 120, 180].includes(this.roundDuration)
+    const roundDuration = [30, 60, 120, 180].includes(this.roundDuration)
       ? this.roundDuration
       : 60;
     this.maxRounds = maxRounds;
@@ -440,7 +441,9 @@ export class MatchmakingScene extends Phaser.Scene {
       const durSec = Number(lobby.roundDuration);
       const dur =
         Number.isFinite(durSec) && durSec > 0
-          ? `${Math.round(durSec / 60)}m`
+          ? durSec < 60
+            ? `${durSec}s`
+            : `${Math.round(durSec / 60)}m`
           : null;
       const rules = [rounds, dur].filter(Boolean).join('/');
       const rulesTag = rules ? ` · ${rules}` : '';

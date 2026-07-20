@@ -184,7 +184,7 @@ export class Match {
       ? Math.min(CONFIG.MAX_PLAYERS, Math.max(1, max))
       : CONFIG.MAX_PLAYERS;
     const roundsOpt = [1, 5, 10, 15, 20];
-    const durationOpt = [60, 120, 180];
+    const durationOpt = [30, 60, 120, 180];
     const rounds = Math.floor(Number(options.maxRounds));
     this.maxRounds = roundsOpt.includes(rounds)
       ? rounds
