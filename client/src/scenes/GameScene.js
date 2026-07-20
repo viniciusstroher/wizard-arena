@@ -2374,7 +2374,12 @@ export class GameScene extends Phaser.Scene {
       this.sparkFx?.emitParticleAt(x, y, 6);
     } else if (e.type === 'poison_burst' || spell === 'poison_cloud') {
       this.poisonFx?.emitParticleAt(x, y, 18);
-    } else if (e.type === 'apocalypse' || e.type === 'meteor_strike' || spell === 'meteor') {
+    } else if (e.type === 'apocalypse') {
+      this.fireballFx?.emitParticleAt(x, y, 22);
+      this.meteorFx?.emitParticleAt(x, y, 12);
+      this.sparkFx?.emitParticleAt(x, y, 16);
+      this.magicFx?.emitParticleAt(x, y, 8);
+    } else if (e.type === 'meteor_strike' || spell === 'meteor') {
       this.meteorFx?.emitParticleAt(x, y, 14);
       this.fireballFx?.emitParticleAt(x, y, 8);
       this.sparkFx?.emitParticleAt(x, y, 8);
@@ -4292,6 +4297,7 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Explosão nuclear: flash + onda de choque + cogumelo expandindo. */
   drawApocalypse(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
@@ -4301,38 +4307,116 @@ export class GameScene extends Phaser.Scene {
     const seedRef = { v: (e.seed ?? 1) >>> 0 };
     const rand = () => this.seededRand(seedRef);
 
-    // Chão em brasa
-    g.fillStyle(color, 0.16 * fade);
-    g.fillCircle(e.x, e.y, r * (0.5 + 0.5 * Math.min(1, p * 1.2)));
-    g.lineStyle(3, 0xff6600, 0.65 * fade);
-    g.strokeCircle(e.x, e.y, r * Math.min(1, p * 1.3));
+    // Curvas de crescimento do cogumelo
+    const stemT = Math.min(1, p / 0.45);
+    const stemEase = stemT * stemT * (3 - 2 * stemT);
+    const capT = Math.max(0, Math.min(1, (p - 0.18) / 0.55));
+    const capEase = capT * capT * (3 - 2 * capT);
+    const late = Math.max(0, (p - 0.55) / 0.45);
 
-    // Meteoros caindo
-    const meteors = 7;
-    for (let i = 0; i < meteors; i++) {
-      const ang = rand() * Math.PI * 2;
-      const dist = r * (0.15 + rand() * 0.75);
-      const tx = e.x + Math.cos(ang) * dist;
-      const ty = e.y + Math.sin(ang) * dist;
-      const fall = Math.min(1, Math.max(0, (p - i * 0.08) * 2.2));
-      const sx = tx - 40;
-      const sy = ty - 120 + fall * 120;
-      g.lineStyle(3, 0xffaa33, 0.7 * fade * fall);
-      g.lineBetween(sx, sy - 28, tx, ty);
-      g.fillStyle(0xffee88, 0.8 * fade * fall);
-      g.fillCircle(sx, sy - 28, 5);
-      g.fillStyle(color, 0.45 * fade * fall);
-      g.fillCircle(tx, ty, 8 + fall * 10);
-      g.lineStyle(2, 0xff8800, 0.5 * fade * fall);
-      g.strokeCircle(tx, ty, 16 * fall);
+    // Flash inicial da detonação
+    const flash = Math.max(0, 1 - p * 4.5);
+    if (flash > 0) {
+      g.fillStyle(0xffffff, 0.55 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.18 + flash * 0.35));
+      g.fillStyle(0xffee66, 0.45 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.35 + flash * 0.45));
+      g.fillStyle(color, 0.3 * flash * fade);
+      g.fillCircle(e.x, e.y, r * (0.55 + flash * 0.5));
     }
 
-    // Rachaduras
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 + 0.3;
-      const len = r * (0.4 + rand() * 0.5) * Math.min(1, p * 1.4);
-      g.lineStyle(2, 0xff4400, 0.4 * fade);
+    // Solo carbonizado + anéis de choque
+    const groundR = r * (0.35 + 0.65 * Math.min(1, p * 1.35));
+    g.fillStyle(0x1a0800, 0.28 * fade * (1 - late * 0.35));
+    g.fillCircle(e.x, e.y, groundR);
+    g.fillStyle(color, 0.18 * fade * (1 - p * 0.35));
+    g.fillCircle(e.x, e.y, groundR * 0.72);
+    g.fillStyle(0xffaa33, 0.1 * fade * Math.max(0, 1 - p * 1.2));
+    g.fillCircle(e.x, e.y, groundR * 0.35);
+
+    for (let i = 0; i < 3; i++) {
+      const wave = Math.min(1.4, p * 1.55 + i * 0.14);
+      const wr = r * (0.25 + wave * 0.85);
+      const wa = (0.7 - i * 0.18) * fade * Math.max(0, 1 - wave * 0.55);
+      g.lineStyle(3.5 - i * 0.6, i === 0 ? 0xffee88 : color, wa);
+      g.strokeCircle(e.x, e.y, wr);
+    }
+
+    // Rachaduras radiais no chão
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2 + rand() * 0.35;
+      const len = groundR * (0.45 + rand() * 0.5);
+      g.lineStyle(2, 0xff4400, 0.35 * fade * (1 - late * 0.5));
       g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
+    }
+
+    // Coluna (haste) do cogumelo — sobe e engrossa
+    const stemH = (48 + r * 0.55) * stemEase;
+    const stemW = (10 + r * 0.08) * (0.55 + 0.45 * stemEase) * (1 + late * 0.35);
+    if (stemH > 2) {
+      g.fillStyle(0x552200, 0.35 * fade * (1 - late * 0.3));
+      g.fillEllipse(e.x, e.y - stemH * 0.42, stemW * 2.2, stemH);
+      g.fillStyle(color, 0.32 * fade * (1 - late * 0.25));
+      g.fillEllipse(e.x, e.y - stemH * 0.45, stemW * 1.55, stemH * 0.95);
+      g.fillStyle(0xffaa44, 0.28 * fade * Math.max(0.15, 1 - p));
+      g.fillEllipse(e.x, e.y - stemH * 0.5, stemW * 0.85, stemH * 0.8);
+      g.fillStyle(0xffeeaa, 0.35 * fade * Math.max(0, 1 - p * 1.6));
+      g.fillEllipse(e.x, e.y - stemH * 0.55, stemW * 0.35, stemH * 0.55);
+    }
+
+    // Capuz do cogumelo — forma e se expande no topo
+    if (capEase > 0.02 && stemH > 8) {
+      const capY = e.y - stemH * (0.88 + late * 0.06);
+      const capW = r * (0.22 + 0.55 * capEase) * (1 + late * 0.25);
+      const capH = r * (0.12 + 0.22 * capEase) * (1 + late * 0.15);
+
+      // Fumaça escura da borda
+      g.fillStyle(0x3a2010, 0.4 * fade * (0.5 + 0.5 * capEase));
+      g.fillEllipse(e.x, capY + capH * 0.15, capW * 2.15, capH * 1.35);
+      g.fillStyle(0x6a3010, 0.32 * fade);
+      g.fillEllipse(e.x, capY, capW * 1.95, capH * 1.15);
+
+      // Núcleo flamejante
+      g.fillStyle(color, 0.38 * fade * (1 - late * 0.35));
+      g.fillEllipse(e.x, capY - capH * 0.1, capW * 1.45, capH * 0.95);
+      g.fillStyle(0xff8822, 0.32 * fade * (1 - late * 0.4));
+      g.fillEllipse(e.x, capY - capH * 0.2, capW * 1.05, capH * 0.75);
+      g.fillStyle(0xffee66, 0.28 * fade * Math.max(0.1, 1 - p * 1.1));
+      g.fillEllipse(e.x, capY - capH * 0.28, capW * 0.55, capH * 0.45);
+      g.fillStyle(0xffffff, 0.22 * fade * Math.max(0, 1 - p * 1.8));
+      g.fillEllipse(e.x, capY - capH * 0.32, capW * 0.22, capH * 0.22);
+
+      // Lóbulos / turbulência na borda do capuz
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + p * 1.2 + rand() * 0.4;
+        const lx = e.x + Math.cos(a) * capW * (0.75 + rand() * 0.25);
+        const ly = capY + Math.sin(a) * capH * (0.55 + rand() * 0.35);
+        const lw = 10 + rand() * 14 + capEase * 10;
+        const lh = 7 + rand() * 9 + capEase * 6;
+        g.fillStyle(i % 2 === 0 ? 0x5a2810 : color, 0.22 * fade * (1 - late * 0.4));
+        g.fillEllipse(lx, ly, lw * 1.8, lh);
+      }
+
+      // Saia / anel inferior do cogumelo
+      const skirtY = e.y - stemH * 0.55;
+      const skirtW = stemW * (1.8 + 1.6 * capEase);
+      g.fillStyle(0x4a1808, 0.28 * fade * capEase);
+      g.fillEllipse(e.x, skirtY, skirtW * 2.4, 10 + 8 * capEase);
+      g.fillStyle(color, 0.16 * fade * capEase * (1 - late * 0.5));
+      g.fillEllipse(e.x, skirtY - 2, skirtW * 1.6, 6 + 4 * capEase);
+    }
+
+    // Fragmentos / faíscas ejetados
+    for (let i = 0; i < 10; i++) {
+      const a = rand() * Math.PI * 2;
+      const launch = Math.min(1, Math.max(0, (p - i * 0.04) * 1.8));
+      if (launch <= 0) continue;
+      const dist = r * (0.2 + rand() * 0.7) * launch;
+      const px = e.x + Math.cos(a) * dist;
+      const py = e.y + Math.sin(a) * dist * 0.75 - launch * (20 + rand() * 40);
+      const pr = 2 + rand() * 4 * (1 - launch * 0.5);
+      g.fillStyle(i % 3 === 0 ? 0xffee88 : color, 0.55 * fade * (1 - launch * 0.6));
+      g.fillCircle(px, py, pr);
     }
   }
 

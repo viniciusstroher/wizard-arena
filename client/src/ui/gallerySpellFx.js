@@ -592,8 +592,8 @@ export function buildGallerySpellEffects(spellId, color, from, to) {
         x: (x1 + x2) / 2,
         y: (y1 + y2) / 2,
         radius: R(def.radius || 120, 120),
-        life: 1.35,
-        maxLife: 1.35,
+        life: 1.7,
+        maxLife: 1.7,
         color: fxColor,
         seed: (Math.random() * 1e9) | 0,
       });

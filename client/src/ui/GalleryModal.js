@@ -967,6 +967,44 @@ export class GalleryModal {
       row.appendChild(spellsLine);
     }
 
+    if (tab === 'monsters' && entry.resistDetails?.length) {
+      const resistLine = document.createElement('div');
+      resistLine.style.cssText = [
+        'display: flex',
+        'flex-wrap: wrap',
+        'gap: 3px',
+        'margin-top: 2px',
+        'max-width: 100%',
+        'overflow: hidden',
+      ].join(';');
+      for (const r of entry.resistDetails.slice(0, 4)) {
+        const chip = document.createElement('span');
+        const weak = r.value < 0;
+        chip.textContent = `${r.label} ${r.text}`;
+        chip.title = weak
+          ? `Vulnerabilidade a ${r.label}: ${r.text}`
+          : `Resistência a ${r.label}: ${r.text}`;
+        chip.style.cssText = [
+          'font-size: 9px',
+          'line-height: 1.2',
+          'padding: 1px 4px',
+          'border-radius: 3px',
+          `color: ${weak ? '#ffb4b4' : '#c8f0c8'}`,
+          `background: ${r.cssColor}33`,
+          `box-shadow: inset 0 0 0 1px ${r.cssColor}88`,
+          'white-space: nowrap',
+        ].join(';');
+        resistLine.appendChild(chip);
+      }
+      if (entry.resistDetails.length > 4) {
+        const more = document.createElement('span');
+        more.textContent = `+${entry.resistDetails.length - 4}`;
+        more.style.cssText = 'font-size: 9px; color: #7a6e96;';
+        resistLine.appendChild(more);
+      }
+      row.appendChild(resistLine);
+    }
+
     if (tab === 'floors' && entry.description) {
       const descLine = document.createElement('div');
       descLine.textContent = entry.description;
@@ -1044,6 +1082,7 @@ export class GalleryModal {
     } else if (entry.attack === 'caster') {
       details.push('Magias: —');
     }
+    details.push(entry.resistLine || 'Resistências: neutras');
 
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
     this._setInfoElement(null);

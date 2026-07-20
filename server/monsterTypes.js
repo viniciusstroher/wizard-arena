@@ -4,6 +4,7 @@
  */
 
 import { MONSTER_FLOORS } from './monsterHabitats.js';
+import { attachMonsterResistances } from './monsterResistances.js';
 
 export function createMonsterTypeDefs(CONFIG) {
   const common = CONFIG.MONSTER_WEIGHT_COMMON;
@@ -4765,5 +4766,8 @@ export function createMonsterTypeDefs(CONFIG) {
     const floors = MONSTER_FLOORS[id];
     if (floors?.length) def.floors = floors;
   }
+
+  // Resistências elementais (D&D / Tibia / WoW) por tema do monstro.
+  attachMonsterResistances(defs);
   return defs;
 }

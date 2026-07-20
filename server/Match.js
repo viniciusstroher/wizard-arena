@@ -1,6 +1,8 @@
 import { CONFIG } from './config.js';
 import { BotController } from './Bot.js';
 import { createMonsterTypeDefs } from './monsterTypes.js';
+import { applyElementResistance } from './monsterResistances.js';
+import { spellElementId } from './spellElements.js';
 import {
   applySpellChoice,
   createSpellInstance,
@@ -1181,7 +1183,7 @@ export class Match {
     for (const m of this.monsters) {
       if (!m.alive) continue;
       if (dist(meteor, m) <= meteor.radius + (m.radius || CONFIG.MONSTER_RADIUS)) {
-        this.damageEntity(m, meteor.damage, null, false, false);
+        this.damageEntity(m, meteor.damage, null, false, false, { element: 'fire' });
       }
     }
   }
@@ -2210,7 +2212,19 @@ export class Match {
     const options = opts && typeof opts === 'object' ? opts : null;
     let crit = false;
     let dmg = amount;
-    if (!options?.skipCrit && sourcePlayerId != null && amount > 0) {
+
+    // Resistência elemental (só monstros) — D&D/Tibia/WoW %.
+    if (!isPlayer && target.resistances) {
+      const element =
+        options?.element ||
+        (options?.spellId ? spellElementId(options.spellId) : null);
+      if (element) {
+        dmg = applyElementResistance(dmg, target.resistances, element);
+        if (dmg <= 0 && !(target.shield > 0)) return false;
+      }
+    }
+
+    if (!options?.skipCrit && sourcePlayerId != null && dmg > 0) {
       const attacker =
         this.players.get(sourcePlayerId) || this.findMonster(sourcePlayerId);
       if (attacker) {
@@ -2218,7 +2232,7 @@ export class Match {
         const mult = Math.max(1, attacker.critMult ?? 1);
         if (chance > 0 && Math.random() < chance) {
           crit = true;
-          dmg = Math.max(1, Math.round(amount * mult));
+          dmg = Math.max(1, Math.round(dmg * mult));
         }
       }
     }
@@ -2707,6 +2721,7 @@ export class Match {
       trailAcc: 0,
       radius: def.radius,
       color: def.color,
+      resistances: def.resistances ? { ...def.resistances } : {},
       isBoss,
       isElite,
       difficulty: def.difficulty || (isBoss ? 'boss' : isElite ? 'hard' : 'normal'),
@@ -2927,7 +2942,11 @@ export class Match {
     // Renovar não pausa o DoT; na 1ª aplicação causa tick imediato
     if (!wasPoisoned) {
       target.poisonTickAcc = 0;
-      if (dmg > 0) this.damageEntity(target, dmg, ownerId, this.isPlayerEntity(target), true);
+      if (dmg > 0) {
+        this.damageEntity(target, dmg, ownerId, this.isPlayerEntity(target), true, {
+          element: 'poison',
+        });
+      }
     }
   }
 
@@ -2940,7 +2959,11 @@ export class Match {
     target.poisonTickAcc += dt;
     while (target.poisonTickAcc >= tick && target.alive && target.poisonTimer > 0) {
       target.poisonTickAcc -= tick;
-      if (dmg > 0) this.damageEntity(target, dmg, target.poisonOwnerId, isPlayer, true);
+      if (dmg > 0) {
+        this.damageEntity(target, dmg, target.poisonOwnerId, isPlayer, true, {
+          element: 'poison',
+        });
+      }
     }
     target.poisonTimer = Math.max(0, target.poisonTimer - dt);
     if (target.poisonTimer <= 0 || !target.alive) {
@@ -2964,7 +2987,11 @@ export class Match {
     // Renovar não pausa o DoT; na 1ª aplicação causa tick imediato
     if (!wasBurning) {
       target.burnTickAcc = 0;
-      if (dmg > 0) this.damageEntity(target, dmg, ownerId, this.isPlayerEntity(target), true);
+      if (dmg > 0) {
+        this.damageEntity(target, dmg, ownerId, this.isPlayerEntity(target), true, {
+          element: 'fire',
+        });
+      }
     }
   }
 
@@ -2977,7 +3004,11 @@ export class Match {
     target.burnTickAcc += dt;
     while (target.burnTickAcc >= tick && target.alive && target.burnTimer > 0) {
       target.burnTickAcc -= tick;
-      if (dmg > 0) this.damageEntity(target, dmg, target.burnOwnerId, isPlayer, true);
+      if (dmg > 0) {
+        this.damageEntity(target, dmg, target.burnOwnerId, isPlayer, true, {
+          element: 'fire',
+        });
+      }
     }
     target.burnTimer = Math.max(0, target.burnTimer - dt);
     if (target.burnTimer <= 0 || !target.alive) {
@@ -3034,7 +3065,7 @@ export class Match {
       for (const m of this.monsters) {
         if (!m.alive) continue;
         if (dist(origin, m) <= radius + (m.radius || CONFIG.MONSTER_RADIUS)) {
-          this.damageEntity(m, burst, ownerId, false, true);
+          this.damageEntity(m, burst, ownerId, false, true, { spellId: 'flame_nova' });
           this.applyBurn(m, ownerId, burnDmgSafe, burnTickSafe, burnDurationSafe);
         }
       }
@@ -3866,7 +3897,7 @@ export class Match {
       case 'arc_lightning': {
         const target = this.findNearestHostile(player, stats.range);
         if (target) {
-          this.damageHostile(target, stats.damage, player.id);
+          this.damageHostile(target, stats.damage, player.id, { spellId: 'arc_lightning' });
           this.effects.push({
             type: 'lightning',
             x1: player.x,
@@ -3926,14 +3957,14 @@ export class Match {
         player.input.castSlot = -1;
         return;
       case 'apocalypse':
-        this.applyNova(player, stats.radius, stats.damage, player.id);
+        this.applyNova(player, stats.radius, stats.damage, player.id, { spellId: 'apocalypse' });
         this.effects.push({
           type: 'apocalypse',
           x: player.x,
           y: player.y,
           radius: stats.radius,
-          life: 1.35,
-          maxLife: 1.35,
+          life: 1.7,
+          maxLife: 1.7,
           color: stats.color,
           seed: (Math.random() * 1e9) | 0,
         });
@@ -3971,7 +4002,7 @@ export class Match {
           seed: (Math.random() * 1e9) | 0,
         });
         for (const h of hostiles) {
-          this.damageHostile(h, stats.damage, player.id);
+          this.damageHostile(h, stats.damage, player.id, { spellId: 'storm_call' });
           this.effects.push({
             type: 'lightning',
             x1: player.x,
@@ -4051,24 +4082,26 @@ export class Match {
     return best;
   }
 
-  damageHostile(hostile, amount, sourceId) {
+  damageHostile(hostile, amount, sourceId, opts = null) {
     if (hostile._isPlayer) {
-      this.damageEntity(hostile.ref, amount, sourceId, true, true);
+      this.damageEntity(hostile.ref, amount, sourceId, true, true, opts);
     } else {
-      this.damageEntity(hostile.ref, amount, sourceId, false, true);
+      this.damageEntity(hostile.ref, amount, sourceId, false, true, opts);
     }
   }
 
-  applyNova(origin, radius, damage, sourceId) {
+  applyNova(origin, radius, damage, sourceId, opts = null) {
     if (this.playerCanHarmPlayers(sourceId)) {
       for (const p of this.players.values()) {
         if (p.id === sourceId || !p.alive) continue;
-        if (dist(origin, p) <= radius) this.damageEntity(p, damage, sourceId, true, true);
+        if (dist(origin, p) <= radius) this.damageEntity(p, damage, sourceId, true, true, opts);
       }
     }
     for (const m of this.monsters) {
       if (!m.alive) continue;
-      if (dist(origin, m) <= radius) this.damageEntity(m, damage, sourceId, false, true);
+      if (dist(origin, m) <= radius) {
+        this.damageEntity(m, damage, sourceId, false, true, opts);
+      }
     }
   }
 
@@ -4627,7 +4660,9 @@ export class Match {
           for (const m of this.monsters) {
             if (!m.alive) continue;
             if (dist(proj, m) <= proj.radius + m.radius) {
-              this.damageEntity(m, proj.damage, proj.ownerId, false, true);
+              this.damageEntity(m, proj.damage, proj.ownerId, false, true, {
+                spellId: proj.spellId || proj.kind || null,
+              });
               this.applyProjectileKnockback(m, proj);
               if (proj.poisonDamage) {
                 this.applyPoison(

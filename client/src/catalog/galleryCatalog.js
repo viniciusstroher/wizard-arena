@@ -7,6 +7,7 @@ import {
   spellElementCssColor,
 } from './spellElements.js';
 import { monsterLabel } from './monsterLabels.js';
+import { formatResistancesLine, resistanceDetails } from './monsterResistances.js';
 import {
   FLOOR_SPEED_MUL,
   FLOOR_INERTIA_MUL,
@@ -302,6 +303,8 @@ export function getMonsterEntries() {
           elementCss: spellElementCssColor(element),
         };
       });
+      const resistances = def.resistances || {};
+      const resistDetails = resistanceDetails(resistances);
       return {
         id,
         name: monsterLabel(id),
@@ -316,6 +319,9 @@ export function getMonsterEntries() {
         spells,
         spellDetails,
         spellNames: spellDetails.map((s) => s.name),
+        resistances,
+        resistDetails,
+        resistLine: formatResistancesLine(resistances),
         color: def.color ?? 0xffffff,
       };
     })
