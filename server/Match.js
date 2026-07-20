@@ -238,12 +238,14 @@ export class Match {
     /** Round atual é luta de boss (sem tempo; win ao matar o boss). */
     this.bossRound = false;
     /**
-     * Após terminar um round listado em BOSS_APPEARS, a próxima fase é a boss fight
-     * (não consome um round extra — roda “depois” do round N).
+     * Após terminar um round listado em BOSS_APPEARS_{maxRounds}, a próxima fase
+     * é a boss fight (não consome um round extra — roda “depois” do round N).
      */
     this.pendingBossFight = false;
     /** Rounds (número) cuja boss fight pós-round já foi concluída. */
     this.clearedBossFights = new Set();
+    /** Sorteio de chance por round (round → boolean): true = dispara boss fight. */
+    this.bossAppearRolls = new Map();
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
@@ -1061,13 +1063,34 @@ export class Match {
     if (leftLobbyBrowser) this.onLobbyListChange?.();
   }
 
-  isBossAppearRound(round = this.round) {
-    return CONFIG.BOSS_APPEARS.includes(round);
+  /** Entradas de boss para a duração desta partida (maxRounds). */
+  getBossAppearEntries() {
+    const byMax = CONFIG.BOSS_APPEARS_BY_MAX_ROUNDS || {};
+    const list = byMax[this.maxRounds];
+    return Array.isArray(list) ? list : [];
   }
 
-  /** Ainda falta a boss fight depois deste round (ex.: BOSS_APPEARS=5 após o round 5). */
+  getBossAppearEntry(round = this.round) {
+    return this.getBossAppearEntries().find((e) => e.round === round) || null;
+  }
+
+  isBossAppearRound(round = this.round) {
+    return !!this.getBossAppearEntry(round);
+  }
+
+  /**
+   * Ainda falta a boss fight depois deste round (ex.: BOSS_APPEARS_5=5#100%).
+   * A chance (#N%) é sorteada uma vez por round e cacheada.
+   */
   needsBossFightAfterRound(round = this.round) {
-    return this.isBossAppearRound(round) && !this.clearedBossFights.has(round);
+    if (this.clearedBossFights.has(round)) return false;
+    const entry = this.getBossAppearEntry(round);
+    if (!entry) return false;
+    if (!this.bossAppearRolls.has(round)) {
+      const chance = Math.min(1, Math.max(0, Number(entry.chance) || 0));
+      this.bossAppearRolls.set(round, Math.random() < chance);
+    }
+    return this.bossAppearRolls.get(round) === true;
   }
 
   /** Agenda a boss fight (intermissão → countdown → startBossFight). */

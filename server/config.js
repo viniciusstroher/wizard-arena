@@ -32,6 +32,50 @@ function envIntList(key, fallback = []) {
   return list.length ? list : fallback;
 }
 
+/**
+ * Entradas de boss por duração da partida.
+ * Formato: "5#100%,10#50%" → após o round N, chance % de iniciar boss fight.
+ * Sem `#` → 100%. Vazio / inválido → fallback.
+ */
+function parseBossAppears(raw, fallback = []) {
+  if (raw === undefined || raw === null) return fallback;
+  const text = String(raw).trim();
+  if (!text) return fallback;
+  const entries = [];
+  for (const token of text.split(',')) {
+    const m = token.trim().match(/^(\d+)\s*(?:#\s*(\d+(?:\.\d+)?)\s*%?)?$/i);
+    if (!m) continue;
+    const round = parseInt(m[1], 10);
+    if (!Number.isFinite(round) || round < 1) continue;
+    let chance = 1;
+    if (m[2] !== undefined) {
+      const pct = Number(m[2]);
+      if (!Number.isFinite(pct)) continue;
+      // Formato pedido: #100% → percentual 0–100.
+      chance = Math.min(1, Math.max(0, pct / 100));
+    }
+    entries.push({ round, chance });
+  }
+  return entries.length ? entries : fallback;
+}
+
+/** Faixas de maxRounds do lobby que têm config própria de boss. */
+const BOSS_APPEARS_MAX_ROUNDS = [1, 5, 10, 15, 20];
+
+function buildBossAppearsByMaxRounds() {
+  const legacy = envIntList('BOSS_APPEARS', []).map((round) => ({
+    round,
+    chance: 1,
+  }));
+  const map = Object.create(null);
+  for (const maxRounds of BOSS_APPEARS_MAX_ROUNDS) {
+    const key = `BOSS_APPEARS_${maxRounds}`;
+    const legacyForLength = legacy.filter((e) => e.round <= maxRounds);
+    map[maxRounds] = parseBossAppears(process.env[key], legacyForLength);
+  }
+  return map;
+}
+
 const ARENA_MIN_RADIUS = 80;
 const ARENA_START_RADIUS = envInt('ARENA_START_RADIUS', 320, ARENA_MIN_RADIUS);
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
@@ -342,9 +386,13 @@ export const CONFIG = {
   /** Peso relativo entre bosses ao sortear qual aparece no round de boss. */
   MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
   /**
-   * Após quais rounds a boss fight começa (ex.: 5,10). Vazio = sem boss.
-   * O round N é normal; ao terminá-lo, roda a luta de boss (sem limite de tempo).
+   * Boss fight por duração da partida (maxRounds).
+   * Env (com aspas): BOSS_APPEARS_1 / _5 / _10 / _15 / _20 = "round#chance%,..."
+   * Ex.: BOSS_APPEARS_5="5#100%" → 100% de boss após o round 5 numa partida de 5 rounds.
+   * Fallback legado: BOSS_APPEARS=5,10 (100% em cada round listado, se couber na duração).
    */
+  BOSS_APPEARS_BY_MAX_ROUNDS: buildBossAppearsByMaxRounds(),
+  /** @deprecated use BOSS_APPEARS_BY_MAX_ROUNDS — lista plana só do legado. */
   BOSS_APPEARS: envIntList('BOSS_APPEARS', []),
   /** Intervalo (segundos) entre tentativas de auto-cura do boss. */
   BOSS_HEAL_INTERVAL: Math.max(0.5, envNumber('BOSS_HEAL_INTERVAL', 5)),
