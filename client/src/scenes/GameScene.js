@@ -3693,14 +3693,14 @@ export class GameScene extends Phaser.Scene {
    * (tipo de efeito no servidor continua `pentagram` por compatibilidade)
    */
   drawPentagram(e) {
-    const maxLife = e.maxLife || 1.76;
+    const maxLife = e.maxLife || 0.35;
     const fade = Math.min(1, e.life / maxLife);
     const t = this.time.now;
     const age = Math.max(0, maxLife - e.life);
-    const pulse = 0.78 + 0.22 * Math.sin(t / 420);
-    const flicker = 0.82 + 0.18 * Math.sin(t / 360 + 1.1);
-    const spin = t * 0.00035 + age * 1.1;
-    const rise = Math.min(1, age / 0.22);
+    const pulse = 0.78 + 0.22 * Math.sin(t / 280);
+    const flicker = 0.82 + 0.18 * Math.sin(t / 240 + 1.1);
+    const spin = t * 0.0007 + age * 2.4;
+    const rise = Math.min(1, age / 0.1);
     const baseR = (e.radius || 30.4) * (0.72 + 0.08 * pulse);
     // Sobe do chão (pés) até a cabeça do mago
     const headH = 34 + baseR * 0.15;

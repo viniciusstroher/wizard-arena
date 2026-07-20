@@ -4,7 +4,7 @@ import { getSpellDef } from '../../../server/spells.js';
 /** Escala de raios do jogo → preview da galeria. */
 const R = (gameR, fallback = 36) => Math.max(14, Math.round((gameR ?? fallback) * 0.36));
 
-const PENTAGRAM_LIFE = 1.76;
+const PENTAGRAM_LIFE = 0.35;
 
 const PROJECTILE_SPELLS = new Set([
   'firebolt',
