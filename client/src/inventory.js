@@ -4,7 +4,8 @@ export const BAG_COLS = 12;
 export const BAG_ROWS = 12;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
-export const STARTER_KIT_VERSION = 1;
+/** v2: kit inicial já vem equipado. */
+export const STARTER_KIT_VERSION = 2;
 
 /** Slots de equipamento. */
 export const EQUIP_SLOTS = [
@@ -15,6 +16,10 @@ export const EQUIP_SLOTS = [
   { key: 'cape', label: 'Capa', accepts: 'cape' },
   { key: 'boots', label: 'Botas', accepts: 'boots' },
 ];
+
+export const SET_LABELS = {
+  conjunto_de_pano: 'Conjunto de Pano',
+};
 
 /**
  * Itens iniciais — sem bônus.
@@ -61,17 +66,23 @@ export const ITEM_DEFS = {
   },
 };
 
-const STARTER_ITEM_IDS = [
-  'cloth_hat',
-  'cloth_cape',
-  'plastic_ring_1',
-  'plastic_ring_2',
-  'brass_necklace',
-  'holey_boots',
+/** Ordem de equipamento do kit inicial. */
+const STARTER_EQUIP_PLAN = [
+  { key: 'hat', id: 'cloth_hat' },
+  { key: 'cape', id: 'cloth_cape' },
+  { key: 'ring1', id: 'plastic_ring_1' },
+  { key: 'ring2', id: 'plastic_ring_2' },
+  { key: 'necklace', id: 'brass_necklace' },
+  { key: 'boots', id: 'holey_boots' },
 ];
+
+const STARTER_ITEM_IDS = STARTER_EQUIP_PLAN.map((p) => p.id);
 
 const EQUIP_KEYS = EQUIP_SLOTS.map((s) => s.key);
 const ACCEPTS = new Set(EQUIP_SLOTS.map((s) => s.accepts));
+const SLOT_LABEL_BY_ACCEPTS = Object.fromEntries(
+  EQUIP_SLOTS.map((s) => [s.accepts, s.label])
+);
 
 function emptyEquipment() {
   const eq = {};
@@ -92,16 +103,25 @@ export function createItem(defId) {
     slot: def.slot,
     color: def.color >>> 0,
     set: def.set || null,
-    // Sem bônus de atributos
     bonus: null,
   };
+}
+
+export function itemTooltipLines(item) {
+  if (!item) return [];
+  const lines = [item.name];
+  lines.push(`Tipo: ${SLOT_LABEL_BY_ACCEPTS[item.slot] || item.slot}`);
+  if (item.set && SET_LABELS[item.set]) {
+    lines.push(SET_LABELS[item.set]);
+  }
+  lines.push('Sem bônus');
+  return lines;
 }
 
 function normalizeItem(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const id = String(raw.id || '').trim();
   const def = ITEM_DEFS[id];
-  // Preferir definição canônica quando conhecida (nome/cor/slot estáveis)
   if (def) {
     return {
       id: def.id,
@@ -145,6 +165,13 @@ function normalizeEquipment(raw) {
   return eq;
 }
 
+function findBagIndexById(bag, id) {
+  for (let i = 0; i < bag.length; i++) {
+    if (bag[i]?.id === id) return i;
+  }
+  return -1;
+}
+
 function collectOwnedIds(inventory) {
   const ids = new Set();
   for (const item of inventory.bag) {
@@ -157,7 +184,7 @@ function collectOwnedIds(inventory) {
   return ids;
 }
 
-/** Coloca o kit inicial no saco (pula ids já possuídos). */
+/** Garante o kit e deixa os itens iniciais equipados. */
 export function grantStarterKit(inventory) {
   const inv = {
     equipment: normalizeEquipment(inventory?.equipment),
@@ -168,6 +195,8 @@ export function grantStarterKit(inventory) {
   };
 
   const owned = collectOwnedIds(inv);
+
+  // Cria itens faltantes no saco
   for (const defId of STARTER_ITEM_IDS) {
     if (owned.has(defId)) continue;
     const idx = firstEmptyBagIndex(inv.bag);
@@ -177,6 +206,25 @@ export function grantStarterKit(inventory) {
     inv.bag[idx] = item;
     owned.add(defId);
   }
+
+  // Equipa o set inicial nos slots correspondentes
+  for (const { key, id } of STARTER_EQUIP_PLAN) {
+    if (inv.equipment[key]?.id === id) continue;
+
+    const bagIdx = findBagIndexById(inv.bag, id);
+    if (bagIdx >= 0) {
+      const starter = inv.bag[bagIdx];
+      const previous = inv.equipment[key];
+      inv.equipment[key] = starter;
+      inv.bag[bagIdx] = previous || null;
+      continue;
+    }
+
+    if (!inv.equipment[key]) {
+      inv.equipment[key] = createItem(id);
+    }
+  }
+
   return inv;
 }
 

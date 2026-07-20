@@ -12,9 +12,11 @@ import {
   BAG_SIZE,
   EQUIP_SLOTS,
   equipFromBag,
+  itemTooltipLines,
   normalizeInventory,
   unequipToBag,
 } from '../inventory.js';
+import { ensureItemIconTextures, itemIconKey } from '../itemIcons.js';
 import { navigate } from '../router.js';
 import { ensureMenuMusic } from '../audio/menuMusic.js';
 import {
@@ -91,6 +93,7 @@ export class CharacterScene extends Phaser.Scene {
     this.setTab(TAB_INFO);
 
     this.events.once('shutdown', () => {
+      this.hideItemTooltip();
       this.skinModal?.destroy();
       this.skinModal = null;
       this.destroyDeletePrompt();
@@ -168,9 +171,14 @@ export class CharacterScene extends Phaser.Scene {
     this.nameInput?.setVisible(showInfo && !this.skinModal?.isOpen?.());
     this.historyDom?.setVisible(showInfo && !this.skinModal?.isOpen?.());
 
+    if (!showInv) this.hideItemTooltip();
     this.refreshTabStyles();
 
-    if (showInv) this.loadInventoryCurrency();
+    if (showInv) {
+      this.refreshAllEquipSlots?.();
+      this.refreshAllBagSlots?.();
+      this.loadInventoryCurrency();
+    }
   }
 
   buildInfoTab(depth) {
@@ -302,11 +310,12 @@ export class CharacterScene extends Phaser.Scene {
   buildInventoryTab(depth) {
     const { width, height } = this.scale;
     const cx = width / 2;
+    ensureItemIconTextures(this);
 
     this.invGoldText = this.add
-      .text(cx - 80, 178, `Gold: ${this.inventory.gold}`, {
+      .text(cx - 90, 172, `Gold: ${this.inventory.gold}`, {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '16px',
+        fontSize: '17px',
         color: '#ffd76a',
       })
       .setOrigin(0.5)
@@ -314,29 +323,19 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInv(this.invGoldText);
 
     this.invLootText = this.add
-      .text(cx + 80, 178, `Loot: ${this.inventory.loot}`, {
+      .text(cx + 90, 172, `Loot: ${this.inventory.loot}`, {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '16px',
+        fontSize: '17px',
         color: '#c4b5e0',
       })
       .setOrigin(0.5)
       .setDepth(depth);
     this.trackInv(this.invLootText);
 
-    const equipTitle = this.add
-      .text(cx, 208, 'Equipamento', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '18px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5)
-      .setDepth(depth);
-    this.trackInv(equipTitle);
-
     this.invHintText = this.add
-      .text(cx, 230, 'Clique no saco para equipar · clique 2× no equipamento para remover', {
+      .text(cx, 196, 'Clique no saco para equipar · clique 2× no equipamento para remover', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '11px',
+        fontSize: '12px',
         color: '#6b6088',
       })
       .setOrigin(0.5)
@@ -345,19 +344,34 @@ export class CharacterScene extends Phaser.Scene {
 
     this.equipClickKey = null;
     this.equipClickAt = 0;
-    this.buildEquipmentSlots(cx, 278, depth);
+
+    const equipX = width * 0.24;
+    const bagX = width * 0.64;
+
+    const equipTitle = this.add
+      .text(equipX, 224, 'Equipamento', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '20px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInv(equipTitle);
+
+    this.buildEquipmentSlots(equipX, 270, depth);
 
     const bagTitle = this.add
-      .text(cx, 348, 'Saco (12×12)', {
+      .text(bagX, 224, 'Saco (12×12)', {
         fontFamily: 'Georgia, serif',
-        fontSize: '16px',
+        fontSize: '20px',
         color: '#f4e8ff',
       })
       .setOrigin(0.5)
       .setDepth(depth);
     this.trackInv(bagTitle);
 
-    this.buildBagGrid(cx, 362, depth);
+    this.buildBagGrid(bagX, 248, depth);
+    this.buildItemTooltip(depth + 50);
 
     const backBtn = makeMenuButton(this, cx, height - 36, 'Voltar', 0x443866, () => {
       navigate('/');
@@ -365,16 +379,74 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInv(backBtn);
   }
 
-  buildEquipmentSlots(centerX, y, depth) {
-    const slotSize = 44;
-    const gap = 8;
-    const n = EQUIP_SLOTS.length;
-    const totalW = n * slotSize + (n - 1) * gap;
+  buildItemTooltip(depth) {
+    const bg = this.add
+      .rectangle(0, 0, 200, 84, 0x120e22, 0.96)
+      .setStrokeStyle(2, 0x8b7cff, 0.95)
+      .setOrigin(0, 0)
+      .setDepth(depth)
+      .setVisible(false);
+
+    const text = this.add
+      .text(0, 0, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#f4e8ff',
+        lineSpacing: 4,
+      })
+      .setDepth(depth + 1)
+      .setVisible(false);
+
+    this.itemTooltip = { bg, text };
+    // Tooltip fica acima das abas; não entra em invNodes para não sumir no hover
+  }
+
+  showItemTooltip(item, x, y) {
+    if (!this.itemTooltip || !item) return;
+    const lines = itemTooltipLines(item);
+    const { bg, text } = this.itemTooltip;
+    text.setText(lines.join('\n')).setVisible(true);
+
+    const padX = 12;
+    const padY = 10;
+    const w = Math.max(160, text.width + padX * 2);
+    const h = text.height + padY * 2;
+    bg.setSize(w, h).setVisible(true);
+
+    const { width, height } = this.scale;
+    let tx = x + 16;
+    let ty = y + 16;
+    if (tx + w > width - 8) tx = x - w - 12;
+    if (ty + h > height - 8) ty = y - h - 12;
+    tx = Math.max(8, tx);
+    ty = Math.max(8, ty);
+
+    bg.setPosition(tx, ty);
+    text.setPosition(tx + padX, ty + padY);
+  }
+
+  hideItemTooltip() {
+    if (!this.itemTooltip) return;
+    this.itemTooltip.bg.setVisible(false);
+    this.itemTooltip.text.setVisible(false);
+  }
+
+  buildEquipmentSlots(centerX, topY, depth) {
+    const slotSize = 64;
+    const gapX = 14;
+    const gapY = 28;
+    const cols = 3;
+    const totalW = cols * slotSize + (cols - 1) * gapX;
     const startX = centerX - totalW / 2 + slotSize / 2;
+    const startY = topY + slotSize / 2;
 
     this.equipSlotViews = {};
     EQUIP_SLOTS.forEach((slot, i) => {
-      const x = startX + i * (slotSize + gap);
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = startX + col * (slotSize + gapX);
+      const y = startY + row * (slotSize + gapY);
+
       const frame = this.add
         .rectangle(x, y, slotSize, slotSize, 0x161228, 0.95)
         .setStrokeStyle(2, 0x4a3d78, 0.95)
@@ -382,52 +454,45 @@ export class CharacterScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
 
       const icon = this.add
-        .rectangle(x, y - 2, slotSize - 14, slotSize - 18, 0x6b5cff, 0)
-        .setDepth(depth + 1);
+        .image(x, y - 2, itemIconKey('cloth_hat'))
+        .setDisplaySize(44, 44)
+        .setDepth(depth + 1)
+        .setVisible(false);
 
       const label = this.add
-        .text(x, y + slotSize / 2 + 11, slot.label, {
+        .text(x, y + slotSize / 2 + 12, slot.label, {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '10px',
+          fontSize: '12px',
           color: '#9a8bb8',
         })
         .setOrigin(0.5)
         .setDepth(depth);
 
-      const name = this.add
-        .text(x, y, '', {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '8px',
-          color: '#f4e8ff',
-          align: 'center',
-          wordWrap: { width: slotSize - 4 },
-        })
-        .setOrigin(0.5)
-        .setDepth(depth + 2);
-
       frame.on('pointerup', () => this.onEquipSlotClick(slot.key));
-      frame.on('pointerover', () => {
+      frame.on('pointerover', (pointer) => {
         frame.setStrokeStyle(2, 0x8b7cff, 1);
         const item = this.inventory.equipment[slot.key];
-        if (item) {
-          this.invHintText?.setText(`${item.name} · clique 2× para desequipar`);
-        }
+        if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
+      });
+      frame.on('pointermove', (pointer) => {
+        const item = this.inventory.equipment[slot.key];
+        if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
       });
       frame.on('pointerout', () => {
         this.refreshEquipSlot(slot.key);
-        this.resetInvHint();
+        this.hideItemTooltip();
       });
 
-      this.equipSlotViews[slot.key] = { frame, icon, label, name, accepts: slot.accepts };
-      this.trackInv(frame, icon, label, name);
+      this.equipSlotViews[slot.key] = { frame, icon, label, accepts: slot.accepts };
+      this.trackInv(frame, icon, label);
     });
 
     this.refreshAllEquipSlots();
   }
 
   buildBagGrid(centerX, topY, depth) {
-    const slotSize = 22;
-    const gap = 2;
+    const slotSize = 32;
+    const gap = 3;
     const totalW = BAG_COLS * slotSize + (BAG_COLS - 1) * gap;
     const startX = centerX - totalW / 2 + slotSize / 2;
     const startY = topY + slotSize / 2;
@@ -445,23 +510,29 @@ export class CharacterScene extends Phaser.Scene {
         .setDepth(depth)
         .setInteractive({ useHandCursor: true });
 
-      const fill = this.add
-        .rectangle(x, y, slotSize - 6, slotSize - 6, 0x6b5cff, 0)
-        .setDepth(depth + 1);
+      const icon = this.add
+        .image(x, y, itemIconKey('cloth_hat'))
+        .setDisplaySize(26, 26)
+        .setDepth(depth + 1)
+        .setVisible(false);
 
       frame.on('pointerup', () => this.onBagSlotClick(i));
-      frame.on('pointerover', () => {
+      frame.on('pointerover', (pointer) => {
         const item = this.inventory.bag[i];
         frame.setStrokeStyle(1, item ? 0x8b7cff : 0x5a4e88, 1);
-        if (item) this.invHintText?.setText(`${item.name} · clique para equipar`);
+        if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
+      });
+      frame.on('pointermove', (pointer) => {
+        const item = this.inventory.bag[i];
+        if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
       });
       frame.on('pointerout', () => {
         this.refreshBagSlot(i);
-        this.resetInvHint();
+        this.hideItemTooltip();
       });
 
-      this.bagSlotViews.push({ frame, fill });
-      this.trackInv(frame, fill);
+      this.bagSlotViews.push({ frame, icon });
+      this.trackInv(frame, icon);
     }
 
     this.refreshAllBagSlots();
@@ -473,12 +544,15 @@ export class CharacterScene extends Phaser.Scene {
     const item = this.inventory.equipment[key];
     if (item) {
       view.frame.setStrokeStyle(2, 0x6b5cff, 1);
-      view.icon.setFillStyle(item.color >>> 0, 0.85);
-      view.name.setText(item.name);
+      const keyTex = itemIconKey(item.id);
+      if (this.textures.exists(keyTex)) {
+        view.icon.setTexture(keyTex).setDisplaySize(44, 44).setVisible(true);
+      } else {
+        view.icon.setVisible(false);
+      }
     } else {
       view.frame.setStrokeStyle(2, 0x4a3d78, 0.95);
-      view.icon.setFillStyle(0x6b5cff, 0);
-      view.name.setText('');
+      view.icon.setVisible(false);
     }
   }
 
@@ -493,11 +567,16 @@ export class CharacterScene extends Phaser.Scene {
     if (item) {
       view.frame.setStrokeStyle(1, 0x6b5cff, 0.95);
       view.frame.setFillStyle(0x1e1840, 0.95);
-      view.fill.setFillStyle(item.color >>> 0, 0.9);
+      const keyTex = itemIconKey(item.id);
+      if (this.textures.exists(keyTex)) {
+        view.icon.setTexture(keyTex).setDisplaySize(26, 26).setVisible(true);
+      } else {
+        view.icon.setVisible(false);
+      }
     } else {
       view.frame.setStrokeStyle(1, 0x3a2f66, 0.9);
       view.frame.setFillStyle(0x12101c, 0.92);
-      view.fill.setFillStyle(0x6b5cff, 0);
+      view.icon.setVisible(false);
     }
   }
 
