@@ -1554,13 +1554,10 @@ export class Match {
   tickLevers(dt) {
     this.leverTimer -= dt;
     if (this.leverTimer <= 0) {
-      if (this.canSpawnArenaEvent()) {
-        this.spawnLeverEvent();
-        this.beginArenaEvent();
-        this.scheduleNextLever();
-      } else {
-        this.leverTimer = 0;
-      }
+      // Alavanca é independente do cooldown global (meteoro/cura/névoa/vento),
+      // senão ficava em timer=0 e nunca ganhava a fila após o 1º spawn.
+      this.spawnLeverEvent();
+      this.scheduleNextLever();
     }
 
     const pickupR = CONFIG.PLAYER_RADIUS + CONFIG.LEVER_RADIUS;
@@ -2521,8 +2518,13 @@ export class Match {
   }
 
   serializeMonsterKillStats() {
+    const defs = this.monsterTypeDefs();
     const byType = Object.entries(this.monsterKillCounts || {})
-      .map(([type, count]) => ({ type, count: count || 0 }))
+      .map(([type, count]) => {
+        const def = defs[type];
+        const tier = def?.isBoss ? 'boss' : def?.isElite ? 'elite' : null;
+        return { type, count: count || 0, tier };
+      })
       .filter((e) => e.count > 0)
       .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
     const total = byType.reduce((sum, e) => sum + e.count, 0);

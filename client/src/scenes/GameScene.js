@@ -1059,8 +1059,10 @@ export class GameScene extends Phaser.Scene {
         const y = row * killRowH + killRowH / 2;
         const tex = this.monsterTexture(entry.type);
         const icon = this.add.image(x + 12, y, tex).setDisplaySize(20, 20);
+        const tierTag =
+          entry.tier === 'boss' ? ' (boss)' : entry.tier === 'elite' ? ' (elite)' : '';
         const label = this.add
-          .text(x + 28, y, `${this.monsterLabel(entry.type)}  ×${entry.count}`, {
+          .text(x + 28, y, `${this.monsterLabel(entry.type)}${tierTag}  ×${entry.count}`, {
             fontFamily: 'Trebuchet MS, sans-serif',
             fontSize: '13px',
             color: '#e8dfff',
