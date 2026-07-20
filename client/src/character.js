@@ -34,6 +34,8 @@ export const WIZARD_COLORS = [
   0xb8e994, // mint
   0x6c5ce7, // indigo
   0xfd79a8, // blush
+  0x1a1a1a, // black
+  0x4b5320, // army camo
 ];
 
 const RANDOM_NAMES = ['Mage', 'Hex', 'Nyx', 'Orb', 'Rune', 'Ash', 'Vex', 'Lux', 'Kira', 'Zed'];
