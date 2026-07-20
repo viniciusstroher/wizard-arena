@@ -55,7 +55,7 @@ export const SPELLS = {
     damage: 28,
     radius: 110,
     /** Tempo que o fogo fica queimando no chão (segundos). */
-    duration: 4,
+    duration: 2.8,
     /** Dano por tick do status de queimadura. */
     burnDamage: 3,
     /** Intervalo entre ticks da queimadura (segundos). */
@@ -93,7 +93,7 @@ export const SPELLS = {
     /** Intervalo entre ticks do veneno (segundos). */
     tick: 1,
     /** Duração da nuvem no chão (segundos). */
-    duration: 4,
+    duration: 2.8,
     /** Duração do status de veneno ao pisar (segundos). */
     poisonDuration: 5,
     radius: 90,
