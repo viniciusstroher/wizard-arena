@@ -682,6 +682,25 @@ export const MONSTER_FLOORS = {
   dusk_ferret_baron: ["shadow","graveyard","ruins","crystal","dungeon","battlefield","catacomb"],
   dust_jackal_ascendant: ["desert","oasis","ashland","saltflat","beach","obsidian"],
   dust_mephit_paragon: ["dirt","grass","meadow","ruins","dungeon","desert","beach","oasis","garden","battlefield","saltflat"],
+  // Expansão 7 +18
+  glass_wisp: ["crystal", "aurora", "glacier", "snow", "enchanted", "sky", "library"],
+  peat_boar: ["swamp", "marsh", "bramble", "mushroom", "jungle", "grass", "meadow"],
+  rust_golem: ["ruins", "battlefield", "dungeon", "ashland", "obsidian", "cave", "sandstone"],
+  lantern_moth: ["garden", "meadow", "enchanted", "mushroom", "jungle", "grass", "temple"],
+  brine_eel: ["sea", "coral", "beach", "marsh", "swamp", "sewer", "oasis"],
+  spore_toad: ["mushroom", "swamp", "marsh", "jungle", "bramble", "garden"],
+  flint_imp: ["volcano", "lava_field", "ashland", "cave", "mountain", "obsidian", "hell"],
+  hail_raven: ["snow", "tundra", "glacier", "mountain", "sky", "aurora", "storm"],
+  root_hound: ["grass", "meadow", "bramble", "jungle", "garden", "dirt", "canyon"],
+  mirror_sprite: ["crystal", "enchanted", "aurora", "library", "temple", "ruins", "shadow"],
+  kiln_scarab: ["volcano", "lava_field", "ashland", "desert", "obsidian", "hell", "saltflat"],
+  void_newt: ["shadow", "abyss", "catacomb", "graveyard", "dungeon", "blood", "sewer"],
+  thunder_ibex: ["mountain", "canyon", "storm", "sky", "tundra", "meadow", "battlefield"],
+  coral_medusa: ["coral", "sea", "beach", "marsh", "ruins", "abyss", "temple"],
+  ember_knight: ["hell", "volcano", "battlefield", "ruins", "obsidian", "lava_field", "temple"],
+  frost_colossus: ["glacier", "snow", "tundra", "aurora", "mountain", "crystal", "cave"],
+  nightbloom_hydra: ["shadow", "graveyard", "mushroom", "bramble", "abyss", "blood", "enchanted"],
+  starfall_oracle: ["sky", "aurora", "enchanted", "temple", "library", "crystal", "storm"],
 };
 
 export function floorsForMonster(type) {

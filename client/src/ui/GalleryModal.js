@@ -1684,6 +1684,7 @@ export class GalleryModal {
     }
     if (
       spellId === 'ice_shard' ||
+      spellId === 'water_orb' ||
       spellId === 'time_freeze' ||
       spellId === 'frost_apocalypse'
     ) {
@@ -1701,7 +1702,13 @@ export class GalleryModal {
       return 'necro';
     }
     if (spellId === 'mend') return 'heal';
-    if (spellId === 'poison_cloud' || spellId === 'plague_burst') return 'poison';
+    if (
+      spellId === 'poison_cloud' ||
+      spellId === 'plague_burst' ||
+      spellId === 'vine_spike'
+    ) {
+      return 'poison';
+    }
     if (
       spellId === 'arc_lightning' ||
       spellId === 'storm_call' ||

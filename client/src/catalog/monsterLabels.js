@@ -682,6 +682,25 @@ export const MONSTER_LABELS = {
   dusk_ferret_baron: 'furão do crepúsculo barão',
   dust_jackal_ascendant: 'chacal de pó ascendente',
   dust_mephit_paragon: 'mefite de pó paragão',
+  // Expansão 7 +18
+  glass_wisp: 'fogo-fátuo de vidro',
+  peat_boar: 'javali de turfa',
+  rust_golem: 'golem de ferrugem',
+  lantern_moth: 'mariposa-lanterna',
+  brine_eel: 'enguia salgada',
+  spore_toad: 'sapo de esporos',
+  flint_imp: 'imp de sílex',
+  hail_raven: 'corvo de granizo',
+  root_hound: 'cão-raiz',
+  mirror_sprite: 'sprite-espelho',
+  kiln_scarab: 'escaravelho do forno',
+  void_newt: 'tritão do vazio',
+  thunder_ibex: 'íbex do trovão',
+  coral_medusa: 'medusa de coral',
+  ember_knight: 'cavaleiro de brasas',
+  frost_colossus: 'colosso de geada',
+  nightbloom_hydra: 'hidra flor-da-noite',
+  starfall_oracle: 'oráculo da queda estelar',
 };
 
 export function monsterLabel(type) {

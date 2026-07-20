@@ -2295,8 +2295,11 @@ export class GameScene extends Phaser.Scene {
     ) {
       this.fireballFx?.emitParticleAt(x, y, e.type === 'firebreath' ? 22 : 14);
       this.sparkFx?.emitParticleAt(x, y, e.type === 'firebreath' ? 12 : 8);
-    } else if (spell === 'ice_shard' || e.type === 'freeze') {
+    } else if (spell === 'ice_shard' || spell === 'water_orb' || e.type === 'freeze') {
       this.iceFx?.emitParticleAt(x, y, 16);
+      this.sparkFx?.emitParticleAt(x, y, 6);
+    } else if (spell === 'vine_spike') {
+      this.poisonFx?.emitParticleAt?.(x, y, 14);
       this.sparkFx?.emitParticleAt(x, y, 6);
     } else if (
       spell === 'arc_lightning' ||

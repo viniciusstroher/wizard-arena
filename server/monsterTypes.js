@@ -4657,6 +4657,107 @@ export function createMonsterTypeDefs(CONFIG) {
       range: 234, preferRange: 137, projectileSpeed: 410, projectileRadius: 10, projectileColor: 0xb08e48, attackCooldown: 1.65, novaRadius: 130, novaCooldown: 4.5,
       weight: boss, isBoss: true, difficulty: 'apocalypse',
     },
+
+    // ─── Expansão 7 +18 ──────────────────────────────────────
+    glass_wisp: {
+      hpMul: 0.75, speedMul: 1.15, dmgMul: 0.95, radius: 12, color: 0xa8d8ea,
+      attack: 'caster', spells: ['ice_shard'],
+      range: 210, preferRange: 130, projectileSpeed: 380, projectileRadius: 7, projectileColor: 0xa8d8ea, attackCooldown: 1.25,
+      weight: common, difficulty: 'normal',
+    },
+    peat_boar: {
+      hpMul: 1.35, speedMul: 0.95, dmgMul: 1.15, radius: 16, color: 0x5d4037,
+      attack: 'melee', attackCooldown: 0.85,
+      weight: common, difficulty: 'normal',
+    },
+    rust_golem: {
+      hpMul: 1.80, speedMul: 0.70, dmgMul: 1.25, radius: 20, color: 0xb7410e,
+      attack: 'melee', attackCooldown: 1.15,
+      weight: common, difficulty: 'hard',
+    },
+    lantern_moth: {
+      hpMul: 0.85, speedMul: 1.10, dmgMul: 1.00, radius: 13, color: 0xffe082,
+      attack: 'ranged', projectile: 'orb',
+      range: 220, preferRange: 145, projectileSpeed: 280, projectileRadius: 6, projectileColor: 0xffe082, attackCooldown: 1.40,
+      weight: common, difficulty: 'normal',
+    },
+    brine_eel: {
+      hpMul: 1.10, speedMul: 1.20, dmgMul: 1.10, radius: 14, color: 0x26a69a,
+      attack: 'melee', attackCooldown: 0.75,
+      weight: common, difficulty: 'hard',
+    },
+    spore_toad: {
+      hpMul: 1.20, speedMul: 0.85, dmgMul: 1.05, radius: 15, color: 0x7cb342,
+      attack: 'melee', attackCooldown: 0.95,
+      weight: common, difficulty: 'normal',
+    },
+    flint_imp: {
+      hpMul: 0.95, speedMul: 1.05, dmgMul: 1.10, radius: 13, color: 0x8d6e63,
+      attack: 'caster', spells: ['firebolt'],
+      range: 200, preferRange: 125, projectileSpeed: 400, projectileRadius: 8, projectileColor: 0xff7043, attackCooldown: 1.20,
+      weight: common, difficulty: 'normal',
+    },
+    hail_raven: {
+      hpMul: 1.05, speedMul: 1.25, dmgMul: 1.00, radius: 14, color: 0xb0bec5,
+      attack: 'ranged', projectile: 'arrow',
+      range: 230, preferRange: 155, projectileSpeed: 360, projectileRadius: 5, projectileColor: 0xe3f2fd, attackCooldown: 1.15,
+      weight: common, difficulty: 'hard',
+    },
+    root_hound: {
+      hpMul: 1.25, speedMul: 1.10, dmgMul: 1.20, radius: 15, color: 0x6d4c41,
+      attack: 'melee', attackCooldown: 0.80,
+      weight: common, difficulty: 'normal',
+    },
+    mirror_sprite: {
+      hpMul: 0.90, speedMul: 1.20, dmgMul: 1.15, radius: 12, color: 0xce93d8,
+      attack: 'caster', spells: ['hex_bolt'],
+      range: 225, preferRange: 135, projectileSpeed: 390, projectileRadius: 8, projectileColor: 0xce93d8, attackCooldown: 1.30,
+      weight: common, difficulty: 'nightmare',
+    },
+    kiln_scarab: {
+      hpMul: 2.20, speedMul: 0.90, dmgMul: 1.40, radius: 18, color: 0xe65100,
+      attack: 'melee', attackCooldown: 0.90,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    void_newt: {
+      hpMul: 1.90, speedMul: 1.05, dmgMul: 1.35, radius: 16, color: 0x4a148c,
+      attack: 'caster', spells: ['hex_bolt', 'poison_cloud'],
+      range: 235, preferRange: 140, projectileSpeed: 370, projectileRadius: 9, projectileColor: 0x7b1fa2, attackCooldown: 1.45,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    thunder_ibex: {
+      hpMul: 2.40, speedMul: 1.00, dmgMul: 1.50, radius: 20, color: 0x5c6bc0,
+      attack: 'melee', attackCooldown: 0.95,
+      weight: elite, isElite: true, difficulty: 'hard',
+    },
+    coral_medusa: {
+      hpMul: 2.10, speedMul: 0.95, dmgMul: 1.45, radius: 17, color: 0xe91e63,
+      attack: 'caster', spells: ['ice_shard', 'tidal_crush'],
+      range: 240, preferRange: 145, projectileSpeed: 360, projectileRadius: 9, projectileColor: 0xf06292, attackCooldown: 1.50,
+      weight: elite, isElite: true, difficulty: 'nightmare',
+    },
+    ember_knight: {
+      hpMul: 2.60, speedMul: 0.85, dmgMul: 1.60, radius: 19, color: 0xbf360c,
+      attack: 'melee', attackCooldown: 1.05,
+      weight: elite, isElite: true, difficulty: 'apocalypse',
+    },
+    frost_colossus: {
+      hpMul: 5.20, speedMul: 0.55, dmgMul: 1.90, radius: 44, color: 0x81d4fa,
+      attack: 'melee', attackCooldown: 1.20,
+      weight: boss, isBoss: true, difficulty: 'hard',
+    },
+    nightbloom_hydra: {
+      hpMul: 5.80, speedMul: 0.70, dmgMul: 1.85, radius: 42, color: 0x6a1b9a,
+      attack: 'caster', spells: ['poison_cloud', 'hex_bolt', 'thorn_nova'],
+      range: 250, preferRange: 150, projectileSpeed: 400, projectileRadius: 10, projectileColor: 0xab47bc, attackCooldown: 1.55, novaRadius: 135, novaCooldown: 4.2,
+      weight: boss, isBoss: true, difficulty: 'nightmare',
+    },
+    starfall_oracle: {
+      hpMul: 4.80, speedMul: 0.75, dmgMul: 2.00, radius: 38, color: 0xffd54f,
+      attack: 'caster', spells: ['arc_lightning', 'flame_nova', 'crystal_bolt'],
+      range: 270, preferRange: 155, projectileSpeed: 430, projectileRadius: 10, projectileColor: 0xffecb3, attackCooldown: 1.40, novaRadius: 140, novaCooldown: 4.0,
+      weight: boss, isBoss: true, difficulty: 'apocalypse',
+    },
   };
 
   // Habitats RPG — em quais terrenos cada monstro pode aparecer.

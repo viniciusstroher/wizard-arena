@@ -23,6 +23,8 @@ export const SPELL_ELEMENT_OF = {
   blink: 'arcane',
   barrier: 'arcane',
   skull_bolt: 'shadow',
+  water_orb: 'water',
+  vine_spike: 'nature',
   skull_wave: 'shadow',
   firebreath: 'fire',
   electric_bolt: 'lightning',

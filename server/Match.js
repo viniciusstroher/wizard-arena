@@ -3691,13 +3691,17 @@ export class Match {
     switch (spellInst.id) {
       case 'firebolt':
       case 'ice_shard':
-      case 'skull_bolt': {
+      case 'skull_bolt':
+      case 'water_orb':
+      case 'vine_spike': {
         const kind =
           spellInst.id === 'firebolt'
             ? 'fireball'
             : spellInst.id === 'ice_shard'
               ? 'ice_shard'
-              : 'skull_bolt';
+              : spellInst.id === 'skull_bolt'
+                ? 'skull_bolt'
+                : 'orb';
         this.projectiles.push({
           entityId: eid(),
           ownerId: player.id,
@@ -3713,6 +3717,9 @@ export class Match {
           life: stats.range / stats.speed,
           slow: stats.slow || 0,
           slowDuration: stats.slowDuration || 0,
+          poisonDamage: stats.poisonDamage || 0,
+          poisonTick: stats.poisonTick || 0,
+          poisonDuration: stats.poisonDuration || 0,
           color: stats.color,
         });
         break;
@@ -4482,6 +4489,15 @@ export class Match {
             if (dist(proj, m) <= proj.radius + m.radius) {
               this.damageEntity(m, proj.damage, proj.ownerId, false, true);
               this.applyProjectileKnockback(m, proj);
+              if (proj.poisonDamage) {
+                this.applyPoison(
+                  m,
+                  proj.ownerId,
+                  proj.poisonDamage,
+                  proj.poisonTick || 1,
+                  proj.poisonDuration || 4
+                );
+              }
               hit = true;
               break;
             }
@@ -4493,9 +4509,9 @@ export class Match {
         const impactR =
           spellId === 'firebolt' || spellId === 'fireball'
             ? 30
-            : spellId === 'ice_shard'
+            : spellId === 'ice_shard' || spellId === 'water_orb'
               ? 26
-              : spellId === 'skull_bolt'
+              : spellId === 'skull_bolt' || spellId === 'vine_spike'
                 ? 28
                 : 18;
         this.spawnSpellImpact(proj.x, proj.y, spellId, proj.color, impactR);
