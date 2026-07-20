@@ -155,6 +155,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ENTER', this.onDisconnectEnterKey, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
+      if (this.onMatchEndKillWheel(dy)) return;
       if (this.messageBoard?.onWheel(dy)) return;
       this.onSpellSlotWheel(dy);
     });
@@ -177,6 +178,7 @@ export class GameScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       this.stopBattleMusic();
       this.clearAimCursor();
+      this.clearMatchEndKillScroll();
       this.messageBoard?.destroy();
       this.messageBoard = null;
       this.arenaFireWall?.destroy();
@@ -933,12 +935,11 @@ export class GameScene extends Phaser.Scene {
     const maxPanelH = height - 40;
     const footerH = 70;
     const titleKillH = 28;
-    const availKillH = Math.max(killRowH, maxPanelH - topBlockH - footerH - titleKillH - 8);
-    const maxKillRows = Math.max(1, Math.floor(availKillH / killRowH));
-    const maxKillVisible = maxKillRows * killCols;
-    const killVisible = Math.min(killEntries.length, maxKillVisible);
-    const killRows = Math.max(1, Math.ceil(Math.max(1, killVisible) / killCols));
-    const killSectionH = titleKillH + killRows * killRowH + (killEntries.length > killVisible ? 16 : 4);
+    const availKillH = Math.max(killRowH * 3, maxPanelH - topBlockH - footerH - titleKillH - 8);
+    const killContentRows = Math.max(1, Math.ceil(Math.max(1, killEntries.length) / killCols));
+    const killContentH = killEntries.length === 0 ? killRowH : killContentRows * killRowH;
+    const killViewportH = Math.min(availKillH, Math.max(killRowH, killContentH));
+    const killSectionH = titleKillH + killViewportH + 8;
     const panelH = Math.min(maxPanelH, topBlockH + killSectionH + footerH);
     const panelTop = height / 2 - panelH / 2;
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
@@ -999,12 +1000,17 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
 
+    this.clearMatchEndKillScroll();
+
     const killTop = panelTop + topBlockH + 4;
+    const killNeedsScroll = killContentH > killViewportH;
     const killTitle = this.add
       .text(
         width / 2,
         killTop,
-        `Monstros derrotados: ${killTotal}`,
+        killNeedsScroll
+          ? `Monstros derrotados: ${killTotal}  ·  ↕ scroll`
+          : `Monstros derrotados: ${killTotal}`,
         {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '14px',
@@ -1015,11 +1021,12 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
 
     const modalItems = [dim, panel, title, subtitle, goldLine, boardHeader, board, killTitle];
-    const colW = (panelW - 48) / killCols;
+    const colW = (panelW - 56) / killCols;
     const listLeft = width / 2 - panelW / 2 + 24;
     const listTop = killTop + 26;
+    const listWidth = panelW - 48;
 
-    if (killVisible === 0) {
+    if (killEntries.length === 0) {
       const empty = this.add
         .text(width / 2, listTop + 4, 'Nenhum monstro derrotado', {
           fontFamily: 'Trebuchet MS, sans-serif',
@@ -1029,12 +1036,13 @@ export class GameScene extends Phaser.Scene {
         .setOrigin(0.5, 0);
       modalItems.push(empty);
     } else {
-      for (let i = 0; i < killVisible; i++) {
+      const listContainer = this.add.container(listLeft, listTop);
+      for (let i = 0; i < killEntries.length; i++) {
         const entry = killEntries[i];
         const col = i % killCols;
         const row = Math.floor(i / killCols);
-        const x = listLeft + col * colW;
-        const y = listTop + row * killRowH + killRowH / 2;
+        const x = col * colW;
+        const y = row * killRowH + killRowH / 2;
         const tex = this.monsterTexture(entry.type);
         const icon = this.add.image(x + 12, y, tex).setDisplaySize(20, 20);
         const label = this.add
@@ -1044,23 +1052,37 @@ export class GameScene extends Phaser.Scene {
             color: '#e8dfff',
           })
           .setOrigin(0, 0.5);
-        modalItems.push(icon, label);
+        listContainer.add([icon, label]);
       }
-      if (killEntries.length > killVisible) {
-        const more = this.add
-          .text(
-            width / 2,
-            listTop + killRows * killRowH + 2,
-            `+${killEntries.length - killVisible} tipos…`,
-            {
-              fontFamily: 'Trebuchet MS, sans-serif',
-              fontSize: '12px',
-              color: '#7a6d9a',
-            }
-          )
-          .setOrigin(0.5, 0);
-        modalItems.push(more);
-      }
+
+      const maskGfx = this.make.graphics({ x: 0, y: 0, add: false });
+      maskGfx.fillStyle(0xffffff, 1);
+      maskGfx.fillRect(listLeft, listTop, listWidth, killViewportH);
+      listContainer.setMask(maskGfx.createGeometryMask());
+
+      const trackX = listLeft + listWidth - 4;
+      const track = this.add.rectangle(trackX, listTop + killViewportH / 2, 4, killViewportH, 0xffffff, 0.08);
+      const thumbH = killNeedsScroll
+        ? Math.max(18, (killViewportH / killContentH) * killViewportH)
+        : killViewportH;
+      const thumb = this.add
+        .rectangle(trackX, listTop, 4, thumbH, 0x6b5cff, killNeedsScroll ? 0.85 : 0)
+        .setOrigin(0.5, 0);
+
+      this.matchEndKillScroll = {
+        container: listContainer,
+        maskGfx,
+        y0: listTop,
+        scroll: 0,
+        maxScroll: Math.max(0, killContentH - killViewportH),
+        viewportH: killViewportH,
+        contentH: killContentH,
+        thumb,
+        thumbH,
+        trackTop: listTop,
+      };
+
+      modalItems.push(listContainer, track, thumb);
     }
 
     const btnY = height / 2 + panelH / 2 - 42;
@@ -1082,9 +1104,31 @@ export class GameScene extends Phaser.Scene {
     this.bannerText.setAlpha(0);
   }
 
+  clearMatchEndKillScroll() {
+    if (this.matchEndKillScroll?.maskGfx) {
+      this.matchEndKillScroll.container?.clearMask(true);
+      this.matchEndKillScroll.maskGfx.destroy();
+    }
+    this.matchEndKillScroll = null;
+  }
+
+  onMatchEndKillWheel(dy) {
+    const s = this.matchEndKillScroll;
+    if (!this.matchEndOpen || !s || s.maxScroll <= 0 || !dy) return false;
+    s.scroll = Phaser.Math.Clamp(s.scroll + Math.sign(dy) * 28, 0, s.maxScroll);
+    s.container.y = s.y0 - s.scroll;
+    if (s.thumb && s.maxScroll > 0) {
+      const t = s.scroll / s.maxScroll;
+      const travel = s.viewportH - s.thumbH;
+      s.thumb.y = s.trackTop + t * travel;
+    }
+    return true;
+  }
+
   goToLobbyFromMatchEnd() {
     if (this.leaving) return;
     this.leaving = true;
+    this.clearMatchEndKillScroll();
     this.socket.emit('leave_lobby');
     this.time.delayedCall(300, () => {
       navigate('/matchmaking');
