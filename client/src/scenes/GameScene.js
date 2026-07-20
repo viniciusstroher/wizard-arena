@@ -782,8 +782,6 @@ export class GameScene extends Phaser.Scene {
     this.messageBoard = new MessageBoard(this, {
       tabs: ['events'],
       initialTab: 'events',
-      canCaptureEnter: () =>
-        !this.disconnectConfirmOpen && !this.matchEndOpen && !this.leaving,
     });
     this.messageBoard.pushEvent('Partida iniciada');
   }
