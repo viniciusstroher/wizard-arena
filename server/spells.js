@@ -182,6 +182,26 @@ export const SPELLS = {
     poisonDuration: 4,
     color: 0x27ae60,
   },
+  tiro_de_buscape: {
+    id: 'tiro_de_buscape',
+    name: 'Tiro de Buscapé',
+    description:
+      'Dispara 3 foguetes em leque (pé de galinha). Dispara sozinho enquanto o slot estiver selecionado.',
+    type: 'basic',
+    playerUsable: true,
+    cooldown: 0.75,
+    manaCost: 0,
+    /** Dano por foguete. */
+    damage: 9,
+    range: 300,
+    speed: 520,
+    radius: 9,
+    /** Quantidade de foguetes no leque. */
+    rocketCount: 3,
+    /** Ângulo entre o centro e cada foguete lateral (graus). */
+    spreadAngle: 28,
+    color: 0xff6622,
+  },
   /** Exclusiva do grim_reaper — onda radial de caveiras. */
   skull_wave: {
     id: 'skull_wave',

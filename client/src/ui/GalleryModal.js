@@ -1675,6 +1675,11 @@ export class GalleryModal {
     const result = this.spellFx.play(spellId, color, { x: x1, y: y1 }, { x: x2, y: y2 });
     if (!result.needsProjectile) return;
 
+    if (spellId === 'tiro_de_buscape') {
+      this._animateBuscapeRockets(x1, y1, x2, y2, color);
+      return;
+    }
+
     const projKey = this._projectileTexture(spellId);
     const proj = this.scene.add.image(x1, y1, projKey).setScale(1.45);
     if (!this.scene.textures.exists(projKey) || projKey === 'orb') {
@@ -1697,6 +1702,51 @@ export class GalleryModal {
         proj.destroy();
       },
     });
+  }
+
+  /** Três foguetes em leque pé de galinha (\|/). */
+  _animateBuscapeRockets(x1, y1, x2, y2, color) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.hypot(dx, dy) || 1;
+    const dirX = dx / dist;
+    const dirY = dy / dist;
+    const spread = (28 * Math.PI) / 180;
+    const angles = [-spread, 0, spread];
+    const projKey = this._projectileTexture('tiro_de_buscape');
+
+    for (let i = 0; i < angles.length; i++) {
+      const a = angles[i];
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      const rdx = dirX * c - dirY * s;
+      const rdy = dirX * s + dirY * c;
+      const tx = x1 + rdx * dist;
+      const ty = y1 + rdy * dist;
+      const proj = this.scene.add.image(x1, y1, projKey).setScale(1.2);
+      if (!this.scene.textures.exists(projKey) || projKey === 'orb') {
+        proj.setTint(color ?? 0xff6622);
+      }
+      proj.setRotation(Math.atan2(rdy, rdx) + Math.PI / 2);
+      this.previewRoot.add(proj);
+      this.previewSprites.push(proj);
+
+      this.scene.tweens.add({
+        targets: proj,
+        x: tx,
+        y: ty,
+        duration: 380,
+        ease: 'Quad.easeIn',
+        delay: i * 20,
+        onComplete: () => {
+          this.spellFx?.playImpact('tiro_de_buscape', color, tx, ty, 22);
+          proj.destroy();
+        },
+      });
+    }
+    if (this.spellFx?.effectGraphics) {
+      this.previewRoot.bringToTop(this.spellFx.effectGraphics);
+    }
   }
 
   _createFx() {
@@ -1763,6 +1813,7 @@ export class GalleryModal {
       spellId === 'firebolt' ||
       spellId === 'flame_nova' ||
       spellId === 'firebreath' ||
+      spellId === 'tiro_de_buscape' ||
       spellId === 'apocalypse' ||
       spellId === 'infernal_judgment'
     ) {
@@ -1827,6 +1878,12 @@ export class GalleryModal {
       this.scene.textures.exists('proj_skull_bolt')
     ) {
       return 'proj_skull_bolt';
+    }
+    if (
+      (kind === 'rocket' || kind === 'tiro_de_buscape') &&
+      this.scene.textures.exists('proj_rocket')
+    ) {
+      return 'proj_rocket';
     }
     if (this.scene.textures.exists('orb')) return 'orb';
     return 'particle';

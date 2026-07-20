@@ -2392,6 +2392,7 @@ export class GameScene extends Phaser.Scene {
       spell === 'firebolt' ||
       spell === 'fireball' ||
       spell === 'firebreath' ||
+      spell === 'tiro_de_buscape' ||
       e.type === 'nova' ||
       e.type === 'firebreath' ||
       spell === 'flame_nova'
@@ -3557,6 +3558,12 @@ export class GameScene extends Phaser.Scene {
     }
     if (kind === 'ice_shard' && this.textures.exists('proj_ice_shard')) return 'proj_ice_shard';
     if (kind === 'skull_bolt' && this.textures.exists('proj_skull_bolt')) return 'proj_skull_bolt';
+    if (
+      (kind === 'rocket' || kind === 'tiro_de_buscape') &&
+      this.textures.exists('proj_rocket')
+    ) {
+      return 'proj_rocket';
+    }
     return 'orb';
   }
 
@@ -3605,6 +3612,13 @@ export class GameScene extends Phaser.Scene {
         s.setScale(1.15 + 0.12 * pulse);
         s.setRotation(Math.sin(this.time.now / 90) * 0.15);
         this.emitSkullTrail(s, p.x, p.y, p.vx, p.vy);
+      } else if (kind === 'rocket' || kind === 'tiro_de_buscape') {
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 50);
+        s.clearTint();
+        s.setBlendMode(Phaser.BlendModes.ADD);
+        s.setScale(0.95 + 0.1 * pulse);
+        s.setRotation(Math.atan2(p.vy || 0, p.vx || 1) + Math.PI / 2);
+        this.emitFireballTrail(s, p.x, p.y, p.vx, p.vy);
       } else {
         // fireball / firebolt — brilho + rastro de chama
         const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 60);

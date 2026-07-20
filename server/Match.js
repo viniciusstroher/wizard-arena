@@ -4112,6 +4112,36 @@ export class Match {
         });
         break;
       }
+      case 'tiro_de_buscape': {
+        // Leque pé de galinha: \ | /
+        const n = Math.max(1, Math.round(Number(stats.rocketCount) || 3));
+        const spreadDeg = Number(stats.spreadAngle) || 28;
+        const half = (n - 1) / 2;
+        const life = stats.range / stats.speed;
+        for (let i = 0; i < n; i++) {
+          const a = ((i - half) * spreadDeg * Math.PI) / 180;
+          const c = Math.cos(a);
+          const s = Math.sin(a);
+          const dx = dirX * c - dirY * s;
+          const dy = dirX * s + dirY * c;
+          this.projectiles.push({
+            entityId: eid(),
+            ownerId: player.id,
+            team: 'player',
+            kind: 'rocket',
+            spellId: 'tiro_de_buscape',
+            x: player.x,
+            y: player.y,
+            vx: dx * stats.speed,
+            vy: dy * stats.speed,
+            damage: stats.damage,
+            radius: stats.radius,
+            life,
+            color: stats.color,
+          });
+        }
+        break;
+      }
       case 'arc_lightning': {
         const target = this.findNearestHostile(player, stats.range);
         if (target) {
@@ -4933,7 +4963,9 @@ export class Match {
               ? 26
               : spellId === 'skull_bolt' || spellId === 'vine_spike'
                 ? 28
-                : 18;
+                : spellId === 'tiro_de_buscape'
+                  ? 24
+                  : 18;
         this.spawnSpellImpact(proj.x, proj.y, spellId, proj.color, impactR);
         if (spellId === 'skull_bolt' && hit) {
           const ang = Math.random() * Math.PI * 2;

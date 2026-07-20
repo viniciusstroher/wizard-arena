@@ -710,6 +710,39 @@ export class BootScene extends Phaser.Scene {
       },
       2
     );
+
+    // Rocket / buscapé — foguete apontando para cima (rotacionado no render)
+    makePixelTexture(
+      this,
+      'proj_rocket',
+      [
+        '................',
+        '.......WW.......',
+        '......WYYW......',
+        '......WYYW......',
+        '.....WYYYYW.....',
+        '.....WBBBBW.....',
+        '.....WBBBBW.....',
+        '.....WBBBBW.....',
+        '.....WSSSSW.....',
+        '......WSSW......',
+        '.....R.SS.R.....',
+        '....RR.OO.RR....',
+        '....R..OO..R....',
+        '.......YY.......',
+        '.......Y........',
+        '................',
+      ],
+      {
+        W: 0xf5f0e6,
+        Y: 0xffd84a,
+        B: 0xc0392b,
+        S: 0x7f8c8d,
+        R: 0xff3b00,
+        O: 0xff8a12,
+      },
+      2
+    );
   }
 
   createSpellIcons() {
@@ -966,6 +999,33 @@ export class BootScene extends Phaser.Scene {
           '................',
         ],
         palette: { G: 0x145a32, Y: 0x27ae60, L: 0x58d68d, T: 0xaaff44 },
+      },
+      tiro_de_buscape: {
+        rows: [
+          '................',
+          '.......WW.......',
+          '......WYYW......',
+          '......WYYW......',
+          '.....WYYYYW.....',
+          '.....WRRRRW.....',
+          '.....WRRRRW.....',
+          '.....WRRRRW.....',
+          '.....WSSSSW.....',
+          '......WSSW......',
+          '.....O.SS.O.....',
+          '....OO.YY.OO....',
+          '....O..YY..O....',
+          '.......YY.......',
+          '.......Y........',
+          '................',
+        ],
+        palette: {
+          W: 0xf5f0e6,
+          Y: 0xffe066,
+          R: 0xe74c3c,
+          S: 0x7f8c8d,
+          O: 0xff6622,
+        },
       },
       apocalypse: {
         rows: [

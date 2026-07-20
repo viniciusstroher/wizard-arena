@@ -12,6 +12,7 @@ const PROJECTILE_SPELLS = new Set([
   'skull_bolt',
   'water_orb',
   'vine_spike',
+  'tiro_de_buscape',
   'acid_bolt',
   'crystal_bolt',
   'ember_bolt',

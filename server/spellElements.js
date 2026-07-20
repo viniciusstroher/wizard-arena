@@ -25,6 +25,7 @@ export const SPELL_ELEMENT_OF = {
   skull_bolt: 'shadow',
   water_orb: 'water',
   vine_spike: 'nature',
+  tiro_de_buscape: 'fire',
   skull_wave: 'shadow',
   firebreath: 'fire',
   electric_bolt: 'lightning',
