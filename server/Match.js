@@ -1537,12 +1537,20 @@ export class Match {
     const amount = CONFIG.ARENA_SHRINK_AMOUNT * CONFIG.LEVER_EXPAND_RATIO;
     if (!(amount > 0)) return 0;
     const before = this.arenaRadius;
-    const grow = (r) => Math.min(CONFIG.ARENA_START_RADIUS, r + amount);
-    this.arenaRadius = grow(this.arenaRadius);
+
+    // Se a zona está fechando, interrompe na hora no raio atual e só cresce.
     if (this.shrinkActive) {
-      this.shrinkFrom = grow(this.shrinkFrom);
-      this.shrinkTo = grow(this.shrinkTo);
+      this.shrinkActive = false;
+      this.shrinkFrom = this.arenaRadius;
+      this.shrinkTo = this.arenaRadius;
+      this.shrinkElapsed = 0;
+      this.nextShrinkAt = Math.max(
+        this.nextShrinkAt,
+        this.roundTime + CONFIG.ARENA_SHRINK_INTERVAL
+      );
     }
+
+    this.arenaRadius = Math.min(CONFIG.ARENA_START_RADIUS, this.arenaRadius + amount);
     const gained = this.arenaRadius - before;
     if (gained > 0) {
       this.pushEvent({
