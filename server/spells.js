@@ -656,8 +656,8 @@ export function rollSpellChoices(player, forLevel) {
     }
   }
 
-  // Uma opção de upgrade se possível
-  if (owned.length > 0 && choices.length < 3 && Math.random() < 0.85) {
+  // Sempre oferece ao menos um upgrade (sem teto de nível)
+  if (owned.length > 0 && choices.length < 3) {
     const s = player.spells[Math.floor(Math.random() * player.spells.length)];
     choices.push({ kind: 'upgrade', spellId: s.id, fromLevel: s.level, toLevel: s.level + 1 });
     used.add(`upgrade:${s.id}`);
