@@ -428,6 +428,8 @@ io.on('connection', (socket) => {
   socket.on('chat_message', (payload = {}) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;
+    // Chat só no lobby — na partida fica apenas o painel de eventos.
+    if (match.phase !== 'lobby') return;
     const player = match.players.get(socket.id);
     if (!player || player.isBot) return;
 

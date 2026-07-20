@@ -181,6 +181,7 @@ export class GameScene extends Phaser.Scene {
             : `Round ${labelRound} de ${maxRounds}\nComeçando`
         );
         this.bannerText.setAlpha(1);
+      }
     });
 
     this.events.on('shutdown', () => {

@@ -107,7 +107,9 @@ export class MessageBoard {
       .setDepth(depth + 1);
 
     this.linesTop = y + 24;
-    this.maxVisibleEvents = 10;
+    this.hasChatTab = this.tabs.includes('chat');
+    // Sem input de chat, cabe mais linhas de eventos na partida.
+    this.maxVisibleEvents = this.hasChatTab ? 10 : 12;
     this.maxVisibleChat = 8;
 
     this.measureText = this.scene.add
@@ -132,6 +134,12 @@ export class MessageBoard {
       this.lines.push(line);
     }
 
+    this.inputEl = null;
+    this.chatInput = null;
+    if (this.hasChatTab) this._buildChatInput(x, y, boardW, boardH, depth);
+  }
+
+  _buildChatInput(x, y, boardW, boardH, depth) {
     const inputEl = document.createElement('input');
     inputEl.type = 'text';
     inputEl.maxLength = 100;
