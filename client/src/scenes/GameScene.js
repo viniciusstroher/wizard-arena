@@ -5743,7 +5743,7 @@ export class GameScene extends Phaser.Scene {
     }
     const key = spellElementIconKey(spellId);
     if (key && this.textures.exists(key)) {
-      el.setTexture(key).setDisplaySize(14, 14).setVisible(true);
+      el.setTexture(key).setDisplaySize(12, 12).setVisible(true);
     } else {
       el.setVisible(false);
     }

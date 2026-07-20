@@ -4,6 +4,7 @@ import {
   getSpellEntries,
   getFloorEntries,
 } from '../catalog/galleryCatalog.js';
+import { spellElementIconKey } from '../catalog/spellElements.js';
 import {
   clearGalleryUrl,
   galleryShareUrl,
@@ -85,6 +86,7 @@ export class GalleryModal {
     this.tabTexts = [];
     this.tierTabEls = [];
     this.infoTitle = null;
+    this.infoElementIcon = null;
     this.infoBody = null;
     this.copyBtn = null;
     this.copyLabel = null;
@@ -227,6 +229,11 @@ export class GalleryModal {
       })
       .setOrigin(0.5, 0);
 
+    this.infoElementIcon = this.scene.add
+      .image(L.previewX - 70, L.infoTop + 10, 'element_arcane')
+      .setDisplaySize(16, 16)
+      .setVisible(false);
+
     this.infoBody = this.scene.add
       .text(L.previewX, L.infoTop + 28, '', {
         fontFamily: FONT,
@@ -291,6 +298,7 @@ export class GalleryModal {
       previewBg,
       this.previewRoot,
       this.infoTitle,
+      this.infoElementIcon,
       this.infoBody,
       this.copyBtn,
       this.copyLabel,
@@ -446,6 +454,7 @@ export class GalleryModal {
     this.container.setVisible(false);
     this.previewRoot = null;
     this.infoTitle = null;
+    this.infoElementIcon = null;
     this.infoBody = null;
     this.copyBtn = null;
     this.copyLabel = null;
@@ -527,6 +536,7 @@ export class GalleryModal {
       this._previewedTab = null;
       this._clearPreview();
       if (this.infoTitle) this.infoTitle.setText('');
+      this._setInfoElement(null);
       if (this.infoBody) this.infoBody.setText('Nenhum monstro encontrado.');
       return;
     }
@@ -550,6 +560,7 @@ export class GalleryModal {
       this._previewedTab = null;
       this._clearPreview();
       if (this.infoTitle) this.infoTitle.setText('');
+      this._setInfoElement(null);
       if (this.infoBody) this.infoBody.setText('Nenhum terreno encontrado.');
       return;
     }
@@ -572,6 +583,7 @@ export class GalleryModal {
     this._previewedTab = null;
     this._clearPreview();
     if (this.infoTitle) this.infoTitle.setText('');
+    this._setInfoElement(null);
     if (this.infoBody) this.infoBody.setText('Nenhuma magia encontrada.');
   }
 
@@ -880,6 +892,20 @@ export class GalleryModal {
       'overflow: hidden',
     ].join(';');
 
+    const nameWrap = document.createElement('div');
+    nameWrap.style.cssText = [
+      'display: flex',
+      'align-items: center',
+      'gap: 6px',
+      'min-width: 0',
+      'flex: 1',
+      'overflow: hidden',
+    ].join(';');
+
+    if (tab === 'spells' && entry.elementLabel) {
+      nameWrap.appendChild(this._elementBadgeEl(entry.elementCss, entry.elementLabel, true));
+    }
+
     const name = document.createElement('span');
     name.textContent = this._capitalize(entry.name);
     name.style.cssText = [
@@ -889,16 +915,45 @@ export class GalleryModal {
       'min-width: 0',
       'flex: 1',
     ].join(';');
+    nameWrap.appendChild(name);
 
     const badge = document.createElement('span');
     badge.textContent = tab === 'monsters' ? entry.attackLabel : entry.typeLabel;
     badge.style.cssText = 'font-size: 11px; color: #9a8bb8; flex-shrink: 0;';
 
-    top.appendChild(name);
+    top.appendChild(nameWrap);
     top.appendChild(badge);
     row.appendChild(top);
 
-    if (tab === 'monsters' && entry.spellNames?.length) {
+    if (tab === 'spells' && entry.elementLabel) {
+      const elLine = document.createElement('div');
+      elLine.textContent = entry.elementLabel;
+      elLine.style.cssText = [
+        'font-size: 10px',
+        `color: ${entry.elementCss || '#7a6e96'}`,
+        'overflow: hidden',
+        'text-overflow: ellipsis',
+        'white-space: nowrap',
+        'max-width: 100%',
+      ].join(';');
+      row.appendChild(elLine);
+    }
+
+    if (tab === 'monsters' && entry.spellDetails?.length) {
+      const spellsLine = document.createElement('div');
+      spellsLine.style.cssText = [
+        'font-size: 10px',
+        'color: #7a6e96',
+        'overflow: hidden',
+        'text-overflow: ellipsis',
+        'white-space: nowrap',
+        'max-width: 100%',
+      ].join(';');
+      spellsLine.textContent = entry.spellDetails
+        .map((s) => `${s.name} (${s.elementLabel})`)
+        .join(' · ');
+      row.appendChild(spellsLine);
+    } else if (tab === 'monsters' && entry.spellNames?.length) {
       const spellsLine = document.createElement('div');
       spellsLine.textContent = entry.spellNames.join(' · ');
       spellsLine.style.cssText = [
@@ -980,13 +1035,18 @@ export class GalleryModal {
     if (entry.projectile) {
       details.push(`Projétil: ${entry.projectileLabel || entry.projectile.replace(/_/g, ' ')}`);
     }
-    if (entry.spellNames?.length) {
+    if (entry.spellDetails?.length) {
+      details.push(
+        `Magias: ${entry.spellDetails.map((s) => `${s.name} (${s.elementLabel})`).join(', ')}`
+      );
+    } else if (entry.spellNames?.length) {
       details.push(`Magias: ${entry.spellNames.join(', ')}`);
     } else if (entry.attack === 'caster') {
       details.push('Magias: —');
     }
 
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
+    this._setInfoElement(null);
     if (this.infoBody) this.infoBody.setText(details.join('\n'));
 
     this._previewedTab = 'monsters';
@@ -1007,13 +1067,63 @@ export class GalleryModal {
     this._highlightListSelection();
 
     if (this.infoTitle) this.infoTitle.setText(entry.name);
+    this._setInfoElement(entry);
     if (this.infoBody) {
-      this.infoBody.setText(`${entry.typeLabel}\n${entry.description}`);
+      const elLine = entry.elementLabel
+        ? `${entry.typeLabel} · ${entry.elementLabel}`
+        : entry.typeLabel;
+      this.infoBody.setText(`${elLine}\n${entry.description}`);
     }
     this._previewedTab = 'spells';
     this._previewedId = id;
     this._playSpellPreview(entry);
     if (syncUrl) this._syncUrl();
+  }
+
+  _elementBadgeEl(cssColor, label, iconOnly = false) {
+    const badge = document.createElement('span');
+    badge.title = label || '';
+    badge.style.cssText = [
+      'display: inline-flex',
+      'align-items: center',
+      'justify-content: center',
+      'width: 12px',
+      'height: 12px',
+      'border-radius: 3px',
+      `background: ${cssColor || '#7a6e96'}`,
+      'flex-shrink: 0',
+      'box-shadow: 0 0 0 1px rgba(0,0,0,0.35)',
+    ].join(';');
+    if (!iconOnly && label) {
+      badge.style.width = 'auto';
+      badge.style.height = 'auto';
+      badge.style.padding = '1px 4px';
+      badge.style.fontSize = '9px';
+      badge.style.color = '#0a0814';
+      badge.textContent = label;
+    }
+    return badge;
+  }
+
+  _setInfoElement(entry) {
+    const icon = this.infoElementIcon;
+    if (!icon) return;
+    if (!entry?.element && !entry?.id) {
+      icon.setVisible(false);
+      return;
+    }
+    const key = spellElementIconKey(entry.element || entry.id);
+    if (key && this.scene.textures.exists(key)) {
+      icon.setTexture(key).setDisplaySize(16, 16).setVisible(true);
+      // Alinha à esquerda do título
+      const titleW = this.infoTitle?.width || 0;
+      const L = this.layout;
+      if (L) {
+        icon.setPosition(L.previewX - titleW / 2 - 14, L.infoTop + 10);
+      }
+    } else {
+      icon.setVisible(false);
+    }
   }
 
   _selectFloor(id, { syncUrl = true } = {}) {
@@ -1039,6 +1149,7 @@ export class GalleryModal {
           : `Inércia ${inertiaPct}%`;
 
     if (this.infoTitle) this.infoTitle.setText(entry.name);
+    this._setInfoElement(null);
     if (this.infoBody) {
       this.infoBody.setText(
         `${entry.groupLabel}\n${entry.description}\n${speedTxt} · ${inertiaTxt}`
