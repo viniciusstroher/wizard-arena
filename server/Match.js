@@ -386,6 +386,12 @@ export class Match {
       'abyss',
       'bramble',
       'saltflat',
+      // Expansão +5 — cavernas e castelos vampíricos
+      'crystal_cave',
+      'bat_cave',
+      'vampire_castle',
+      'throne_hall',
+      'crypt',
     ];
     this.floorType = floors[Math.floor(Math.random() * floors.length)];
 
@@ -484,6 +490,12 @@ export class Match {
       abyss: seaTypes,
       bramble: dirtTypes,
       saltflat: desertTypes,
+      // Expansão +5 — cavernas e castelos vampíricos
+      crystal_cave: crystalTypes,
+      bat_cave: dirtTypes,
+      vampire_castle: woodTypes,
+      throne_hall: woodTypes,
+      crypt: ruinsTypes,
     };
     const types = typesByFloor[this.floorType] || dirtTypes;
     const count =

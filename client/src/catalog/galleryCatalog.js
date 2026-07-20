@@ -52,6 +52,11 @@ const FLOOR_GROUP_OF = {
   shadow: 'dark',
   catacomb: 'dark',
   battlefield: 'dark',
+  crystal_cave: 'dark',
+  bat_cave: 'dark',
+  vampire_castle: 'dark',
+  throne_hall: 'dark',
+  crypt: 'dark',
   dirt: 'soil',
   wood: 'soil',
   temple: 'soil',
@@ -118,6 +123,11 @@ const FLOOR_TEXTURE = {
   abyss: 'arena_abyss',
   bramble: 'arena_bramble',
   saltflat: 'arena_saltflat',
+  crystal_cave: 'arena_crystal_cave',
+  bat_cave: 'arena_bat_cave',
+  vampire_castle: 'arena_vampire_castle',
+  throne_hall: 'arena_throne_hall',
+  crypt: 'arena_crypt',
 };
 
 /** Pack de obstáculos por terreno (espelha server/Match.typesByFloor). */
@@ -167,6 +177,11 @@ const FLOOR_OBSTACLE_PACK = {
   abyss: 'sea',
   bramble: 'dirt',
   saltflat: 'desert',
+  crystal_cave: 'crystal',
+  bat_cave: 'dirt',
+  vampire_castle: 'wood',
+  throne_hall: 'wood',
+  crypt: 'ruins',
 };
 
 /** Estilo de árvore: null = sem árvores. */

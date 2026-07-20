@@ -183,6 +183,11 @@ export const CONFIG = {
     abyss: 0.9,
     bramble: 0.8,
     saltflat: 0.75,
+    crystal_cave: 1,
+    bat_cave: 0.95,
+    vampire_castle: 1,
+    throne_hall: 1.1,
+    crypt: 0.95,
   },
   /**
    * Multiplicador de inércia por chão (valores maiores = mais deslize).
@@ -234,6 +239,11 @@ export const CONFIG = {
     abyss: 2.5,
     bramble: 1,
     saltflat: 1.2,
+    crystal_cave: 1.15,
+    bat_cave: 1,
+    vampire_castle: 1,
+    throne_hall: 1,
+    crypt: 1,
   },
   PLAYER_RADIUS: 16,
   /** Raio de coleta do saco de loot no chão. */

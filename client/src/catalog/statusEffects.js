@@ -45,6 +45,11 @@ export const FLOOR_SPEED_MUL = {
   abyss: 0.9,
   bramble: 0.8,
   saltflat: 0.75,
+  crystal_cave: 1,
+  bat_cave: 0.95,
+  vampire_castle: 1,
+  throne_hall: 1.1,
+  crypt: 0.95,
 };
 
 export const FLOOR_INERTIA_MUL = {
@@ -93,6 +98,11 @@ export const FLOOR_INERTIA_MUL = {
   abyss: 2.5,
   bramble: 1,
   saltflat: 1.2,
+  crystal_cave: 1.15,
+  bat_cave: 1,
+  vampire_castle: 1,
+  throne_hall: 1,
+  crypt: 1,
 };
 
 export const GALE_SPEED_MUL = 1.5;
@@ -145,6 +155,11 @@ export const FLOOR_META = {
   abyss: { name: 'Abismo', icon: 'spell_time_freeze', color: 0x1a5276 },
   bramble: { name: 'Espinhos', icon: 'spell_poison_cloud', color: 0x196f3d },
   saltflat: { name: 'Salina', icon: 'spell_firebolt', color: 0xf5e6c8 },
+  crystal_cave: { name: 'Caverna de Cristal', icon: 'spell_blink', color: 0x8e44ad },
+  bat_cave: { name: 'Caverna dos Morcegos', icon: 'spell_dash', color: 0x2c3e50 },
+  vampire_castle: { name: 'Castelo Vampírico', icon: 'spell_blood_pact', color: 0x641e16 },
+  throne_hall: { name: 'Salão do Trono', icon: 'spell_blood_pact', color: 0x7b241c },
+  crypt: { name: 'Cripta', icon: 'spell_skull_bolt', color: 0x5d6d7e },
 };
 
 function pctDelta(mul) {

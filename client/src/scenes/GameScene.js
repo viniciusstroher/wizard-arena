@@ -2828,6 +2828,11 @@ export class GameScene extends Phaser.Scene {
       abyss: 'Abismo',
       bramble: 'Espinhos',
       saltflat: 'Salina',
+      crystal_cave: 'Caverna de Cristal',
+      bat_cave: 'Caverna dos Morcegos',
+      vampire_castle: 'Castelo Vampírico',
+      throne_hall: 'Salão do Trono',
+      crypt: 'Cripta',
     };
     return names[floorType] || 'Arena';
   }
@@ -2955,6 +2960,11 @@ export class GameScene extends Phaser.Scene {
       abyss: 'arena_abyss',
       bramble: 'arena_bramble',
       saltflat: 'arena_saltflat',
+      crystal_cave: 'arena_crystal_cave',
+      bat_cave: 'arena_bat_cave',
+      vampire_castle: 'arena_vampire_castle',
+      throne_hall: 'arena_throne_hall',
+      crypt: 'arena_crypt',
       dirt: 'arena_brick',
     };
     const floorKey = floorTextures[a.floorType] || 'arena_brick';
