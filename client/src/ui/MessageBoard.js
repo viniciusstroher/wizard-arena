@@ -234,7 +234,7 @@ export class MessageBoard {
       this.inputEl.value = '';
       this.onSendChat(text);
     }
-    // Mantém o foco para continuar conversando; Escape fecha.
+    // Mantém o foco para continuar conversando.
     this.inputEl?.focus();
   }
 
