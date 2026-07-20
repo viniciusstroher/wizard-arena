@@ -242,6 +242,8 @@ export class Match {
      * (não consome um round extra — roda “depois” do round N).
      */
     this.pendingBossFight = false;
+    /** Rounds (número) cuja boss fight pós-round já foi concluída. */
+    this.clearedBossFights = new Set();
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
@@ -1063,6 +1065,19 @@ export class Match {
     return CONFIG.BOSS_APPEARS.includes(round);
   }
 
+  /** Ainda falta a boss fight depois deste round (ex.: BOSS_APPEARS=5 após o round 5). */
+  needsBossFightAfterRound(round = this.round) {
+    return this.isBossAppearRound(round) && !this.clearedBossFights.has(round);
+  }
+
+  /** Agenda a boss fight (intermissão → countdown → startBossFight). */
+  queueBossFight() {
+    this.pendingBossFight = true;
+    this.phase = 'intermission';
+    this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
+    this.broadcastState(true);
+  }
+
   startRound() {
     this.round += 1;
     this.phase = 'playing';
@@ -1092,7 +1107,14 @@ export class Match {
     this.scheduleNextLever();
     this.scheduleNextKikoLaugh();
     this.monsters = [];
-    this.spawnBoss();
+    const boss = this.spawnBoss();
+    if (!boss) {
+      console.error('[match] spawnBoss falhou — nenhum boss disponível', {
+        matchId: this.id,
+        round: this.round,
+        floor: this.floorType,
+      });
+    }
     this.pushEvent({ type: 'boss_fight', round: this.round });
     this.pushEvent({ type: 'round_start', round: this.round, bossRound: true });
     this.broadcastState(true);
@@ -2462,12 +2484,13 @@ export class Match {
 
     // Escolhas pendentes não pausam o fim do round — ficam para o próximo / auto-timeout.
 
+    if (wasBossRound) {
+      this.clearedBossFights.add(this.round);
+    }
+
     // Round normal listado em BOSS_APPEARS → boss fight em seguida (mesmo no último round).
-    if (!wasBossRound && this.isBossAppearRound(this.round)) {
-      this.pendingBossFight = true;
-      this.phase = 'intermission';
-      this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
-      this.broadcastState(true);
+    if (!wasBossRound && this.needsBossFightAfterRound(this.round)) {
+      this.queueBossFight();
       return;
     }
 
@@ -2499,6 +2522,14 @@ export class Match {
 
   endMatch(winner, { result = 'fail', reason = null } = {}) {
     if (this.phase === 'ended') return;
+    // Nunca encerra com sucesso se ainda falta a boss fight deste round.
+    if (
+      result === 'success' &&
+      (this.pendingBossFight || this.needsBossFightAfterRound(this.round))
+    ) {
+      this.queueBossFight();
+      return;
+    }
     this.phase = 'ended';
     this.bossRound = false;
     this.pendingBossFight = false;
@@ -3005,13 +3036,19 @@ export class Match {
   /** Spawna um boss aleatório (boss fight após rounds de BOSS_APPEARS). */
   spawnBoss() {
     const types = this.monsterTypeDefs();
-    const type = this.pickMonsterType(types, { bossesOnly: true });
-    if (!type) return;
+    let type = this.pickMonsterType(types, { bossesOnly: true });
+    if (!type) {
+      // Último recurso: qualquer boss do catálogo, ignorando habitat.
+      const anyBoss = Object.keys(types).find((id) => types[id]?.isBoss);
+      type = anyBoss || null;
+    }
+    if (!type) return null;
     const def = types[type];
     const monster = this.createMonsterEntity(type, def);
     // Boss um pouco acima do nível da partida
     this.scaleMonsterToLevel(monster, this.matchMaxPlayerLevel() + 2);
     this.monsters.push(monster);
+    return monster;
   }
 
   isPlayerEntity(target) {
@@ -4262,8 +4299,11 @@ export class Match {
       this.countdown -= dt;
       if (this.countdown <= 0) {
         if (this.round === 0) this.matchTime = 0;
-        if (this.pendingBossFight) this.startBossFight();
-        else this.startRound();
+        if (this.pendingBossFight || this.needsBossFightAfterRound(this.round)) {
+          this.startBossFight();
+        } else {
+          this.startRound();
+        }
       } else {
         this.broadcast({ type: 'countdown', seconds: Math.ceil(this.countdown) });
         this.broadcastState();
@@ -4277,7 +4317,8 @@ export class Match {
       this.ensureSpellChoicesForPending();
       this.resolveLevelUpTimeouts();
       if (this.intermissionTimer <= 0) {
-        if (this.pendingBossFight) {
+        if (this.pendingBossFight || this.needsBossFightAfterRound(this.round)) {
+          this.pendingBossFight = true;
           this.startCountdown();
         } else if (this.round >= this.maxRounds) {
           this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
