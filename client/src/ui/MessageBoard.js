@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 /**
  * Painel inferior-esquerdo de Eventos / Chat (HUD Phaser + input DOM).
- * Lobby: só aba Chat. Batalha: abas Chat + Eventos.
+ * Lobby: só aba Chat. Batalha: só aba Eventos.
  */
 export class MessageBoard {
   /**

@@ -181,10 +181,6 @@ export class GameScene extends Phaser.Scene {
             : `Round ${labelRound} de ${maxRounds}\nComeçando`
         );
         this.bannerText.setAlpha(1);
-      } else if (ev.type === 'chat') {
-        const name = ev.name || 'Jogador';
-        this.messageBoard?.pushChat(`${name}: ${ev.text}`);
-      }
     });
 
     this.events.on('shutdown', () => {
@@ -784,9 +780,8 @@ export class GameScene extends Phaser.Scene {
 
   createEventBoard() {
     this.messageBoard = new MessageBoard(this, {
-      tabs: ['chat', 'events'],
-      initialTab: 'chat',
-      onSendChat: (text) => this.socket.emit('chat_message', { text }),
+      tabs: ['events'],
+      initialTab: 'events',
       canCaptureEnter: () =>
         !this.disconnectConfirmOpen && !this.matchEndOpen && !this.leaving,
     });
