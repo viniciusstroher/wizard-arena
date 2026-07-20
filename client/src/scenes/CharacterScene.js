@@ -1,6 +1,20 @@
 import Phaser from 'phaser';
-import { deleteCharacter, ensureCharacter, saveCharacter, WIZARD_COLORS } from '../character.js';
+import {
+  deleteCharacter,
+  ensureCharacter,
+  saveCharacter,
+  saveInventory,
+  WIZARD_COLORS,
+} from '../character.js';
 import { fetchCharacterMatches } from '../api.js';
+import {
+  BAG_COLS,
+  BAG_SIZE,
+  EQUIP_SLOTS,
+  equipFromBag,
+  normalizeInventory,
+  unequipToBag,
+} from '../inventory.js';
 import { navigate } from '../router.js';
 import { ensureMenuMusic } from '../audio/menuMusic.js';
 import {
@@ -44,6 +58,9 @@ function shortUuid(id) {
   return `${s.slice(0, 8)}…`;
 }
 
+const TAB_INFO = 'info';
+const TAB_INVENTORY = 'inventory';
+
 export class CharacterScene extends Phaser.Scene {
   constructor() {
     super('Character');
@@ -51,9 +68,15 @@ export class CharacterScene extends Phaser.Scene {
 
   create() {
     this.character = ensureCharacter();
+    this.inventory = normalizeInventory(this.character.inventory);
     this.selectedColor = this.character.color >>> 0;
     this.selectedSkin = normalizeSkinId(this.character.skin);
     this.errorText = null;
+    this.activeTab = TAB_INFO;
+    this.infoNodes = [];
+    this.invNodes = [];
+    this.equipSlotViews = {};
+    this.bagSlotViews = [];
 
     drawMenuBackground(this, { subtitle: 'Personagem' });
     createAmbientCreatures(this);
@@ -61,120 +84,11 @@ export class CharacterScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
     const uiDepth = 10;
-    const editorX = width * 0.32;
-    const historyX = width * 0.72;
 
-    const previewKey = updateWizardPreviewTexture(this, this.selectedColor, this.selectedSkin);
-    this.preview = this.add
-      .sprite(editorX, height / 2 - 230, previewKey)
-      .setScale(4)
-      .setDepth(uiDepth);
-
-    this.tweens.add({
-      targets: this.preview,
-      y: this.preview.y - 8,
-      duration: 1100,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut',
-    });
-
-    this.add
-      .text(editorX, height / 2 - 165, 'Classe / skin', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#9a8bb8',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    this.buildSkinOpener(editorX, height / 2 - 118, uiDepth);
-
-    this.skinModal = new SkinPickerModal(this, {
-      getColor: () => this.selectedColor,
-      getSelectedSkin: () => this.selectedSkin,
-      onSelect: (skinId) => this.selectSkin(skinId),
-      onOpen: () => {
-        this.nameInput?.setVisible(false);
-        this.historyDom?.setVisible(false);
-      },
-      onClose: () => {
-        this.nameInput?.setVisible(true);
-        this.historyDom?.setVisible(true);
-      },
-    });
-
-    this.add
-      .text(editorX, height / 2 - 55, 'Nome', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#9a8bb8',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    const inputEl = document.createElement('input');
-    inputEl.type = 'text';
-    inputEl.maxLength = 16;
-    inputEl.value = this.character.name;
-    inputEl.autocomplete = 'off';
-    inputEl.spellcheck = false;
-    inputEl.placeholder = 'Digite seu nome';
-    styleDomInput(inputEl);
-    this.nameInput = this.add.dom(editorX, height / 2 - 15, inputEl).setOrigin(0.5).setDepth(uiDepth);
-
-    this.idText = this.add
-      .text(editorX, height / 2 + 24, `ID: ${this.character.id}`, {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '11px',
-        color: '#6b6088',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    this.createdText = this.add
-      .text(editorX, height / 2 + 40, `Criado: ${formatDate(this.character.createdAt)}`, {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '11px',
-        color: '#6b6088',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    this.add
-      .text(editorX, height / 2 + 66, 'Cor do bruxo', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#9a8bb8',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    this.buildPalette(editorX, height / 2 + 120, uiDepth);
-
-    this.errorText = this.add
-      .text(editorX, height / 2 + 195, '', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#ff6b6b',
-      })
-      .setOrigin(0.5)
-      .setDepth(uiDepth);
-
-    const btnY = height / 2 + 250;
-    makeMenuButton(this, editorX - 120, btnY, 'Voltar', 0x443866, () => {
-      navigate('/');
-    }, 130).setDepth(uiDepth);
-
-    makeMenuButton(this, editorX + 20, btnY, 'Salvar', 0x2ecc71, () => {
-      this.save();
-    }, 130).setDepth(uiDepth);
-
-    makeMenuButton(this, editorX + 160, btnY, 'Deletar', 0xc0392b, () => {
-      this.confirmDeleteProfile();
-    }, 130).setDepth(uiDepth);
-
-    this.buildHistoryPanel(historyX, height / 2 + 20, uiDepth);
+    this.buildTabs(width / 2, 148, uiDepth);
+    this.buildInfoTab(uiDepth);
+    this.buildInventoryTab(uiDepth);
+    this.setTab(TAB_INFO);
 
     this.events.once('shutdown', () => {
       this.skinModal?.destroy();
@@ -186,6 +100,471 @@ export class CharacterScene extends Phaser.Scene {
       this.historyDom = null;
       destroyAmbientCreatures(this);
     });
+  }
+
+  trackInfo(...nodes) {
+    for (const n of nodes) {
+      if (n) this.infoNodes.push(n);
+    }
+  }
+
+  trackInv(...nodes) {
+    for (const n of nodes) {
+      if (n) this.invNodes.push(n);
+    }
+  }
+
+  buildTabs(centerX, y, depth) {
+    const tabs = [
+      { id: TAB_INFO, label: 'Info', x: centerX - 70 },
+      { id: TAB_INVENTORY, label: 'Inventário', x: centerX + 70 },
+    ];
+    this.tabButtons = [];
+
+    for (const tab of tabs) {
+      const bg = this.add
+        .rectangle(tab.x, y, 120, 34, 0x1a1430, 0.95)
+        .setStrokeStyle(2, 0x6b5cff, 0.7)
+        .setDepth(depth)
+        .setInteractive({ useHandCursor: true });
+
+      const label = this.add
+        .text(tab.x, y, tab.label, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '15px',
+          color: '#c4b5e0',
+        })
+        .setOrigin(0.5)
+        .setDepth(depth + 1);
+
+      const activate = () => this.setTab(tab.id);
+      bg.on('pointerup', activate);
+      bg.on('pointerover', () => {
+        if (this.activeTab !== tab.id) bg.setStrokeStyle(2, 0x8b7cff, 1);
+      });
+      bg.on('pointerout', () => this.refreshTabStyles());
+
+      this.tabButtons.push({ id: tab.id, bg, label });
+    }
+  }
+
+  refreshTabStyles() {
+    for (const tab of this.tabButtons || []) {
+      const active = tab.id === this.activeTab;
+      tab.bg.setFillStyle(active ? 0x2a2250 : 0x1a1430, 0.95);
+      tab.bg.setStrokeStyle(2, active ? 0x8b7cff : 0x6b5cff, active ? 1 : 0.7);
+      tab.label.setColor(active ? '#f4e8ff' : '#c4b5e0');
+    }
+  }
+
+  setTab(tabId) {
+    this.activeTab = tabId;
+    const showInfo = tabId === TAB_INFO;
+    const showInv = tabId === TAB_INVENTORY;
+
+    for (const n of this.infoNodes) n.setVisible?.(showInfo);
+    for (const n of this.invNodes) n.setVisible?.(showInv);
+
+    this.nameInput?.setVisible(showInfo && !this.skinModal?.isOpen?.());
+    this.historyDom?.setVisible(showInfo && !this.skinModal?.isOpen?.());
+
+    this.refreshTabStyles();
+
+    if (showInv) this.loadInventoryCurrency();
+  }
+
+  buildInfoTab(depth) {
+    const { width, height } = this.scale;
+    const editorX = width * 0.32;
+    const historyX = width * 0.72;
+
+    const previewKey = updateWizardPreviewTexture(this, this.selectedColor, this.selectedSkin);
+    this.preview = this.add
+      .sprite(editorX, height / 2 - 200, previewKey)
+      .setScale(4)
+      .setDepth(depth);
+    this.trackInfo(this.preview);
+
+    this.tweens.add({
+      targets: this.preview,
+      y: this.preview.y - 8,
+      duration: 1100,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    const skinLabel = this.add
+      .text(editorX, height / 2 - 135, 'Classe / skin', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(skinLabel);
+
+    this.buildSkinOpener(editorX, height / 2 - 88, depth);
+
+    this.skinModal = new SkinPickerModal(this, {
+      getColor: () => this.selectedColor,
+      getSelectedSkin: () => this.selectedSkin,
+      onSelect: (skinId) => this.selectSkin(skinId),
+      onOpen: () => {
+        this.nameInput?.setVisible(false);
+        this.historyDom?.setVisible(false);
+      },
+      onClose: () => {
+        if (this.activeTab === TAB_INFO) {
+          this.nameInput?.setVisible(true);
+          this.historyDom?.setVisible(true);
+        }
+      },
+    });
+
+    const nameLabel = this.add
+      .text(editorX, height / 2 - 25, 'Nome', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(nameLabel);
+
+    const inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.maxLength = 16;
+    inputEl.value = this.character.name;
+    inputEl.autocomplete = 'off';
+    inputEl.spellcheck = false;
+    inputEl.placeholder = 'Digite seu nome';
+    styleDomInput(inputEl);
+    this.nameInput = this.add.dom(editorX, height / 2 + 15, inputEl).setOrigin(0.5).setDepth(depth);
+
+    this.idText = this.add
+      .text(editorX, height / 2 + 54, `ID: ${this.character.id}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#6b6088',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(this.idText);
+
+    this.createdText = this.add
+      .text(editorX, height / 2 + 70, `Criado: ${formatDate(this.character.createdAt)}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#6b6088',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(this.createdText);
+
+    const colorLabel = this.add
+      .text(editorX, height / 2 + 96, 'Cor do bruxo', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(colorLabel);
+
+    this.buildPalette(editorX, height / 2 + 150, depth);
+
+    this.errorText = this.add
+      .text(editorX, height / 2 + 225, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '14px',
+        color: '#ff6b6b',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(this.errorText);
+
+    const btnY = height / 2 + 280;
+    const backBtn = makeMenuButton(this, editorX - 120, btnY, 'Voltar', 0x443866, () => {
+      navigate('/');
+    }, 130).setDepth(depth);
+    const saveBtn = makeMenuButton(this, editorX + 20, btnY, 'Salvar', 0x2ecc71, () => {
+      this.save();
+    }, 130).setDepth(depth);
+    const delBtn = makeMenuButton(this, editorX + 160, btnY, 'Deletar', 0xc0392b, () => {
+      this.confirmDeleteProfile();
+    }, 130).setDepth(depth);
+    this.trackInfo(backBtn, saveBtn, delBtn);
+
+    this.buildHistoryPanel(historyX, height / 2 + 50, depth);
+  }
+
+  buildInventoryTab(depth) {
+    const { width, height } = this.scale;
+    const cx = width / 2;
+
+    this.invGoldText = this.add
+      .text(cx - 80, 178, `Gold: ${this.inventory.gold}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '16px',
+        color: '#ffd76a',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInv(this.invGoldText);
+
+    this.invLootText = this.add
+      .text(cx + 80, 178, `Loot: ${this.inventory.loot}`, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '16px',
+        color: '#c4b5e0',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInv(this.invLootText);
+
+    const equipTitle = this.add
+      .text(cx, 208, 'Equipamento', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '18px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInv(equipTitle);
+
+    this.invHintText = this.add
+      .text(cx, 230, 'Clique no saco para equipar · clique no equipamento para remover', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#6b6088',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInv(this.invHintText);
+
+    this.buildEquipmentSlots(cx, 278, depth);
+
+    const bagTitle = this.add
+      .text(cx, 348, 'Saco (12×12)', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '16px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInv(bagTitle);
+
+    this.buildBagGrid(cx, 362, depth);
+
+    const backBtn = makeMenuButton(this, cx, height - 36, 'Voltar', 0x443866, () => {
+      navigate('/');
+    }, 140).setDepth(depth);
+    this.trackInv(backBtn);
+  }
+
+  buildEquipmentSlots(centerX, y, depth) {
+    const slotSize = 48;
+    const gap = 12;
+    const n = EQUIP_SLOTS.length;
+    const totalW = n * slotSize + (n - 1) * gap;
+    const startX = centerX - totalW / 2 + slotSize / 2;
+
+    this.equipSlotViews = {};
+    EQUIP_SLOTS.forEach((slot, i) => {
+      const x = startX + i * (slotSize + gap);
+      const frame = this.add
+        .rectangle(x, y, slotSize, slotSize, 0x161228, 0.95)
+        .setStrokeStyle(2, 0x4a3d78, 0.95)
+        .setDepth(depth)
+        .setInteractive({ useHandCursor: true });
+
+      const icon = this.add
+        .rectangle(x, y - 2, slotSize - 16, slotSize - 20, 0x6b5cff, 0)
+        .setDepth(depth + 1);
+
+      const label = this.add
+        .text(x, y + slotSize / 2 + 11, slot.label, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '11px',
+          color: '#9a8bb8',
+        })
+        .setOrigin(0.5)
+        .setDepth(depth);
+
+      const name = this.add
+        .text(x, y, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '9px',
+          color: '#f4e8ff',
+          align: 'center',
+          wordWrap: { width: slotSize - 6 },
+        })
+        .setOrigin(0.5)
+        .setDepth(depth + 2);
+
+      frame.on('pointerup', () => this.onEquipSlotClick(slot.key));
+      frame.on('pointerover', () => frame.setStrokeStyle(2, 0x8b7cff, 1));
+      frame.on('pointerout', () => this.refreshEquipSlot(slot.key));
+
+      this.equipSlotViews[slot.key] = { frame, icon, label, name, accepts: slot.accepts };
+      this.trackInv(frame, icon, label, name);
+    });
+
+    this.refreshAllEquipSlots();
+  }
+
+  buildBagGrid(centerX, topY, depth) {
+    const slotSize = 22;
+    const gap = 2;
+    const totalW = BAG_COLS * slotSize + (BAG_COLS - 1) * gap;
+    const startX = centerX - totalW / 2 + slotSize / 2;
+    const startY = topY + slotSize / 2;
+
+    this.bagSlotViews = [];
+    for (let i = 0; i < BAG_SIZE; i++) {
+      const col = i % BAG_COLS;
+      const row = Math.floor(i / BAG_COLS);
+      const x = startX + col * (slotSize + gap);
+      const y = startY + row * (slotSize + gap);
+
+      const frame = this.add
+        .rectangle(x, y, slotSize, slotSize, 0x12101c, 0.92)
+        .setStrokeStyle(1, 0x3a2f66, 0.9)
+        .setDepth(depth)
+        .setInteractive({ useHandCursor: true });
+
+      const fill = this.add
+        .rectangle(x, y, slotSize - 6, slotSize - 6, 0x6b5cff, 0)
+        .setDepth(depth + 1);
+
+      frame.on('pointerup', () => this.onBagSlotClick(i));
+      frame.on('pointerover', () => {
+        const item = this.inventory.bag[i];
+        frame.setStrokeStyle(1, item ? 0x8b7cff : 0x5a4e88, 1);
+        if (item) this.invHintText?.setText(`${item.name} · clique para equipar`);
+      });
+      frame.on('pointerout', () => {
+        this.refreshBagSlot(i);
+        this.invHintText?.setText(
+          'Clique no saco para equipar · clique no equipamento para remover'
+        );
+      });
+
+      this.bagSlotViews.push({ frame, fill });
+      this.trackInv(frame, fill);
+    }
+
+    this.refreshAllBagSlots();
+  }
+
+  refreshEquipSlot(key) {
+    const view = this.equipSlotViews[key];
+    if (!view) return;
+    const item = this.inventory.equipment[key];
+    if (item) {
+      view.frame.setStrokeStyle(2, 0x6b5cff, 1);
+      view.icon.setFillStyle(item.color >>> 0, 0.85);
+      view.name.setText(item.name);
+    } else {
+      view.frame.setStrokeStyle(2, 0x4a3d78, 0.95);
+      view.icon.setFillStyle(0x6b5cff, 0);
+      view.name.setText('');
+    }
+  }
+
+  refreshAllEquipSlots() {
+    for (const { key } of EQUIP_SLOTS) this.refreshEquipSlot(key);
+  }
+
+  refreshBagSlot(index) {
+    const view = this.bagSlotViews[index];
+    if (!view) return;
+    const item = this.inventory.bag[index];
+    if (item) {
+      view.frame.setStrokeStyle(1, 0x6b5cff, 0.95);
+      view.frame.setFillStyle(0x1e1840, 0.95);
+      view.fill.setFillStyle(item.color >>> 0, 0.9);
+    } else {
+      view.frame.setStrokeStyle(1, 0x3a2f66, 0.9);
+      view.frame.setFillStyle(0x12101c, 0.92);
+      view.fill.setFillStyle(0x6b5cff, 0);
+    }
+  }
+
+  refreshAllBagSlots() {
+    for (let i = 0; i < BAG_SIZE; i++) this.refreshBagSlot(i);
+  }
+
+  refreshCurrencyTexts() {
+    this.invGoldText?.setText(`Gold: ${this.inventory.gold}`);
+    this.invLootText?.setText(`Loot: ${this.inventory.loot}`);
+  }
+
+  persistInventory() {
+    const result = saveInventory(this.inventory);
+    if (result.ok) {
+      this.character = result.character;
+      this.inventory = normalizeInventory(result.character.inventory);
+    }
+    return result;
+  }
+
+  onBagSlotClick(index) {
+    if (this.activeTab !== TAB_INVENTORY) return;
+    const result = equipFromBag(this.inventory, index);
+    if (!result.ok) {
+      this.invHintText?.setText(result.error).setColor('#ff6b6b');
+      this.time.delayedCall(1800, () => this.resetInvHint());
+      return;
+    }
+    this.inventory = result.inventory;
+    this.persistInventory();
+    this.refreshAllEquipSlots();
+    this.refreshAllBagSlots();
+    this.invHintText?.setText('Item equipado').setColor('#2ecc71');
+    this.time.delayedCall(1400, () => this.resetInvHint());
+  }
+
+  resetInvHint() {
+    this.invHintText
+      ?.setText('Clique no saco para equipar · clique no equipamento para remover')
+      .setColor('#6b6088');
+  }
+
+  onEquipSlotClick(key) {
+    if (this.activeTab !== TAB_INVENTORY) return;
+    const result = unequipToBag(this.inventory, key);
+    if (!result.ok) {
+      if (result.error !== 'Slot vazio.') {
+        this.invHintText?.setText(result.error).setColor('#ff6b6b');
+        this.time.delayedCall(1800, () => this.resetInvHint());
+      }
+      return;
+    }
+    this.inventory = result.inventory;
+    this.persistInventory();
+    this.refreshAllEquipSlots();
+    this.refreshAllBagSlots();
+  }
+
+  async loadInventoryCurrency() {
+    try {
+      const data = await fetchCharacterMatches(this.character.id, { limit: 1 });
+      const gold = Number(data.totalGold) || 0;
+      const loot = Number(data.totalLoot) || 0;
+      if (gold !== this.inventory.gold || loot !== this.inventory.loot) {
+        this.inventory = normalizeInventory({
+          ...this.inventory,
+          gold,
+          loot,
+        });
+        this.persistInventory();
+      }
+      this.refreshCurrencyTexts();
+    } catch {
+      this.refreshCurrencyTexts();
+    }
   }
 
   confirmDeleteProfile() {
@@ -268,7 +647,7 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   buildHistoryPanel(x, y, depth) {
-    this.add
+    const histTitle = this.add
       .text(x, y - 256, 'Histórico de partidas', {
         fontFamily: 'Georgia, serif',
         fontSize: '22px',
@@ -276,6 +655,7 @@ export class CharacterScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(depth);
+    this.trackInfo(histTitle);
 
     this.historyWinsText = this.add
       .text(x - 70, y - 232, 'Vitórias: —', {
@@ -285,6 +665,7 @@ export class CharacterScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(depth);
+    this.trackInfo(this.historyWinsText);
 
     this.historyLossesText = this.add
       .text(x + 70, y - 232, 'Derrotas: —', {
@@ -294,6 +675,7 @@ export class CharacterScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(depth);
+    this.trackInfo(this.historyLossesText);
 
     this.historyLootText = this.add
       .text(x - 70, y - 208, 'Loot: —', {
@@ -303,6 +685,7 @@ export class CharacterScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(depth);
+    this.trackInfo(this.historyLootText);
 
     this.historyGoldText = this.add
       .text(x + 70, y - 208, 'Gold: —', {
@@ -312,6 +695,7 @@ export class CharacterScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(depth);
+    this.trackInfo(this.historyGoldText);
 
     this.historyStatus = this.add
       .text(x, y - 182, 'Carregando...', {
@@ -321,11 +705,12 @@ export class CharacterScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(depth);
+    this.trackInfo(this.historyStatus);
 
     const listEl = document.createElement('div');
     listEl.style.cssText = [
       'width: 460px',
-      'height: 410px',
+      'height: 380px',
       'overflow-y: auto',
       'box-sizing: border-box',
       'padding: 8px',
@@ -338,7 +723,7 @@ export class CharacterScene extends Phaser.Scene {
       'scrollbar-color: #6b5cff #1a1430',
     ].join(';');
     this.historyEl = listEl;
-    this.historyDom = this.add.dom(x, y + 36, listEl).setOrigin(0.5).setDepth(depth);
+    this.historyDom = this.add.dom(x, y + 26, listEl).setOrigin(0.5).setDepth(depth);
     this.loadHistory();
   }
 
@@ -361,6 +746,20 @@ export class CharacterScene extends Phaser.Scene {
       this.historyLossesText?.setText(`Derrotas: ${losses}`);
       this.historyLootText?.setText(`Loot: ${totalLoot}`);
       this.historyGoldText?.setText(`Gold: ${totalGold}`);
+
+      // Mantém inventário alinhado ao total acumulado nas partidas
+      if (
+        totalGold !== this.inventory.gold ||
+        totalLoot !== this.inventory.loot
+      ) {
+        this.inventory = normalizeInventory({
+          ...this.inventory,
+          gold: totalGold,
+          loot: totalLoot,
+        });
+        this.persistInventory();
+        this.refreshCurrencyTexts();
+      }
 
       if (!matches.length) {
         this.historyStatus?.setText('Nenhuma partida registrada ainda');
@@ -480,10 +879,10 @@ export class CharacterScene extends Phaser.Scene {
     frame.on('pointerout', () => frame.setStrokeStyle(2, 0x6b5cff, 0.85));
     sprite.setInteractive({ useHandCursor: true }).on('pointerup', open);
 
-    // Preview grande também abre o modal
     this.preview.setInteractive({ useHandCursor: true }).on('pointerup', open);
 
     this.skinOpener = { frame, sprite, name, hint };
+    this.trackInfo(frame, sprite, name, hint);
   }
 
   buildPalette(centerX, y, depth) {
@@ -509,6 +908,7 @@ export class CharacterScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       swatch.on('pointerup', () => this.selectColor(color));
       this.swatches.push({ color, swatch });
+      this.trackInfo(swatch);
     });
   }
 
@@ -550,6 +950,7 @@ export class CharacterScene extends Phaser.Scene {
       color: this.selectedColor,
       skin: this.selectedSkin,
       createdAt: this.character.createdAt,
+      inventory: this.inventory,
     });
     if (!result.ok) {
       this.errorText.setText(result.error);
@@ -557,6 +958,7 @@ export class CharacterScene extends Phaser.Scene {
       return;
     }
     this.character = result.character;
+    this.inventory = normalizeInventory(result.character.inventory);
     this.errorText.setText('');
     navigate('/');
   }

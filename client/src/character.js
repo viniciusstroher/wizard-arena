@@ -1,6 +1,7 @@
 /** Persistência do personagem no localStorage. */
 
 import { DEFAULT_SKIN, normalizeSkinId, WIZARD_SKIN_IDS } from './wizardSkin.js';
+import { defaultInventory, normalizeInventory } from './inventory.js';
 
 export const CHARACTER_KEY = 'wa_character';
 export { DEFAULT_SKIN, WIZARD_SKIN_IDS };
@@ -83,6 +84,7 @@ export function randomCharacter() {
     color: WIZARD_COLORS[Math.floor(Math.random() * WIZARD_COLORS.length)],
     skin: WIZARD_SKIN_IDS[Math.floor(Math.random() * WIZARD_SKIN_IDS.length)],
     createdAt: new Date().toISOString(),
+    inventory: defaultInventory(),
   };
 }
 
@@ -96,15 +98,17 @@ export function loadCharacter() {
         const id = normalizeCharacterId(data.id) || newCharacterId();
         const hadId = !!normalizeCharacterId(data.id);
         const hadCreatedAt = data.createdAt != null && data.createdAt !== '';
+        const hadInventory = data.inventory != null && typeof data.inventory === 'object';
         const char = {
           id,
           name,
           color: normalizeColor(data.color),
           skin: normalizeSkinId(data.skin),
           createdAt: normalizeCreatedAt(data.createdAt),
+          inventory: normalizeInventory(data.inventory),
         };
-        // Migra personagens antigos sem UUID ou sem data de criação
-        if (!hadId || !hadCreatedAt) {
+        // Migra personagens antigos sem UUID, data de criação ou inventário
+        if (!hadId || !hadCreatedAt || !hadInventory) {
           saveCharacter(char);
         }
         return char;
@@ -123,6 +127,7 @@ export function loadCharacter() {
       color: WIZARD_COLORS[Math.floor(Math.random() * WIZARD_COLORS.length)],
       skin: DEFAULT_SKIN,
       createdAt: new Date().toISOString(),
+      inventory: defaultInventory(),
     };
     saveCharacter(char);
     return char;
@@ -159,16 +164,32 @@ export function saveCharacter(character) {
     ? normalizeCreatedAt(character?.createdAt ?? previous?.createdAt)
     : normalizeCreatedAt(character?.createdAt);
 
+  const inventory =
+    character?.inventory != null
+      ? normalizeInventory(character.inventory)
+      : normalizeInventory(previous?.inventory);
+
   const data = {
     id,
     name,
     color: normalizeColor(character?.color),
     skin: normalizeSkinId(character?.skin),
     createdAt,
+    inventory,
   };
   localStorage.setItem(CHARACTER_KEY, JSON.stringify(data));
   localStorage.setItem('wa_name', data.name);
   return { ok: true, character: data };
+}
+
+/** Atualiza só o inventário (equipamento, saco, gold, loot). */
+export function saveInventory(inventory) {
+  const existing = ensureCharacter();
+  const result = saveCharacter({
+    ...existing,
+    inventory: normalizeInventory(inventory),
+  });
+  return result;
 }
 
 /** Remove apenas o personagem do localStorage (não apaga histórico no servidor). */
