@@ -196,6 +196,7 @@ export class GallerySpellFx {
       'drawBarrier',
       'drawBlink',
       'drawImpact',
+      'drawRocketExplosion',
       'drawFreeze',
       'drawApocalypse',
       'drawStorm',
@@ -238,14 +239,16 @@ export class GallerySpellFx {
 
   /** Impacto de projétil após o tween (mesmo drawImpact do jogo). */
   playImpact(spellId, color, x, y, radius = 24) {
+    const isRocket = spellId === 'tiro_de_buscape' || spellId === 'rocket';
+    const life = isRocket ? 0.55 : 0.4;
     this.effects.push({
       type: 'impact',
       spellId: spellId || 'orb',
       x,
       y,
-      radius: R(radius, 24),
-      life: 0.4,
-      maxLife: 0.4,
+      radius: R(radius, isRocket ? 32 : 24),
+      life,
+      maxLife: life,
       color: color || 0xffffff,
       seed: (Math.random() * 1e9) | 0,
     });

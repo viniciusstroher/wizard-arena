@@ -1704,7 +1704,7 @@ export class GalleryModal {
     });
   }
 
-  /** Três foguetes em leque pé de galinha (\|/). */
+  /** Três foguetes em leque pé de galinha (\|/) — voam e explodem no fim. */
   _animateBuscapeRockets(x1, y1, x2, y2, color) {
     const dx = x2 - x1;
     const dy = y2 - y1;
@@ -1723,7 +1723,7 @@ export class GalleryModal {
       const rdy = dirX * s + dirY * c;
       const tx = x1 + rdx * dist;
       const ty = y1 + rdy * dist;
-      const proj = this.scene.add.image(x1, y1, projKey).setScale(1.2);
+      const proj = this.scene.add.image(x1, y1, projKey).setScale(1.35);
       if (!this.scene.textures.exists(projKey) || projKey === 'orb') {
         proj.setTint(color ?? 0xff6622);
       }
@@ -1731,15 +1731,24 @@ export class GalleryModal {
       this.previewRoot.add(proj);
       this.previewSprites.push(proj);
 
+      let lastTrail = 0;
       this.scene.tweens.add({
         targets: proj,
         x: tx,
         y: ty,
-        duration: 380,
+        duration: 420,
         ease: 'Quad.easeIn',
-        delay: i * 20,
+        delay: i * 25,
+        onUpdate: () => {
+          const now = this.scene.time.now;
+          if (now - lastTrail < 28) return;
+          lastTrail = now;
+          const bx = proj.x - rdx * 8;
+          const by = proj.y - rdy * 8;
+          this.spellFx?.fireballFx?.emitParticleAt(bx, by, 2);
+        },
         onComplete: () => {
-          this.spellFx?.playImpact('tiro_de_buscape', color, tx, ty, 22);
+          this.spellFx?.playImpact('tiro_de_buscape', color, tx, ty, 30);
           proj.destroy();
         },
       });

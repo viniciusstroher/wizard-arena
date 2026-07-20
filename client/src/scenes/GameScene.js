@@ -2361,6 +2361,26 @@ export class GameScene extends Phaser.Scene {
     this.ensureProjectileGlow(sprite, x, y, 0xff6600, 16);
   }
 
+  /** Rastro de escapamento do buscapé — chama atrás do foguete. */
+  emitRocketTrail(sprite, x, y, vx = 0, vy = 0) {
+    if (!this.fireballFx) return;
+    const now = this.time.now;
+    if (now - (sprite.lastRocketTrailAt || 0) < 18) {
+      this.ensureProjectileGlow(sprite, x, y, 0xff6622, 18);
+      return;
+    }
+    sprite.lastRocketTrailAt = now;
+    const speed = Math.hypot(vx || 0, vy || 0) || 1;
+    const bx = x - ((vx || 0) / speed) * 10;
+    const by = y - ((vy || 0) / speed) * 10;
+    const ang = Phaser.Math.RadToDeg(Math.atan2(vy || 0, vx || 1));
+    this.fireballFx.setEmitterAngle({ min: ang + 155, max: ang + 205 });
+    this.fireballFx.setParticleSpeed({ min: 40, max: 110 });
+    this.fireballFx.emitParticleAt(bx, by, 4);
+    this.sparkFx?.emitParticleAt(bx, by, 1);
+    this.ensureProjectileGlow(sprite, x, y, 0xff6622, 18);
+  }
+
   emitIceTrail(sprite, x, y, vx = 0, vy = 0) {
     this.emitDirectionalTrail(this.iceFx, sprite, x, y, vx, vy, 'lastIceTrailAt', 2);
     this.ensureProjectileGlow(sprite, x, y, 0x66ccff, 14);
@@ -2392,12 +2412,23 @@ export class GameScene extends Phaser.Scene {
       spell === 'fireball' ||
       spell === 'firebreath' ||
       spell === 'tiro_de_buscape' ||
+      spell === 'rocket' ||
       e.type === 'nova' ||
       e.type === 'firebreath' ||
       spell === 'flame_nova'
     ) {
-      this.fireballFx?.emitParticleAt(x, y, e.type === 'firebreath' ? 22 : 14);
-      this.sparkFx?.emitParticleAt(x, y, e.type === 'firebreath' ? 12 : 8);
+      const isRocket = spell === 'tiro_de_buscape' || spell === 'rocket';
+      this.fireballFx?.emitParticleAt(
+        x,
+        y,
+        e.type === 'firebreath' ? 22 : isRocket ? 26 : 14
+      );
+      this.sparkFx?.emitParticleAt(
+        x,
+        y,
+        e.type === 'firebreath' ? 12 : isRocket ? 18 : 8
+      );
+      if (isRocket) this.meteorFx?.emitParticleAt(x, y, 10);
     } else if (spell === 'ice_shard' || spell === 'water_orb' || e.type === 'freeze') {
       this.iceFx?.emitParticleAt(x, y, 16);
       this.sparkFx?.emitParticleAt(x, y, 6);
@@ -3612,12 +3643,12 @@ export class GameScene extends Phaser.Scene {
         s.setRotation(Math.sin(this.time.now / 90) * 0.15);
         this.emitSkullTrail(s, p.x, p.y, p.vx, p.vy);
       } else if (kind === 'rocket' || kind === 'tiro_de_buscape') {
-        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 50);
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 40);
         s.clearTint();
-        s.setBlendMode(Phaser.BlendModes.ADD);
-        s.setScale(0.95 + 0.1 * pulse);
+        s.setBlendMode(Phaser.BlendModes.NORMAL);
+        s.setScale(1.15 + 0.12 * pulse);
         s.setRotation(Math.atan2(p.vy || 0, p.vx || 1) + Math.PI / 2);
-        this.emitFireballTrail(s, p.x, p.y, p.vx, p.vy);
+        this.emitRocketTrail(s, p.x, p.y, p.vx, p.vy);
       } else {
         // fireball / firebolt — brilho + rastro de chama
         const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 60);
@@ -4339,8 +4370,15 @@ export class GameScene extends Phaser.Scene {
     const fade = this.effectFade(e);
     const p = this.effectProgress(e);
     const color = e.color || 0xffffff;
-    const r = (e.radius || 24) * (0.4 + 0.9 * p);
     const spell = e.spellId || '';
+    const isRocket = spell === 'tiro_de_buscape' || spell === 'rocket';
+
+    if (isRocket) {
+      this.drawRocketExplosion(e, fade, p, color);
+      return;
+    }
+
+    const r = (e.radius || 24) * (0.4 + 0.9 * p);
 
     g.fillStyle(color, 0.28 * fade * (1 - p));
     g.fillCircle(e.x, e.y, r);
@@ -4360,6 +4398,49 @@ export class GameScene extends Phaser.Scene {
         e.x + Math.cos(a) * len,
         e.y + Math.sin(a) * len
       );
+    }
+  }
+
+  /** Explosão de buscapé — flash + anéis + estrelas de fogos. */
+  drawRocketExplosion(e, fade, p, color) {
+    const g = this.effectGraphics;
+    const r = (e.radius || 32) * (0.35 + 1.15 * p);
+    const flash = Math.max(0, 1 - p * 2.2);
+    const seedRef = { v: (e.seed ?? 1) >>> 0 };
+    const rand = () => this.seededRand(seedRef);
+
+    g.fillStyle(0xfff6c8, 0.55 * fade * flash);
+    g.fillCircle(e.x, e.y, r * 0.45);
+    g.fillStyle(color, 0.32 * fade * (1 - p));
+    g.fillCircle(e.x, e.y, r);
+    g.fillStyle(0xff2200, 0.18 * fade * (1 - p * 0.7));
+    g.fillCircle(e.x, e.y, r * 1.25);
+    g.fillStyle(0xffffff, 0.4 * fade * flash);
+    g.fillCircle(e.x, e.y, r * 0.22);
+
+    g.lineStyle(3, 0xffee88, 0.75 * fade * (1 - p * 0.5));
+    g.strokeCircle(e.x, e.y, r * 0.7);
+    g.lineStyle(2, color, 0.55 * fade);
+    g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(1.5, 0xffaa44, 0.35 * fade * (1 - p));
+    g.strokeCircle(e.x, e.y, r * 1.2);
+
+    const rays = 14;
+    for (let i = 0; i < rays; i++) {
+      const a = (i / rays) * Math.PI * 2 + p * 1.4 + rand() * 0.2;
+      const len = r * (0.85 + 0.55 * p + rand() * 0.25);
+      const inner = r * 0.15;
+      g.lineStyle(i % 2 === 0 ? 2.5 : 1.5, i % 3 === 0 ? 0xffee88 : color, 0.65 * fade);
+      g.lineBetween(
+        e.x + Math.cos(a) * inner,
+        e.y + Math.sin(a) * inner,
+        e.x + Math.cos(a) * len,
+        e.y + Math.sin(a) * len
+      );
+      const sx = e.x + Math.cos(a) * len;
+      const sy = e.y + Math.sin(a) * len;
+      g.fillStyle(0xffffff, 0.55 * fade * (1 - p));
+      g.fillCircle(sx, sy, 1.8 + rand() * 1.5);
     }
   }
 

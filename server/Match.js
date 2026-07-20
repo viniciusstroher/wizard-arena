@@ -4355,14 +4355,16 @@ export class Match {
   }
 
   spawnSpellImpact(x, y, spellId, color, radius = 24) {
+    const isRocket = spellId === 'tiro_de_buscape' || spellId === 'rocket';
+    const life = isRocket ? 0.55 : 0.4;
     this.effects.push({
       type: 'impact',
       spellId: spellId || 'orb',
       x,
       y,
       radius,
-      life: 0.4,
-      maxLife: 0.4,
+      life,
+      maxLife: life,
       color: color || 0xffffff,
       seed: (Math.random() * 1e9) | 0,
     });
@@ -4954,8 +4956,11 @@ export class Match {
           }
         }
       }
-      if (hit || ended) {
-        const spellId = proj.spellId || proj.kind || 'orb';
+      const spellId = proj.spellId || proj.kind || 'orb';
+      const isRocket = spellId === 'tiro_de_buscape' || proj.kind === 'rocket';
+      // Buscapé / foguete: explode no impacto, na parede ou no fim do alcance.
+      const timedOut = isRocket && proj.life <= 0;
+      if (hit || ended || timedOut) {
         const impactR =
           spellId === 'firebolt' || spellId === 'fireball'
             ? 30
@@ -4963,8 +4968,8 @@ export class Match {
               ? 26
               : spellId === 'skull_bolt' || spellId === 'vine_spike'
                 ? 28
-                : spellId === 'tiro_de_buscape'
-                  ? 24
+                : isRocket
+                  ? 32
                   : 18;
         this.spawnSpellImpact(proj.x, proj.y, spellId, proj.color, impactR);
         if (spellId === 'skull_bolt' && hit) {
