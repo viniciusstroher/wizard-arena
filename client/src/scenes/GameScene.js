@@ -1234,6 +1234,12 @@ export class GameScene extends Phaser.Scene {
         return 'Atenção: ventania se forma!';
       case 'gale_strike':
         return 'Uma ventania varre a arena!';
+      case 'lever_spawn':
+        return 'Uma alavanca surgiu na arena!';
+      case 'lever_pull':
+        return `${this.playerName(ev.playerId)} puxou a alavanca!`;
+      case 'lever_expand':
+        return 'A arena segura cresceu!';
       case 'cooldown_mist':
       case 'heal':
         return null;
@@ -2357,6 +2363,10 @@ export class GameScene extends Phaser.Scene {
       this.windFx?.setParticleSpeed({ min: 120, max: 260 });
       this.windFx?.emitParticleAt(x, y, 28);
       this.magicFx?.emitParticleAt(x, y, 6);
+    } else if (e.type === 'lever_pulled') {
+      this.magicFx?.emitParticleAt(x, y, 16);
+      this.sparkFx?.emitParticleAt(x, y, 10);
+      this.healFx?.emitParticleAt(x, y, 8);
     } else if (e.type === 'blink') {
       this.magicFx?.emitParticleAt(x, y, 14);
     } else if (e.type === 'barrier') {
@@ -4855,6 +4865,88 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Alavanca de arena: surge da esquerda (facing left), puxada à direita some
+   * e amplia a zona segura no servidor.
+   */
+  drawLever(e) {
+    const g = this.effectGraphics;
+    const appear = e.type === 'lever_appear';
+    const pulled = e.type === 'lever_pulled';
+    const progress = this.effectProgress(e);
+    const lifeFade = pulled
+      ? Math.min(1, Math.max(0, (e.life || 0) / Math.max(0.05, e.maxLife || 0.55)))
+      : appear
+        ? Math.min(1, progress)
+        : Math.min(1, Math.max(0.35, (e.life || 0) / Math.max(0.2, (e.maxLife || 14) * 0.15)));
+    const fade = appear ? Math.min(1, progress * 1.4) : lifeFade;
+    const wood = e.color || 0xd4a574;
+    const metal = 0x8a9aaa;
+    const glow = pulled ? 0x66e8a0 : 0xffc857;
+    const r = e.radius || 22;
+
+    // Entrada: desliza da esquerda até o ponto final
+    const slide = appear ? (1 - progress) * 48 : 0;
+    const x = e.x - slide;
+    const y = e.y;
+    const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 120);
+
+    g.fillStyle(glow, (pulled ? 0.22 : 0.12) * fade * pulse);
+    g.fillCircle(x, y, r * (pulled ? 1.15 : 0.95));
+    g.lineStyle(2, glow, (pulled ? 0.75 : 0.45) * fade);
+    g.strokeCircle(x, y, r * 0.9);
+
+    // Base / pedestal
+    g.fillStyle(0x3a2a1a, 0.85 * fade);
+    g.fillRoundedRect(x - 10, y - 4, 20, 14, 3);
+    g.fillStyle(wood, 0.95 * fade);
+    g.fillRoundedRect(x - 8, y - 2, 16, 10, 2);
+    g.fillStyle(0x2a1c10, 0.55 * fade);
+    g.fillRect(x - 3, y - 18, 6, 20);
+
+    // Manopla: esquerda (−) ou direita (+)
+    const facingRight = e.facing === 'right' || pulled;
+    // Transição visual ao puxar
+    const pullT = pulled ? Math.min(1, 1 - (e.life || 0) / Math.max(0.05, e.maxLife || 0.55)) : 0;
+    const ang = facingRight
+      ? Phaser.Math.DegToRad(-55 + pullT * 8)
+      : Phaser.Math.DegToRad(215);
+    const hx = Math.cos(ang);
+    const hy = Math.sin(ang);
+    const pivotX = x;
+    const pivotY = y - 16;
+    const tipX = pivotX + hx * 22;
+    const tipY = pivotY + hy * 22;
+
+    g.lineStyle(5, 0x5a4030, 0.95 * fade);
+    g.lineBetween(pivotX, pivotY, tipX, tipY);
+    g.lineStyle(3, wood, 0.98 * fade);
+    g.lineBetween(pivotX, pivotY, tipX, tipY);
+    g.fillStyle(metal, 0.95 * fade);
+    g.fillCircle(pivotX, pivotY, 4);
+    g.fillStyle(glow, 0.95 * fade);
+    g.fillCircle(tipX, tipY, 5.5);
+    g.fillStyle(0xffffff, 0.55 * fade);
+    g.fillCircle(tipX - 1.5, tipY - 1.5, 2);
+
+    if (pulled) {
+      const flash = Math.max(0, 1 - pullT * 1.6);
+      if (flash > 0) {
+        g.fillStyle(0xffffff, 0.35 * flash * fade);
+        g.fillCircle(x, y, r * (0.6 + flash * 0.5));
+        g.fillStyle(0x66e8a0, 0.28 * flash * fade);
+        g.fillCircle(x, y, r * (1.1 + flash * 0.4));
+      }
+    } else if (!appear) {
+      // Indicador de “passe por cima”
+      const remain = Math.max(0.05, 1 - progress);
+      g.lineStyle(2.5, 0xffffff, 0.35 * fade);
+      g.beginPath();
+      g.arc(x, y, r * 1.05, -Math.PI / 2, -Math.PI / 2 + remain * Math.PI * 2, false);
+      g.strokePath();
+    }
+  }
+
   /** Impacto: onda de cura e cruzes ascendentes. */
   drawMassHealStrike(e) {
     const g = this.effectGraphics;
@@ -5106,7 +5198,8 @@ export class GameScene extends Phaser.Scene {
         e.type === 'mass_heal_strike' ||
         e.type === 'cooldown_mist_strike' ||
         e.type === 'cooldown_mist' ||
-        e.type === 'gale_strike'
+        e.type === 'gale_strike' ||
+        e.type === 'lever_pulled'
       ) {
         activeBursts.add(burstKey);
         this.burstOnce(burstKey, () => this.burstSpellParticles(e));
@@ -5164,6 +5257,12 @@ export class GameScene extends Phaser.Scene {
         this.drawGaleWarn(e);
       } else if (e.type === 'gale_strike') {
         this.drawGaleStrike(e);
+      } else if (
+        e.type === 'lever_appear' ||
+        e.type === 'lever_ready' ||
+        e.type === 'lever_pulled'
+      ) {
+        this.drawLever(e);
       } else if (e.type === 'storm') {
         this.drawStorm(e);
       } else if (e.type === 'electric_storm') {

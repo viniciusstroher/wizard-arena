@@ -213,6 +213,8 @@ export class Match {
     this.cooldownMistTimer = 0;
     this.gales = [];
     this.galeTimer = 0;
+    this.levers = [];
+    this.leverTimer = 0;
     /** Tempo restante do cooldown global entre eventos de arena (s). */
     this.arenaEventCooldown = 0;
     this.kikoLaughTimer = 0;
@@ -968,6 +970,8 @@ export class Match {
     this.cooldownMistTimer = 0;
     this.gales = [];
     this.galeTimer = 0;
+    this.levers = [];
+    this.leverTimer = 0;
     this.kikoLaughTimer = 0;
     this.events = [];
     this.winnerId = null;
@@ -1056,6 +1060,7 @@ export class Match {
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
     this.scheduleNextGale();
+    this.scheduleNextLever();
     this.scheduleNextKikoLaugh();
     if (this.bossRound) {
       // Round de boss: limpa mobs persistidos e spawna um único boss.
@@ -1105,6 +1110,12 @@ export class Match {
     const min = CONFIG.GALE_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.GALE_EVENT_MAX_INTERVAL);
     this.galeTimer = min + Math.random() * (max - min);
+  }
+
+  scheduleNextLever() {
+    const min = CONFIG.LEVER_EVENT_MIN_INTERVAL;
+    const max = Math.max(min, CONFIG.LEVER_EVENT_MAX_INTERVAL);
+    this.leverTimer = min + Math.random() * (max - min);
   }
 
   scheduleNextKikoLaugh() {
@@ -1474,6 +1485,120 @@ export class Match {
       maxLife: g.maxLife,
       color: g.color,
       seed: g.seed,
+    }));
+  }
+
+  spawnLeverEvent() {
+    const radius = CONFIG.LEVER_RADIUS;
+    const { x, y } = this.pickMeteorPoint(radius);
+    const appearMax = Math.max(0.05, CONFIG.LEVER_APPEAR_TIME);
+    this.levers.push({
+      entityId: eid(),
+      x,
+      y,
+      radius,
+      /** left = alavanca virada à esquerda; right = puxada. */
+      facing: 'left',
+      phase: 'appear',
+      life: appearMax,
+      maxLife: appearMax,
+      seed: (Math.random() * 1e9) | 0,
+      color: 0xd4a574,
+      activatedBy: null,
+    });
+    this.pushEvent({ type: 'lever_spawn', x, y, radius });
+  }
+
+  /** Expande a arena segura em uma fração do quanto ela fecha por fase. */
+  expandArenaFromLever(playerId = null) {
+    const amount = CONFIG.ARENA_SHRINK_AMOUNT * CONFIG.LEVER_EXPAND_RATIO;
+    if (!(amount > 0)) return 0;
+    const before = this.arenaRadius;
+    const grow = (r) => Math.min(CONFIG.ARENA_START_RADIUS, r + amount);
+    this.arenaRadius = grow(this.arenaRadius);
+    if (this.shrinkActive) {
+      this.shrinkFrom = grow(this.shrinkFrom);
+      this.shrinkTo = grow(this.shrinkTo);
+    }
+    const gained = this.arenaRadius - before;
+    if (gained > 0) {
+      this.pushEvent({
+        type: 'lever_expand',
+        playerId,
+        radius: this.arenaRadius,
+        amount: +gained.toFixed(2),
+      });
+    }
+    return gained;
+  }
+
+  activateLever(lever, player) {
+    if (lever.phase === 'pulled') return;
+    lever.facing = 'right';
+    lever.phase = 'pulled';
+    lever.life = CONFIG.LEVER_PULL_TIME;
+    lever.maxLife = CONFIG.LEVER_PULL_TIME;
+    lever.activatedBy = player?.id || null;
+    this.expandArenaFromLever(player?.id || null);
+    this.pushEvent({
+      type: 'lever_pull',
+      playerId: player?.id || null,
+      x: lever.x,
+      y: lever.y,
+      radius: lever.radius,
+    });
+  }
+
+  tickLevers(dt) {
+    this.leverTimer -= dt;
+    if (this.leverTimer <= 0) {
+      if (this.canSpawnArenaEvent()) {
+        this.spawnLeverEvent();
+        this.beginArenaEvent();
+        this.scheduleNextLever();
+      } else {
+        this.leverTimer = 0;
+      }
+    }
+
+    const pickupR = CONFIG.PLAYER_RADIUS + CONFIG.LEVER_RADIUS;
+    for (const lever of this.levers) {
+      lever.life -= dt;
+      if (lever.phase === 'appear' && lever.life <= 0) {
+        lever.phase = 'ready';
+        lever.facing = 'left';
+        lever.life = CONFIG.LEVER_LIFETIME;
+        lever.maxLife = CONFIG.LEVER_LIFETIME;
+      } else if (lever.phase === 'ready') {
+        for (const p of this.players.values()) {
+          if (!p.alive) continue;
+          if (dist(p, lever) > pickupR) continue;
+          this.activateLever(lever, p);
+          break;
+        }
+      }
+    }
+    this.levers = this.levers.filter((l) => l.life > 0);
+  }
+
+  serializeLeverEffects() {
+    return this.levers.map((l) => ({
+      type:
+        l.phase === 'appear'
+          ? 'lever_appear'
+          : l.phase === 'pulled'
+            ? 'lever_pulled'
+            : 'lever_ready',
+      entityId: l.entityId,
+      x: l.x,
+      y: l.y,
+      radius: l.radius,
+      facing: l.facing,
+      life: Math.max(0, l.life),
+      maxLife: l.maxLife,
+      color: l.color,
+      seed: l.seed,
+      playerId: l.activatedBy,
     }));
   }
 
@@ -2264,6 +2389,8 @@ export class Match {
     this.cooldownMistTimer = 0;
     this.gales = [];
     this.galeTimer = 0;
+    this.levers = [];
+    this.leverTimer = 0;
     this.kikoLaughTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
@@ -4115,12 +4242,13 @@ export class Match {
       }
     }
 
-    // Eventos aleatórios: meteoro, mass heal, névoa de cooldown e ventania
+    // Eventos aleatórios: meteoro, mass heal, névoa, ventania e alavanca
     this.tickArenaEventCooldown(dt);
     this.tickMeteors(dt);
     this.tickMassHeals(dt);
     this.tickCooldownMists(dt);
     this.tickGales(dt);
+    this.tickLevers(dt);
     // Vozes aleatórias (Kiko / Seu Madruga) no client
     this.tickKikoLaugh(dt);
 
@@ -4801,6 +4929,7 @@ export class Match {
         ...this.serializeMassHealEffects(),
         ...this.serializeCooldownMistEffects(),
         ...this.serializeGaleEffects(),
+        ...this.serializeLeverEffects(),
       ],
       lootBags: this.lootBags.map((b) => ({
         entityId: b.entityId,

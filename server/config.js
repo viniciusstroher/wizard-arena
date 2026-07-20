@@ -409,7 +409,7 @@ export const CONFIG = {
   PROJECTILE_KNOCKBACK_DURATION: envNumber('PROJECTILE_KNOCKBACK_DURATION', 0.12),
 
   /**
-   * Cooldown global entre eventos de arena (meteoro, mass heal, névoa, ventania).
+   * Cooldown global entre eventos de arena (meteoro, mass heal, névoa, ventania, alavanca).
    * Após um evento começar, nenhum outro pode iniciar até este tempo (segundos).
    * 0 = desliga o bloqueio global.
    */
@@ -462,6 +462,23 @@ export const CONFIG = {
   GALE_SPEED_MUL: envNumber('GALE_SPEED_MUL', 1.5),
   /** Multiplicador de inércia dentro da ventania (0.75 = −25%). */
   GALE_INERTIA_MUL: envNumber('GALE_INERTIA_MUL', 0.75),
+
+  /** Intervalo mínimo/máximo entre alavancas aleatórias (segundos). */
+  LEVER_EVENT_MIN_INTERVAL: envNumber('LEVER_EVENT_MIN_INTERVAL', 12),
+  LEVER_EVENT_MAX_INTERVAL: envNumber('LEVER_EVENT_MAX_INTERVAL', 24),
+  /** Tempo de aparição (desliza da esquerda) antes de ficar ativável. */
+  LEVER_APPEAR_TIME: envNumber('LEVER_APPEAR_TIME', 0.45),
+  /** Tempo máximo no chão aguardando alguém passar por cima (segundos). */
+  LEVER_LIFETIME: envNumber('LEVER_LIFETIME', 14),
+  /** Duração visual após puxar (alavanca à direita) antes de sumir. */
+  LEVER_PULL_TIME: envNumber('LEVER_PULL_TIME', 0.55),
+  /** Raio de coleta (somado ao PLAYER_RADIUS). */
+  LEVER_RADIUS: envNumber('LEVER_RADIUS', 22),
+  /**
+   * Fração do ARENA_SHRINK_AMOUNT restaurada ao ativar a alavanca.
+   * Ex.: 0.5 = a arena cresce metade do quanto fecha por fase.
+   */
+  LEVER_EXPAND_RATIO: envNumber('LEVER_EXPAND_RATIO', 0.5),
 
   /**
    * Vozes aleatórias (Kiko / Seu Madruga): intervalo min/max entre
