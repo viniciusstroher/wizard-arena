@@ -235,8 +235,15 @@ export class Match {
     this.lastSpawnedMonsterType = null;
     /** Contagem de mortes por tipo de monstro (type → count). */
     this.monsterKillCounts = Object.create(null);
+    /** Dano de jogadores a monstros por elemento (elementId → amount). */
+    this.elementDamageDealt = Object.create(null);
     /** Round atual é luta de boss (sem tempo; win ao matar o boss). */
     this.bossRound = false;
+    /**
+     * Após terminar um round listado em BOSS_APPEARS, a próxima fase é a boss fight
+     * (não consome um round extra — roda “depois” do round N).
+     */
+    this.pendingBossFight = false;
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
@@ -1057,20 +1064,34 @@ export class Match {
     this.round += 1;
     this.phase = 'playing';
     this.roundTime = 0;
-    this.bossRound = this.isBossAppearRound(this.round);
+    this.bossRound = false;
+    this.pendingBossFight = false;
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
     this.scheduleNextGale();
     this.scheduleNextLever();
     this.scheduleNextKikoLaugh();
-    if (this.bossRound) {
-      // Round de boss: limpa mobs persistidos e spawna um único boss.
-      this.monsters = [];
-      this.spawnBoss();
-      this.pushEvent({ type: 'boss_fight', round: this.round });
-    }
-    this.pushEvent({ type: 'round_start', round: this.round, bossRound: this.bossRound });
+    this.pushEvent({ type: 'round_start', round: this.round, bossRound: false });
+    this.broadcastState(true);
+  }
+
+  /** Boss fight logo após um round de BOSS_APPEARS (sem avançar o número do round). */
+  startBossFight() {
+    this.pendingBossFight = false;
+    this.phase = 'playing';
+    this.roundTime = 0;
+    this.bossRound = true;
+    this.scheduleNextMeteor();
+    this.scheduleNextMassHeal();
+    this.scheduleNextCooldownMist();
+    this.scheduleNextGale();
+    this.scheduleNextLever();
+    this.scheduleNextKikoLaugh();
+    this.monsters = [];
+    this.spawnBoss();
+    this.pushEvent({ type: 'boss_fight', round: this.round });
+    this.pushEvent({ type: 'round_start', round: this.round, bossRound: true });
     this.broadcastState(true);
   }
 
@@ -2256,7 +2277,16 @@ export class Match {
     const source = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (source) {
       const hpHit = dmg > 0 ? Math.min(dmg, target.hp) : 0;
-      source.damageDealt += absorbed + hpHit;
+      const dealt = absorbed + hpHit;
+      source.damageDealt += dealt;
+      if (!isPlayer && dealt > 0) {
+        const element =
+          options?.element ||
+          (options?.spellId ? spellElementId(options.spellId) : null);
+        if (element) {
+          this.elementDamageDealt[element] = (this.elementDamageDealt[element] || 0) + dealt;
+        }
+      }
     }
     if (dmg <= 0) return false;
     target.hp -= dmg;
@@ -2419,6 +2449,17 @@ export class Match {
 
     // Escolhas pendentes não pausam o fim do round — ficam para o próximo / auto-timeout.
 
+    // Round normal listado em BOSS_APPEARS → boss fight em seguida (mesmo no último round).
+    if (!wasBossRound && this.isBossAppearRound(this.round)) {
+      this.pendingBossFight = true;
+      this.phase = 'intermission';
+      this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
+      this.broadcastState(true);
+      return;
+    }
+
+    this.pendingBossFight = false;
+
     if (this.round >= this.maxRounds) {
       const cleared = [...this.players.values()].some((p) => p.alive);
       // Passou todos os níveis = success; wipe no último nível = fail.
@@ -2447,6 +2488,7 @@ export class Match {
     if (this.phase === 'ended') return;
     this.phase = 'ended';
     this.bossRound = false;
+    this.pendingBossFight = false;
     this.winnerId = winner?.id || null;
     this.matchResult = result === 'success' ? 'success' : 'fail';
     this.endReason = reason || null;
@@ -2458,6 +2500,7 @@ export class Match {
       result: this.matchResult,
       reason,
       monsterKillStats: this.serializeMonsterKillStats(),
+      elementDamageStats: this.serializeElementDamageStats(),
       scores: [...this.players.values()]
         .map((p) => ({
           id: p.id,
@@ -2529,6 +2572,24 @@ export class Match {
       .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
     const total = byType.reduce((sum, e) => sum + e.count, 0);
     return { total, byType };
+  }
+
+  serializeElementDamageStats() {
+    const byElement = Object.entries(this.elementDamageDealt || {})
+      .map(([element, damage]) => ({
+        element,
+        damage: Math.round(damage || 0),
+      }))
+      .filter((e) => e.damage > 0)
+      .sort((a, b) => b.damage - a.damage || a.element.localeCompare(b.element));
+    const total = byElement.reduce((sum, e) => sum + e.damage, 0);
+    return {
+      total,
+      byElement: byElement.map((e) => ({
+        ...e,
+        pct: total > 0 ? Math.round((e.damage / total) * 100) : 0,
+      })),
+    };
   }
 
   /** Sorteia tipo com pesos + diversidade (evita repetir tipos já vivos / último spawn). */
@@ -2661,10 +2722,13 @@ export class Match {
       'electric_storm',
       'firebreath',
       'frost_breath',
+      'gale_breath',
       'skull_wave',
       'bone_volley',
       'magma_surge',
       'thorn_nova',
+      'ash_nova',
+      'mire_nova',
       'void_collapse',
       'abyss_nova',
       'frost_apocalypse',
@@ -2672,6 +2736,8 @@ export class Match {
       'shadow_eclipse',
       'entropy_pulse',
       'tidal_crush',
+      'blood_nova',
+      'quake_pulse',
       'cataclysm_beam',
     ]);
     let spells = Array.isArray(def.spells) ? [...def.spells] : null;
@@ -2915,7 +2981,7 @@ export class Match {
     this.monsters.push(monster);
   }
 
-  /** Spawna um boss aleatório (só em rounds de BOSS_APPEARS). */
+  /** Spawna um boss aleatório (boss fight após rounds de BOSS_APPEARS). */
   spawnBoss() {
     const types = this.monsterTypeDefs();
     const type = this.pickMonsterType(types, { bossesOnly: true });
@@ -3167,6 +3233,8 @@ export class Match {
       'plague_burst',
       'entropy_pulse',
       'tidal_crush',
+      'blood_nova',
+      'quake_pulse',
     ];
     const bossSingleSpells = [
       'death_knell',
@@ -3176,6 +3244,8 @@ export class Match {
       'soul_lance',
       'solar_judgment',
       'rift_lance',
+      'obsidian_lance',
+      'aurora_judgment',
     ];
 
     const bossNovaReady =
@@ -3235,6 +3305,22 @@ export class Match {
     }
     if (
       canArea &&
+      spells.includes('ash_nova') &&
+      nearestD <= this.areaSpellReach(monster, 'ash_nova', novaR) &&
+      (monster.novaCd || 0) <= 0
+    ) {
+      return 'ash_nova';
+    }
+    if (
+      canArea &&
+      spells.includes('mire_nova') &&
+      nearestD <= this.areaSpellReach(monster, 'mire_nova', novaR) &&
+      (monster.novaCd || 0) <= 0
+    ) {
+      return 'mire_nova';
+    }
+    if (
+      canArea &&
       spells.includes('poison_cloud') &&
       nearestD <= this.areaSpellReach(monster, 'poison_cloud', novaR) &&
       (monster.novaCd || 0) <= 0
@@ -3244,10 +3330,16 @@ export class Match {
     if (canArea && spells.includes('frost_breath') && nearestD <= (spellStats('frost_breath')?.range || 165)) {
       return 'frost_breath';
     }
+    if (canArea && spells.includes('gale_breath') && nearestD <= (spellStats('gale_breath')?.range || 170)) {
+      return 'gale_breath';
+    }
     if (canArea && spells.includes('firebreath') && nearestD <= (spellStats('firebreath')?.range || 170)) {
       return 'firebreath';
     }
     if (spells.includes('hex_bolt') && nearestD <= (spellStats('hex_bolt')?.range || 245)) return 'hex_bolt';
+    if (spells.includes('spark_bolt') && nearestD <= (spellStats('spark_bolt')?.range || 235)) {
+      return 'spark_bolt';
+    }
     if (spells.includes('electric_bolt') && nearestD <= (spellStats('electric_bolt')?.range || 240)) {
       return 'electric_bolt';
     }
@@ -3255,8 +3347,12 @@ export class Match {
     if (canArea && spells.includes('bone_volley') && nearestD <= shootRange) return 'bone_volley';
     if (canArea && spells.includes('skull_wave') && nearestD <= shootRange) return 'skull_wave';
     if (spells.includes('acid_bolt') && nearestD <= shootRange) return 'acid_bolt';
+    if (spells.includes('sap_bolt') && nearestD <= shootRange) return 'sap_bolt';
     if (spells.includes('crystal_bolt') && nearestD <= shootRange) return 'crystal_bolt';
+    if (spells.includes('brine_bolt') && nearestD <= shootRange) return 'brine_bolt';
+    if (spells.includes('dusk_bolt') && nearestD <= shootRange) return 'dusk_bolt';
     if (spells.includes('ice_shard') && nearestD <= shootRange) return 'ice_shard';
+    if (spells.includes('ember_bolt') && nearestD <= shootRange) return 'ember_bolt';
     if (spells.includes('firebolt') && nearestD <= shootRange) return 'firebolt';
     return null;
   }
@@ -3308,7 +3404,8 @@ export class Match {
         break;
       }
       case 'electric_bolt':
-      case 'hex_bolt': {
+      case 'hex_bolt':
+      case 'spark_bolt': {
         const range = stats.range || 240;
         if (!target || dist(monster, target) > range) return false;
         const dmg = Math.round(monster.damage * (spellId === 'hex_bolt' ? 1.2 : 1.1));
@@ -3374,15 +3471,19 @@ export class Match {
       case 'firebolt':
       case 'ice_shard':
       case 'acid_bolt':
-      case 'crystal_bolt': {
+      case 'crystal_bolt':
+      case 'ember_bolt':
+      case 'sap_bolt':
+      case 'brine_bolt':
+      case 'dusk_bolt': {
         if (!target) return false;
         const dx = target.x - monster.x;
         const dy = target.y - monster.y;
         const len = Math.hypot(dx, dy) || 1;
         const speed = monster.projectileSpeed || stats.speed || 480;
         const range = monster.range || stats.range || 300;
-        const isIce = spellId === 'ice_shard' || spellId === 'crystal_bolt';
-        const isAcid = spellId === 'acid_bolt';
+        const isIce = ['ice_shard', 'crystal_bolt', 'brine_bolt', 'dusk_bolt'].includes(spellId);
+        const isAcid = spellId === 'acid_bolt' || spellId === 'sap_bolt';
         this.projectiles.push({
           entityId: eid(),
           ownerId: monster.entityId,
@@ -3408,20 +3509,22 @@ export class Match {
         break;
       }
       case 'flame_nova':
-      case 'magma_surge': {
+      case 'magma_surge':
+      case 'ash_nova': {
         const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 110);
         this.applyFlameNova(
           monster,
           monster.entityId,
           { ...stats, radius },
-          Math.round(monster.damage * (spellId === 'magma_surge' ? 1.25 : 1.15)),
+          Math.round(monster.damage * (spellId === 'magma_surge' || spellId === 'ash_nova' ? 1.25 : 1.15)),
           false
         );
         monster.attackCd = (monster.attackCooldown || 1.1) * 1.2;
         monster.novaCd = monster.novaCooldown || stats.cooldown || 4;
         break;
       }
-      case 'thorn_nova': {
+      case 'thorn_nova':
+      case 'mire_nova': {
         const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 100);
         const dmg = Math.round(monster.damage * 1.2);
         for (const p of this.players.values()) {
@@ -3438,7 +3541,7 @@ export class Match {
         }
         this.effects.push({
           type: 'poison_burst',
-          spellId: 'thorn_nova',
+          spellId,
           x: monster.x,
           y: monster.y,
           radius,
@@ -3446,13 +3549,14 @@ export class Match {
           maxLife: 0.5,
           color: stats.color,
         });
-        this.spawnSpellImpact(monster.x, monster.y, 'thorn_nova', stats.color, 36);
+        this.spawnSpellImpact(monster.x, monster.y, spellId, stats.color, 36);
         monster.attackCd = (monster.attackCooldown || 1.1) * 1.2;
         monster.novaCd = monster.novaCooldown || stats.cooldown || 4;
         break;
       }
       case 'firebreath':
-      case 'frost_breath': {
+      case 'frost_breath':
+      case 'gale_breath': {
         if (!target) return false;
         const range = stats.range || 170;
         const dx = target.x - monster.x;
@@ -3463,7 +3567,9 @@ export class Match {
         const dirY = dy / len;
         const halfAngle = ((stats.coneAngle || 38) * Math.PI) / 180;
         const cosMin = Math.cos(halfAngle);
-        const dmg = Math.round(monster.damage * (spellId === 'frost_breath' ? 1.2 : 1.35));
+        const dmg = Math.round(
+          monster.damage * (spellId === 'frost_breath' || spellId === 'gale_breath' ? 1.2 : 1.35)
+        );
         for (const p of this.players.values()) {
           if (!p.alive) continue;
           const pdx = p.x - monster.x;
@@ -3472,7 +3578,7 @@ export class Match {
           if (pd > range) continue;
           if (pd < 0.001 || (pdx / pd) * dirX + (pdy / pd) * dirY >= cosMin) {
             this.damageEntity(p, dmg, monster.entityId, true, true);
-            if (spellId === 'frost_breath') {
+            if (spellId === 'frost_breath' || spellId === 'gale_breath') {
               this.applyMonsterSlow(p, stats.slow || 0.4, stats.slowDuration || 2.8);
             }
           }
@@ -3584,7 +3690,8 @@ export class Match {
       case 'death_knell':
       case 'blood_pact':
       case 'soul_lance':
-      case 'rift_lance': {
+      case 'rift_lance':
+      case 'obsidian_lance': {
         if (!monster.isBoss || !target) return false;
         const range = stats.range || 220;
         if (dist(monster, target) > range) return false;
@@ -3610,7 +3717,8 @@ export class Match {
         break;
       }
       case 'infernal_judgment':
-      case 'solar_judgment': {
+      case 'solar_judgment':
+      case 'aurora_judgment': {
         if (!monster.isBoss || !target) return false;
         const range = stats.range || 260;
         if (dist(monster, target) > range) return false;
@@ -3645,7 +3753,9 @@ export class Match {
       case 'plague_burst':
       case 'shadow_eclipse':
       case 'entropy_pulse':
-      case 'tidal_crush': {
+      case 'tidal_crush':
+      case 'blood_nova':
+      case 'quake_pulse': {
         if (!monster.isBoss) return false;
         const radius = Math.max(monster.novaRadius || 0, stats.radius || 0, 120);
         const cx = target ? target.x : monster.x;
@@ -4131,7 +4241,8 @@ export class Match {
       this.countdown -= dt;
       if (this.countdown <= 0) {
         if (this.round === 0) this.matchTime = 0;
-        this.startRound();
+        if (this.pendingBossFight) this.startBossFight();
+        else this.startRound();
       } else {
         this.broadcast({ type: 'countdown', seconds: Math.ceil(this.countdown) });
         this.broadcastState();
@@ -4145,7 +4256,9 @@ export class Match {
       this.ensureSpellChoicesForPending();
       this.resolveLevelUpTimeouts();
       if (this.intermissionTimer <= 0) {
-        if (this.round >= this.maxRounds) {
+        if (this.pendingBossFight) {
+          this.startCountdown();
+        } else if (this.round >= this.maxRounds) {
           this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
         } else {
           this.startCountdown();
@@ -4526,6 +4639,11 @@ export class Match {
               'ice_shard',
               'acid_bolt',
               'crystal_bolt',
+              'ember_bolt',
+              'sap_bolt',
+              'brine_bolt',
+              'dusk_bolt',
+              'spark_bolt',
               'electric_bolt',
               'hex_bolt',
               'skull_wave',
@@ -4558,6 +4676,8 @@ export class Match {
             (spells.includes('flame_nova') ||
               spells.includes('magma_surge') ||
               spells.includes('thorn_nova') ||
+              spells.includes('ash_nova') ||
+              spells.includes('mire_nova') ||
               spells.includes('electric_storm') ||
               spells.includes('abyss_nova') ||
               spells.includes('tidal_crush') ||
@@ -4566,6 +4686,8 @@ export class Match {
               spells.includes('frost_apocalypse') ||
               spells.includes('plague_burst') ||
               spells.includes('entropy_pulse') ||
+              spells.includes('blood_nova') ||
+              spells.includes('quake_pulse') ||
               spells.includes('poison_cloud')) &&
             nearestD < novaR * 0.45 &&
             (m.novaCd || 0) > 0
@@ -4890,14 +5012,15 @@ export class Match {
       roundTime: +this.roundTime.toFixed(2),
       roundDuration: (() => {
         const boss =
-          this.phase === 'countdown'
-            ? this.isBossAppearRound(this.round + 1)
+          this.phase === 'countdown' || this.phase === 'intermission'
+            ? !!this.pendingBossFight
             : this.bossRound;
         return boss ? 0 : this.roundDuration;
       })(),
+      pendingBossFight: !!this.pendingBossFight,
       bossRound:
-        this.phase === 'countdown'
-          ? this.isBossAppearRound(this.round + 1)
+        this.phase === 'countdown' || this.phase === 'intermission'
+          ? !!this.pendingBossFight
           : this.bossRound,
       countdown: this.countdown,
       pvpEnabled: this.pvpEnabled,
@@ -4986,6 +5109,7 @@ export class Match {
       winnerId: this.winnerId,
       matchResult: this.matchResult,
       monsterKillStats: this.serializeMonsterKillStats(),
+      elementDamageStats: this.serializeElementDamageStats(),
       intermissionTimer: this.intermissionTimer,
     };
   }

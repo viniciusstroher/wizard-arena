@@ -14,6 +14,10 @@ const PROJECTILE_SPELLS = new Set([
   'vine_spike',
   'acid_bolt',
   'crystal_bolt',
+  'ember_bolt',
+  'sap_bolt',
+  'brine_bolt',
+  'dusk_bolt',
   'skull_wave',
   'bone_volley',
 ]);

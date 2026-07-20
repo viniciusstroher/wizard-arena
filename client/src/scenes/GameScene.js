@@ -170,9 +170,16 @@ export class GameScene extends Phaser.Scene {
     this.socket.on('game_state', (state) => this.onState(state));
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
-        const nextRound = (this.state?.round ?? 0) + 1;
         const maxRounds = this.state?.maxRounds || '?';
-        this.bannerText.setText(`Round ${nextRound} de ${maxRounds}\nComeçando`);
+        const bossSoon = !!this.state?.bossRound || !!this.state?.pendingBossFight;
+        const labelRound = bossSoon
+          ? this.state?.round || 1
+          : (this.state?.round ?? 0) + 1;
+        this.bannerText.setText(
+          bossSoon
+            ? `BOSS FIGHT\nRound ${labelRound} de ${maxRounds}`
+            : `Round ${labelRound} de ${maxRounds}\nComeçando`
+        );
         this.bannerText.setAlpha(1);
       } else if (ev.type === 'chat') {
         const name = ev.name || 'Jogador';
@@ -941,6 +948,8 @@ export class GameScene extends Phaser.Scene {
     const killStats = state.monsterKillStats || { total: 0, byType: [] };
     const killEntries = Array.isArray(killStats.byType) ? killStats.byType : [];
     const killTotal = killStats.total || 0;
+    const elementStats = state.elementDamageStats || { total: 0, byElement: [] };
+    const elementEntries = Array.isArray(elementStats.byElement) ? elementStats.byElement : [];
     const killCols = 3;
     const killRowH = 24;
     const boardH = Math.max(22, ranking.length * 22);
@@ -949,11 +958,15 @@ export class GameScene extends Phaser.Scene {
     const maxPanelH = height - 40;
     const footerH = 70;
     const titleKillH = 28;
-    const availKillH = Math.max(killRowH * 3, maxPanelH - topBlockH - footerH - titleKillH - 8);
+    const elementSectionH = elementEntries.length > 0 ? 42 : 0;
+    const availKillH = Math.max(
+      killRowH * 3,
+      maxPanelH - topBlockH - footerH - titleKillH - elementSectionH - 8
+    );
     const killContentRows = Math.max(1, Math.ceil(Math.max(1, killEntries.length) / killCols));
     const killContentH = killEntries.length === 0 ? killRowH : killContentRows * killRowH;
     const killViewportH = Math.min(availKillH, Math.max(killRowH, killContentH));
-    const killSectionH = titleKillH + killViewportH + 8;
+    const killSectionH = elementSectionH + titleKillH + killViewportH + 8;
     const panelH = Math.min(maxPanelH, topBlockH + killSectionH + footerH);
     const panelTop = height / 2 - panelH / 2;
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
@@ -1018,10 +1031,38 @@ export class GameScene extends Phaser.Scene {
 
     const killTop = panelTop + topBlockH + 4;
     const killNeedsScroll = killContentH > killViewportH;
+    const modalItems = [dim, panel, title, subtitle, goldLine, boardHeader, board];
+
+    if (elementEntries.length > 0) {
+      const slotW = Math.min(68, (panelW - 48) / elementEntries.length);
+      const rowW = slotW * elementEntries.length;
+      const rowLeft = width / 2 - rowW / 2;
+      const rowY = killTop + 16;
+      for (let i = 0; i < elementEntries.length; i++) {
+        const entry = elementEntries[i];
+        const cx = rowLeft + i * slotW + slotW / 2;
+        const iconKey = spellElementIconKey(entry.element);
+        if (this.textures.exists(iconKey)) {
+          modalItems.push(this.add.image(cx - 14, rowY, iconKey).setDisplaySize(16, 16));
+        }
+        const pctColor = `#${spellElementColor(entry.element).toString(16).padStart(6, '0')}`;
+        modalItems.push(
+          this.add
+            .text(cx + 2, rowY, `${entry.pct ?? 0}%`, {
+              fontFamily: 'Trebuchet MS, sans-serif',
+              fontSize: '13px',
+              fontStyle: 'bold',
+              color: pctColor,
+            })
+            .setOrigin(0, 0.5)
+        );
+      }
+    }
+
     const killTitle = this.add
       .text(
         width / 2,
-        killTop,
+        killTop + elementSectionH,
         killNeedsScroll
           ? `Monstros derrotados: ${killTotal}  ·  ↕ scroll`
           : `Monstros derrotados: ${killTotal}`,
@@ -1033,11 +1074,11 @@ export class GameScene extends Phaser.Scene {
         }
       )
       .setOrigin(0.5, 0);
+    modalItems.push(killTitle);
 
-    const modalItems = [dim, panel, title, subtitle, goldLine, boardHeader, board, killTitle];
     const colW = (panelW - 56) / killCols;
     const listLeft = width / 2 - panelW / 2 + 24;
-    const listTop = killTop + 26;
+    const listTop = killTop + elementSectionH + 26;
     const listWidth = panelW - 48;
 
     if (killEntries.length === 0) {
@@ -1170,9 +1211,14 @@ export class GameScene extends Phaser.Scene {
   formatGameEvent(ev) {
     switch (ev.type) {
       case 'countdown': {
-        const next = (this.state?.round ?? 0) + 1;
         const max = this.state?.maxRounds || '?';
-        return `Round ${next} de ${max} começando (${ev.seconds}s)`;
+        const bossSoon = !!this.state?.bossRound || !!this.state?.pendingBossFight;
+        const next = bossSoon
+          ? this.state?.round || 1
+          : (this.state?.round ?? 0) + 1;
+        return bossSoon
+          ? `BOSS FIGHT — Round ${next} de ${max} (${ev.seconds}s)`
+          : `Round ${next} de ${max} começando (${ev.seconds}s)`;
       }
       case 'round_start': {
         const max = this.state?.maxRounds || '?';
@@ -5779,10 +5825,10 @@ export class GameScene extends Phaser.Scene {
     this.hudPanel.setSize(panelW, panelH);
     this.hudPanel.setStrokeStyle(2, 0x6b5cff);
 
-    const bossRound = !!this.state.bossRound;
+    const bossRound = !!this.state.bossRound || !!this.state.pendingBossFight;
     if (bossRound && this.state.phase === 'playing') {
       this.timerText.setText('BOSS');
-    } else if (bossRound && this.state.phase === 'countdown') {
+    } else if (bossRound && (this.state.phase === 'countdown' || this.state.phase === 'intermission')) {
       this.timerText.setText('--:--');
     } else {
       const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 60;
@@ -5793,7 +5839,9 @@ export class GameScene extends Phaser.Scene {
     }
     const maxRounds = this.state.maxRounds || '?';
     const displayRound =
-      this.state.phase === 'countdown' ? Math.max(1, (this.state.round || 0) + 1) : this.state.round || 1;
+      this.state.phase === 'countdown' && !bossRound
+        ? Math.max(1, (this.state.round || 0) + 1)
+        : this.state.round || 1;
     const shrinksDone = this.state.arena?.shrinksDone ?? 0;
     const shrinkTimes = this.state.arena?.shrinkTimes ?? 0;
     let zoneLabel = 'posicionando';
@@ -5967,10 +6015,12 @@ export class GameScene extends Phaser.Scene {
   handleBanners() {
     if (!this.state || this.matchEndOpen) return;
     if (this.state.phase === 'countdown') {
-      const nextRound = (this.state.round || 0) + 1;
       const maxRounds = this.state.maxRounds || '?';
       const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
-      const bossSoon = !!this.state.bossRound;
+      const bossSoon = !!this.state.bossRound || !!this.state.pendingBossFight;
+      const nextRound = bossSoon
+        ? this.state.round || 1
+        : (this.state.round || 0) + 1;
       this.bannerText.setText(
         bossSoon
           ? `BOSS FIGHT\nRound ${nextRound} de ${maxRounds} · ${sec}`
@@ -5979,10 +6029,16 @@ export class GameScene extends Phaser.Scene {
       this.bannerText.setAlpha(1);
     } else if (this.state.phase === 'intermission') {
       const w = this.state.players.find((p) => p.id === this.state.winnerId);
+      const bossNext = !!this.state.pendingBossFight || !!this.state.bossRound;
+      const t = Math.ceil(this.state.intermissionTimer);
       this.bannerText.setText(
-        w
-          ? `${w.name} venceu o round!\nPróximo em ${Math.ceil(this.state.intermissionTimer)}s`
-          : `Round encerrado\nPróximo em ${Math.ceil(this.state.intermissionTimer)}s`
+        bossNext
+          ? w
+            ? `${w.name} venceu o round!\nBoss fight em ${t}s`
+            : `Round encerrado\nBoss fight em ${t}s`
+          : w
+            ? `${w.name} venceu o round!\nPróximo em ${t}s`
+            : `Round encerrado\nPróximo em ${t}s`
       );
       this.bannerText.setAlpha(1);
     } else if (

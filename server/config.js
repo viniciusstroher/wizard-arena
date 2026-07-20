@@ -342,8 +342,8 @@ export const CONFIG = {
   /** Peso relativo entre bosses ao sortear qual aparece no round de boss. */
   MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
   /**
-   * Rounds em que um boss aparece (ex.: 1,10,20). Vazio = nenhum round de boss.
-   * Nesses rounds o boss não vem do spawn contínuo — só no início do round.
+   * Após quais rounds a boss fight começa (ex.: 5,10). Vazio = sem boss.
+   * O round N é normal; ao terminá-lo, roda a luta de boss (sem limite de tempo).
    */
   BOSS_APPEARS: envIntList('BOSS_APPEARS', []),
   /** Intervalo (segundos) entre tentativas de auto-cura do boss. */
