@@ -73,7 +73,7 @@ export class HomeScene extends Phaser.Scene {
       this.leaderboardModal = openLeaderboardModal();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 115, 'Features', 0x2a8f9e, () => {
+    makeMenuButton(this, panelX, panelY + 115, 'Atualizações', 0x2a8f9e, () => {
       closeOverlays();
       this.featuresModal = openFeaturesModal();
     }).setDepth(10);
@@ -88,7 +88,7 @@ export class HomeScene extends Phaser.Scene {
       this.controlsModal?.show();
     }).setDepth(10);
 
-    makeMenuButton(this, panelX, panelY + 280, 'Config', 0x443866, () => {
+    makeMenuButton(this, panelX, panelY + 280, 'Configurações', 0x443866, () => {
       closeOverlays();
       this.settingsModal?.show();
     }).setDepth(10);
