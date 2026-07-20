@@ -464,8 +464,8 @@ export const CONFIG = {
   GALE_INERTIA_MUL: envNumber('GALE_INERTIA_MUL', 0.75),
 
   /** Intervalo mínimo/máximo entre alavancas aleatórias (segundos). */
-  LEVER_EVENT_MIN_INTERVAL: envNumber('LEVER_EVENT_MIN_INTERVAL', 12),
-  LEVER_EVENT_MAX_INTERVAL: envNumber('LEVER_EVENT_MAX_INTERVAL', 24),
+  LEVER_EVENT_MIN_INTERVAL: envNumber('LEVER_EVENT_MIN_INTERVAL', 10),
+  LEVER_EVENT_MAX_INTERVAL: envNumber('LEVER_EVENT_MAX_INTERVAL', 10),
   /** Tempo de aparição (desliza da esquerda) antes de ficar ativável. */
   LEVER_APPEAR_TIME: envNumber('LEVER_APPEAR_TIME', 0.45),
   /** Tempo máximo no chão aguardando alguém passar por cima (segundos). */
