@@ -4395,7 +4395,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Explosão nuclear: flash + onda de choque + cogumelo expandindo. */
+  /**
+   * Apocalipse: pentagrama se forma na área e, em seguida,
+   * explosão de fogo sobe do chão para o céu.
+   */
   drawApocalypse(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
@@ -4404,117 +4407,176 @@ export class GameScene extends Phaser.Scene {
     const r = e.radius || 200;
     const seedRef = { v: (e.seed ?? 1) >>> 0 };
     const rand = () => this.seededRand(seedRef);
+    const cx = e.x;
+    const cy = e.y;
+    const pulse = 0.85 + 0.15 * Math.sin(this.time.now / 90);
 
-    // Curvas de crescimento do cogumelo
-    const stemT = Math.min(1, p / 0.45);
-    const stemEase = stemT * stemT * (3 - 2 * stemT);
-    const capT = Math.max(0, Math.min(1, (p - 0.18) / 0.55));
-    const capEase = capT * capT * (3 - 2 * capT);
-    const late = Math.max(0, (p - 0.55) / 0.45);
+    // Fase 1 (0–0.42): pentagrama · Fase 2 (0.38–1): fogo sobe
+    const formT = Math.min(1, p / 0.42);
+    const formEase = formT * formT * (3 - 2 * formT);
+    const blastT = Math.max(0, Math.min(1, (p - 0.38) / 0.52));
+    const blastEase = blastT * blastT * (3 - 2 * blastT);
+    const late = Math.max(0, (p - 0.75) / 0.25);
+    const pentFade = fade * (1 - late * 0.85) * (p < 0.38 ? 1 : 0.55 + 0.45 * (1 - blastEase));
 
-    // Flash inicial da detonação
-    const flash = Math.max(0, 1 - p * 4.5);
-    if (flash > 0) {
-      g.fillStyle(0xffffff, 0.55 * flash * fade);
-      g.fillCircle(e.x, e.y, r * (0.18 + flash * 0.35));
-      g.fillStyle(0xffee66, 0.45 * flash * fade);
-      g.fillCircle(e.x, e.y, r * (0.35 + flash * 0.45));
-      g.fillStyle(color, 0.3 * flash * fade);
-      g.fillCircle(e.x, e.y, r * (0.55 + flash * 0.5));
+    // Solo ritual / brasa
+    const groundA = 0.1 + 0.14 * formEase + 0.22 * blastEase;
+    g.fillStyle(0x1a0600, groundA * fade * (1 - late * 0.4));
+    g.fillCircle(cx, cy, r * (0.55 + 0.45 * Math.max(formEase, blastEase)));
+    g.fillStyle(color, (0.08 + 0.16 * blastEase) * fade * pulse);
+    g.fillCircle(cx, cy, r * (0.4 + 0.35 * blastEase));
+
+    // ——— Pentagrama ———
+    const pr = r * (0.72 + 0.08 * formEase);
+    const pts = [];
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI * 2) / 5;
+      pts.push({ x: cx + Math.cos(a) * pr, y: cy + Math.sin(a) * pr * 0.92 });
+    }
+    // Ordem da estrela: a cada 2 vértices
+    const starOrder = [0, 2, 4, 1, 3, 0];
+
+    // Círculo externo se desenhando
+    const circleDraw = Math.min(1, formEase / 0.45);
+    if (circleDraw > 0.01) {
+      g.lineStyle(5, 0x4a0800, 0.35 * pentFade);
+      g.beginPath();
+      g.arc(cx, cy, pr * 1.08, -Math.PI / 2, -Math.PI / 2 + circleDraw * Math.PI * 2, false);
+      g.strokePath();
+      g.lineStyle(2.5, color, 0.75 * pentFade * pulse);
+      g.beginPath();
+      g.arc(cx, cy, pr * 1.08, -Math.PI / 2, -Math.PI / 2 + circleDraw * Math.PI * 2, false);
+      g.strokePath();
+      g.lineStyle(1.2, 0xffee88, 0.45 * pentFade);
+      g.beginPath();
+      g.arc(cx, cy, pr * 1.02, -Math.PI / 2, -Math.PI / 2 + circleDraw * Math.PI * 2, false);
+      g.strokePath();
     }
 
-    // Solo carbonizado + anéis de choque
-    const groundR = r * (0.35 + 0.65 * Math.min(1, p * 1.35));
-    g.fillStyle(0x1a0800, 0.28 * fade * (1 - late * 0.35));
-    g.fillCircle(e.x, e.y, groundR);
-    g.fillStyle(color, 0.18 * fade * (1 - p * 0.35));
-    g.fillCircle(e.x, e.y, groundR * 0.72);
-    g.fillStyle(0xffaa33, 0.1 * fade * Math.max(0, 1 - p * 1.2));
-    g.fillCircle(e.x, e.y, groundR * 0.35);
-
-    for (let i = 0; i < 3; i++) {
-      const wave = Math.min(1.4, p * 1.55 + i * 0.14);
-      const wr = r * (0.25 + wave * 0.85);
-      const wa = (0.7 - i * 0.18) * fade * Math.max(0, 1 - wave * 0.55);
-      g.lineStyle(3.5 - i * 0.6, i === 0 ? 0xffee88 : color, wa);
-      g.strokeCircle(e.x, e.y, wr);
-    }
-
-    // Rachaduras radiais no chão
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2 + rand() * 0.35;
-      const len = groundR * (0.45 + rand() * 0.5);
-      g.lineStyle(2, 0xff4400, 0.35 * fade * (1 - late * 0.5));
-      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
-    }
-
-    // Coluna (haste) do cogumelo — sobe e engrossa
-    const stemH = (48 + r * 0.55) * stemEase;
-    const stemW = (10 + r * 0.08) * (0.55 + 0.45 * stemEase) * (1 + late * 0.35);
-    if (stemH > 2) {
-      g.fillStyle(0x552200, 0.35 * fade * (1 - late * 0.3));
-      g.fillEllipse(e.x, e.y - stemH * 0.42, stemW * 2.2, stemH);
-      g.fillStyle(color, 0.32 * fade * (1 - late * 0.25));
-      g.fillEllipse(e.x, e.y - stemH * 0.45, stemW * 1.55, stemH * 0.95);
-      g.fillStyle(0xffaa44, 0.28 * fade * Math.max(0.15, 1 - p));
-      g.fillEllipse(e.x, e.y - stemH * 0.5, stemW * 0.85, stemH * 0.8);
-      g.fillStyle(0xffeeaa, 0.35 * fade * Math.max(0, 1 - p * 1.6));
-      g.fillEllipse(e.x, e.y - stemH * 0.55, stemW * 0.35, stemH * 0.55);
-    }
-
-    // Capuz do cogumelo — forma e se expande no topo
-    if (capEase > 0.02 && stemH > 8) {
-      const capY = e.y - stemH * (0.88 + late * 0.06);
-      const capW = r * (0.22 + 0.55 * capEase) * (1 + late * 0.25);
-      const capH = r * (0.12 + 0.22 * capEase) * (1 + late * 0.15);
-
-      // Fumaça escura da borda
-      g.fillStyle(0x3a2010, 0.4 * fade * (0.5 + 0.5 * capEase));
-      g.fillEllipse(e.x, capY + capH * 0.15, capW * 2.15, capH * 1.35);
-      g.fillStyle(0x6a3010, 0.32 * fade);
-      g.fillEllipse(e.x, capY, capW * 1.95, capH * 1.15);
-
-      // Núcleo flamejante
-      g.fillStyle(color, 0.38 * fade * (1 - late * 0.35));
-      g.fillEllipse(e.x, capY - capH * 0.1, capW * 1.45, capH * 0.95);
-      g.fillStyle(0xff8822, 0.32 * fade * (1 - late * 0.4));
-      g.fillEllipse(e.x, capY - capH * 0.2, capW * 1.05, capH * 0.75);
-      g.fillStyle(0xffee66, 0.28 * fade * Math.max(0.1, 1 - p * 1.1));
-      g.fillEllipse(e.x, capY - capH * 0.28, capW * 0.55, capH * 0.45);
-      g.fillStyle(0xffffff, 0.22 * fade * Math.max(0, 1 - p * 1.8));
-      g.fillEllipse(e.x, capY - capH * 0.32, capW * 0.22, capH * 0.22);
-
-      // Lóbulos / turbulência na borda do capuz
-      for (let i = 0; i < 7; i++) {
-        const a = (i / 7) * Math.PI * 2 + p * 1.2 + rand() * 0.4;
-        const lx = e.x + Math.cos(a) * capW * (0.75 + rand() * 0.25);
-        const ly = capY + Math.sin(a) * capH * (0.55 + rand() * 0.35);
-        const lw = 10 + rand() * 14 + capEase * 10;
-        const lh = 7 + rand() * 9 + capEase * 6;
-        g.fillStyle(i % 2 === 0 ? 0x5a2810 : color, 0.22 * fade * (1 - late * 0.4));
-        g.fillEllipse(lx, ly, lw * 1.8, lh);
+    // Estrela se formando (arestas em sequência)
+    const starDraw = Math.max(0, Math.min(1, (formEase - 0.2) / 0.65));
+    if (starDraw > 0.01) {
+      const edgeCount = 5;
+      const drawn = starDraw * edgeCount;
+      for (let i = 0; i < edgeCount; i++) {
+        const edgeProg = Math.max(0, Math.min(1, drawn - i));
+        if (edgeProg <= 0) continue;
+        const a = pts[starOrder[i]];
+        const b = pts[starOrder[i + 1]];
+        const x2 = a.x + (b.x - a.x) * edgeProg;
+        const y2 = a.y + (b.y - a.y) * edgeProg;
+        g.lineStyle(4.5, 0x660800, 0.4 * pentFade);
+        g.lineBetween(a.x, a.y, x2, y2);
+        g.lineStyle(2.8, color, 0.85 * pentFade * pulse);
+        g.lineBetween(a.x, a.y, x2, y2);
+        g.lineStyle(1.2, 0xffee88, 0.55 * pentFade);
+        g.lineBetween(a.x, a.y, x2, y2);
       }
 
-      // Saia / anel inferior do cogumelo
-      const skirtY = e.y - stemH * 0.55;
-      const skirtW = stemW * (1.8 + 1.6 * capEase);
-      g.fillStyle(0x4a1808, 0.28 * fade * capEase);
-      g.fillEllipse(e.x, skirtY, skirtW * 2.4, 10 + 8 * capEase);
-      g.fillStyle(color, 0.16 * fade * capEase * (1 - late * 0.5));
-      g.fillEllipse(e.x, skirtY - 2, skirtW * 1.6, 6 + 4 * capEase);
+      // Vértices acesos
+      for (let i = 0; i < 5; i++) {
+        if (drawn < i) break;
+        const glow = Math.min(1, drawn - i);
+        g.fillStyle(0xffee88, 0.55 * pentFade * glow);
+        g.fillCircle(pts[i].x, pts[i].y, 3.5 + glow * 2);
+        g.fillStyle(color, 0.7 * pentFade * glow);
+        g.fillCircle(pts[i].x, pts[i].y, 2 + glow);
+      }
     }
 
-    // Fragmentos / faíscas ejetados
-    for (let i = 0; i < 10; i++) {
-      const a = rand() * Math.PI * 2;
-      const launch = Math.min(1, Math.max(0, (p - i * 0.04) * 1.8));
-      if (launch <= 0) continue;
-      const dist = r * (0.2 + rand() * 0.7) * launch;
-      const px = e.x + Math.cos(a) * dist;
-      const py = e.y + Math.sin(a) * dist * 0.75 - launch * (20 + rand() * 40);
-      const pr = 2 + rand() * 4 * (1 - launch * 0.5);
-      g.fillStyle(i % 3 === 0 ? 0xffee88 : color, 0.55 * fade * (1 - launch * 0.6));
-      g.fillCircle(px, py, pr);
+    // Runas / marcas nos vértices quando o pentagrama completa
+    if (formEase > 0.85) {
+      const runeA = ((formEase - 0.85) / 0.15) * pentFade;
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i * Math.PI * 2) / 5;
+        const rx = cx + Math.cos(a) * pr * 1.18;
+        const ry = cy + Math.sin(a) * pr * 1.08;
+        g.lineStyle(1.5, 0xffaa44, 0.5 * runeA);
+        g.strokeCircle(rx, ry, 5);
+        g.fillStyle(color, 0.35 * runeA);
+        g.fillCircle(rx, ry, 2);
+      }
+      // Núcleo do pentagrama
+      g.fillStyle(color, 0.12 * runeA * pulse);
+      g.fillCircle(cx, cy, pr * 0.22);
+      g.fillStyle(0xffee88, 0.2 * runeA);
+      g.fillCircle(cx, cy, 4);
+    }
+
+    // ——— Explosão de fogo (baixo → cima) ———
+    if (blastEase > 0.01) {
+      // Flash no chão no instante da detonação
+      const ignite = Math.max(0, 1 - blastT * 3.2);
+      if (ignite > 0) {
+        g.fillStyle(0xffffff, 0.4 * ignite * fade);
+        g.fillCircle(cx, cy, r * (0.2 + ignite * 0.25));
+        g.fillStyle(0xffee66, 0.45 * ignite * fade);
+        g.fillCircle(cx, cy, r * (0.4 + ignite * 0.3));
+      }
+
+      // Anéis de choque no solo
+      for (let i = 0; i < 3; i++) {
+        const wave = Math.min(1.35, blastEase * 1.4 + i * 0.12);
+        const wr = r * (0.3 + wave * 0.8);
+        const wa = (0.65 - i * 0.15) * fade * Math.max(0, 1 - wave * 0.55);
+        g.lineStyle(3.2 - i * 0.5, i === 0 ? 0xffee88 : color, wa);
+        g.strokeCircle(cx, cy, wr);
+      }
+
+      // Coluna de fogo subindo
+      const fireH = (60 + r * 0.85) * blastEase;
+      const fireW = r * (0.35 + 0.45 * blastEase) * (1 - late * 0.25);
+      if (fireH > 4) {
+        g.fillStyle(0x4a1000, 0.35 * fade * (1 - late * 0.4));
+        g.fillEllipse(cx, cy - fireH * 0.4, fireW * 2.1, fireH);
+        g.fillStyle(color, 0.38 * fade * (1 - late * 0.35));
+        g.fillEllipse(cx, cy - fireH * 0.45, fireW * 1.55, fireH * 0.95);
+        g.fillStyle(0xff6622, 0.32 * fade * Math.max(0.15, 1 - blastT * 0.7));
+        g.fillEllipse(cx, cy - fireH * 0.5, fireW * 1.05, fireH * 0.85);
+        g.fillStyle(0xffaa33, 0.28 * fade * Math.max(0.1, 1 - blastT));
+        g.fillEllipse(cx, cy - fireH * 0.55, fireW * 0.55, fireH * 0.7);
+        g.fillStyle(0xffeeaa, 0.35 * fade * Math.max(0, 1 - blastT * 1.4));
+        g.fillEllipse(cx, cy - fireH * 0.6, fireW * 0.22, fireH * 0.45);
+      }
+
+      // Línguas de fogo verticais (emergem do perímetro e sobem)
+      const tongues = 14;
+      for (let i = 0; i < tongues; i++) {
+        const a = (i / tongues) * Math.PI * 2 + blastEase * 0.6 + rand() * 0.25;
+        const delay = (i % 5) * 0.04;
+        const rise = Math.max(0, Math.min(1, (blastEase - delay) / 0.75));
+        if (rise <= 0) continue;
+        const ring = r * (0.15 + (i % 4) * 0.18) * (0.7 + 0.3 * rise);
+        const x0 = cx + Math.cos(a) * ring;
+        const y0 = cy + Math.sin(a) * ring * 0.35 + 4;
+        const h = (28 + r * 0.35 + (i % 4) * 12 + rand() * 16) * rise;
+        const lean = Math.cos(a) * (4 + rise * 8);
+        const tipX = x0 + lean;
+        const tipY = y0 - h;
+
+        g.lineStyle(5.5, 0x661000, 0.35 * fade * (1 - rise * 0.4));
+        g.lineBetween(x0, y0, tipX, tipY);
+        g.lineStyle(3.5, color, 0.65 * fade * (1 - rise * 0.35) * pulse);
+        g.lineBetween(x0, y0, tipX, y0 - h * 0.85);
+        g.lineStyle(2, 0xffaa44, 0.55 * fade * Math.max(0.1, 1 - rise * 0.8));
+        g.lineBetween(x0, y0, x0 + lean * 0.4, y0 - h * 0.55);
+        if (i % 2 === 0) {
+          g.fillStyle(0xffee88, 0.45 * fade * Math.max(0, 1 - rise * 1.2));
+          g.fillCircle(tipX, tipY, 2.5 + (1 - rise) * 2);
+        }
+      }
+
+      // Brasas / faíscas ejetadas para cima
+      for (let i = 0; i < 12; i++) {
+        const launch = Math.max(0, Math.min(1, (blastEase - i * 0.03) * 1.4));
+        if (launch <= 0) continue;
+        const a = rand() * Math.PI * 2;
+        const dist = r * (0.1 + rand() * 0.55) * Math.min(1, launch * 1.1);
+        const px = cx + Math.cos(a) * dist;
+        const py = cy + Math.sin(a) * dist * 0.35 - launch * (40 + rand() * 70 + r * 0.25);
+        g.fillStyle(i % 3 === 0 ? 0xffee88 : color, 0.6 * fade * (1 - launch * 0.55));
+        g.fillCircle(px, py, 1.5 + rand() * 3 * (1 - launch * 0.4));
+      }
     }
   }
 

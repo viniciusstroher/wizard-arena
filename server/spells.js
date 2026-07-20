@@ -572,7 +572,7 @@ export const ULTIMATES = {
   apocalypse: {
     id: 'apocalypse',
     name: 'Apocalipse',
-    description: 'Detonação nuclear em grande área — cogumelo expandindo. Ultimate — autocast.',
+    description: 'Pentagrama na área e explosão de fogo de baixo para cima. Ultimate — autocast.',
     type: 'ultimate',
     playerUsable: true,
     /** Padrão; runtime usa CONFIG.PLAYER_ULTIMATE_COOLDOWN. */
