@@ -1106,8 +1106,8 @@ export class Match {
     this.kikoLaughTimer -= dt;
     if (this.kikoLaughTimer > 0) return;
     if (Math.random() < CONFIG.KIKO_LAUGH_CHANCE) {
-      // Um clip por vez: Kiko ou Seu Madruga (o client também bloqueia overlap).
-      const voices = ['kiko_laugh', 'madruga_nossa', 'madruga_loteria'];
+      // Um clip por vez (o client também bloqueia overlap).
+      const voices = ['kiko_laugh', 'madruga_nossa', 'madruga_loteria', 'faaah'];
       const type = voices[Math.floor(Math.random() * voices.length)];
       this.pushEvent({ type });
     }

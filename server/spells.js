@@ -658,12 +658,9 @@ export function rollSpellChoices(player, forLevel) {
 
   // Uma opção de upgrade se possível
   if (owned.length > 0 && choices.length < 3 && Math.random() < 0.85) {
-    const upgradable = player.spells.filter((s) => s.level < 5);
-    if (upgradable.length) {
-      const s = upgradable[Math.floor(Math.random() * upgradable.length)];
-      choices.push({ kind: 'upgrade', spellId: s.id, fromLevel: s.level, toLevel: s.level + 1 });
-      used.add(`upgrade:${s.id}`);
-    }
+    const s = player.spells[Math.floor(Math.random() * player.spells.length)];
+    choices.push({ kind: 'upgrade', spellId: s.id, fromLevel: s.level, toLevel: s.level + 1 });
+    used.add(`upgrade:${s.id}`);
   }
 
   const canLearnNew = owned.length < MAX_BASIC_SPELLS;
@@ -678,9 +675,7 @@ export function rollSpellChoices(player, forLevel) {
       }
     }
     // Fallback: upgrades
-    const upgradable = player.spells.filter(
-      (s) => s.level < 5 && !used.has(`upgrade:${s.id}`)
-    );
+    const upgradable = player.spells.filter((s) => !used.has(`upgrade:${s.id}`));
     if (upgradable.length) {
       const s = upgradable[Math.floor(Math.random() * upgradable.length)];
       choices.push({ kind: 'upgrade', spellId: s.id, fromLevel: s.level, toLevel: s.level + 1 });
@@ -688,10 +683,7 @@ export function rollSpellChoices(player, forLevel) {
       continue;
     }
     // Último recurso: upgrade de magia própria ainda não oferecida
-    const ownedPool = owned.filter((id) => {
-      const s = player.spells.find((sp) => sp.id === id);
-      return s && s.level < 5 && !used.has(`upgrade:${id}`);
-    });
+    const ownedPool = owned.filter((id) => !used.has(`upgrade:${id}`));
     if (ownedPool.length) {
       const pick = ownedPool[Math.floor(Math.random() * ownedPool.length)];
       const s = player.spells.find((sp) => sp.id === pick);
@@ -730,7 +722,7 @@ export function applySpellChoice(player, choice) {
 
   // Upgrade explícito, ou "nova" que o jogador já tem (fallback seguro).
   if (choice.kind === 'upgrade' || existing) {
-    if (!existing || existing.level >= 5) return false;
+    if (!existing) return false;
     existing.level += 1;
     return true;
   }
