@@ -39,8 +39,8 @@ export class MatchmakingScene extends Phaser.Scene {
     this.lobbies = [];
     this.maxPlayers = 4;
     this.pvpEnabled = false;
-    this.maxRounds = 10;
-    this.roundDuration = 120;
+    this.maxRounds = 5;
+    this.roundDuration = 60;
     this.passwordPrompt = null;
     this.lobbyAgeEls = [];
     this._lobbyAgeAcc = 0;
@@ -167,7 +167,7 @@ export class MatchmakingScene extends Phaser.Scene {
       roundsEl.appendChild(opt);
     }
     roundsEl.addEventListener('change', () => {
-      this.maxRounds = Number(roundsEl.value) || 10;
+      this.maxRounds = Number(roundsEl.value) || 5;
     });
     this.roundsSelectEl = roundsEl;
     this.roundsSelectDom = addSelect(y - 22, roundsEl);
@@ -187,7 +187,7 @@ export class MatchmakingScene extends Phaser.Scene {
       durationEl.appendChild(opt);
     }
     durationEl.addEventListener('change', () => {
-      this.roundDuration = Number(durationEl.value) || 120;
+      this.roundDuration = Number(durationEl.value) || 60;
     });
     this.durationSelectEl = durationEl;
     this.durationSelectDom = addSelect(y + 41, durationEl);
@@ -345,10 +345,10 @@ export class MatchmakingScene extends Phaser.Scene {
     if (this.durationSelectEl) {
       this.roundDuration = Number(this.durationSelectEl.value) || this.roundDuration;
     }
-    const maxRounds = [5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 10;
+    const maxRounds = [5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 5;
     const roundDuration = [60, 120, 180].includes(this.roundDuration)
       ? this.roundDuration
-      : 120;
+      : 60;
     this.maxRounds = maxRounds;
     this.roundDuration = roundDuration;
     this.socket.emit('create_lobby', {

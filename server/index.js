@@ -35,7 +35,7 @@ const LOBBY_ROUND_DURATIONS = [60, 120, 180];
 function clampMaxRounds(n) {
   const v = Math.floor(Number(n));
   if (LOBBY_MAX_ROUNDS.includes(v)) return v;
-  return LOBBY_MAX_ROUNDS.includes(CONFIG.MAX_ROUNDS) ? CONFIG.MAX_ROUNDS : 10;
+  return LOBBY_MAX_ROUNDS.includes(CONFIG.MAX_ROUNDS) ? CONFIG.MAX_ROUNDS : 5;
 }
 
 function clampRoundDuration(n) {
@@ -43,7 +43,7 @@ function clampRoundDuration(n) {
   if (LOBBY_ROUND_DURATIONS.includes(v)) return v;
   return LOBBY_ROUND_DURATIONS.includes(CONFIG.ROUND_DURATION)
     ? CONFIG.ROUND_DURATION
-    : 120;
+    : 60;
 }
 
 function normalizePassword(raw) {

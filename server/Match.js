@@ -160,13 +160,13 @@ export class Match {
       ? rounds
       : roundsOpt.includes(CONFIG.MAX_ROUNDS)
         ? CONFIG.MAX_ROUNDS
-        : 10;
+        : 5;
     const duration = Math.floor(Number(options.roundDuration));
     this.roundDuration = durationOpt.includes(duration)
       ? duration
       : durationOpt.includes(CONFIG.ROUND_DURATION)
         ? CONFIG.ROUND_DURATION
-        : 120;
+        : 60;
     this.password = options.password ? String(options.password) : null;
     this.onLobbyListChange =
       typeof options.onLobbyListChange === 'function' ? options.onLobbyListChange : null;
