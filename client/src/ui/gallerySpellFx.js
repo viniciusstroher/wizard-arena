@@ -600,14 +600,28 @@ export function buildGallerySpellEffects(spellId, color, from, to) {
       break;
 
     case 'time_freeze':
-    case 'frost_apocalypse':
       add({
         type: 'freeze',
+        spellId: 'time_freeze',
         x: (x1 + x2) / 2,
         y: (y1 + y2) / 2,
         radius: R(def.radius || 130, 130),
-        life: 1.1,
-        maxLife: 1.1,
+        life: 1.45,
+        maxLife: 1.45,
+        color: fxColor,
+        seed: (Math.random() * 1e9) | 0,
+      });
+      break;
+
+    case 'frost_apocalypse':
+      add({
+        type: 'boss_nova',
+        spellId: 'frost_apocalypse',
+        x: (x1 + x2) / 2,
+        y: (y1 + y2) / 2,
+        radius: R(def.radius || 130, 130),
+        life: 0.85,
+        maxLife: 0.85,
         color: fxColor,
         seed: (Math.random() * 1e9) | 0,
       });

@@ -3980,11 +3980,12 @@ export class Match {
         }
         this.effects.push({
           type: 'freeze',
+          spellId: 'time_freeze',
           x: player.x,
           y: player.y,
           radius: stats.radius,
-          life: 1.1,
-          maxLife: 1.1,
+          life: 1.45,
+          maxLife: 1.45,
           color: stats.color,
           seed: (Math.random() * 1e9) | 0,
         });

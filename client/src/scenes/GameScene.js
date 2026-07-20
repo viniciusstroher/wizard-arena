@@ -4253,47 +4253,143 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Congelamento Temporal — cúpula radial de vidro (hemisfério translúcido).
+   * Cresce do centro, com meridianos, paralelos e reflexo especular.
+   */
   drawFreeze(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
     const p = this.effectProgress(e);
     const color = e.color || 0xaaddff;
-    const r = (e.radius || 200) * (0.35 + 0.65 * Math.min(1, p * 1.6));
+    const growT = Math.min(1, p / 0.42);
+    const grow = growT * growT * (3 - 2 * growT);
+    const settle = Math.max(0, Math.min(1, (p - 0.35) / 0.45));
+    const late = Math.max(0, (p - 0.72) / 0.28);
+    const baseR = e.radius || 200;
+    const r = Math.max(4, baseR * (0.12 + 0.88 * grow));
+    // Perspectiva leve: a cúpula “sobe” no eixo Y (elipse achatada no topo).
+    const domeH = r * (0.52 + 0.1 * settle);
+    const cx = e.x;
+    const cy = e.y;
     const seedRef = { v: (e.seed ?? 1) >>> 0 };
     const rand = () => this.seededRand(seedRef);
+    const alpha = fade * (1 - late * 0.55);
 
-    g.fillStyle(color, 0.1 * fade);
-    g.fillCircle(e.x, e.y, r);
-    g.lineStyle(3, color, 0.7 * fade);
-    g.strokeCircle(e.x, e.y, r);
-    g.lineStyle(1.5, 0xffffff, 0.4 * fade);
-    g.strokeCircle(e.x, e.y, r * 0.7);
+    // Solo sob o vidro + anel de contato
+    g.fillStyle(0x102038, 0.16 * alpha);
+    g.fillEllipse(cx, cy + 2, r * 2.05, r * 0.55);
+    g.fillStyle(color, 0.1 * alpha * (1 - late * 0.4));
+    g.fillCircle(cx, cy, r * 0.98);
+    g.fillStyle(0xffffff, 0.04 * alpha);
+    g.fillCircle(cx, cy, r * 0.55);
 
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2 + p * 0.4;
-      const len = r * (0.55 + rand() * 0.4);
-      g.lineStyle(2, 0xffffff, 0.55 * fade);
-      g.lineBetween(e.x, e.y, e.x + Math.cos(a) * len, e.y + Math.sin(a) * len);
-      // Cristais nas pontas
-      const cx = e.x + Math.cos(a) * len;
-      const cy = e.y + Math.sin(a) * len;
-      g.fillStyle(0xffffff, 0.7 * fade);
-      g.fillTriangle(
-        cx,
-        cy - 6,
-        cx - 4,
-        cy + 4,
-        cx + 4,
-        cy + 4
-      );
+    // Corpo do vidro — camadas concêntricas (paralelos / latitudes)
+    const latBands = 5;
+    for (let i = latBands; i >= 1; i--) {
+      const t = i / latBands;
+      // latitude: raio horizontal e altura da elipse (cúpula)
+      const latR = r * Math.sin((t * Math.PI) / 2);
+      const latY = cy - domeH * Math.cos((t * Math.PI) / 2) * 0.85;
+      const latH = Math.max(3, latR * (0.28 + 0.22 * (1 - t)));
+      const glassA = (0.05 + 0.04 * (1 - t)) * alpha;
+      g.fillStyle(color, glassA);
+      g.fillEllipse(cx, latY, latR * 2, latH * 2);
+      g.lineStyle(1.2, 0xffffff, (0.18 + 0.22 * (1 - t)) * alpha);
+      g.strokeEllipse(cx, latY, latR * 2, latH * 2);
+      g.lineStyle(1, color, (0.25 + 0.2 * t) * alpha);
+      g.strokeEllipse(cx, latY, latR * 2, latH * 2);
     }
 
-    // Flocos
-    for (let i = 0; i < 8; i++) {
-      const a = rand() * Math.PI * 2;
-      const d = r * (0.2 + rand() * 0.7);
-      g.fillStyle(0xffffff, 0.45 * fade);
-      g.fillCircle(e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, 2);
+    // Meridianos (arcos longitudinais da cúpula)
+    const meridians = 10;
+    const rot = p * 0.35;
+    for (let i = 0; i < meridians; i++) {
+      const a0 = rot + (i / meridians) * Math.PI * 2;
+      g.lineStyle(1.4, 0xffffff, (0.22 + (i % 2) * 0.08) * alpha);
+      g.beginPath();
+      const steps = 12;
+      for (let s = 0; s <= steps; s++) {
+        const u = s / steps; // 0 base → 1 topo
+        const elev = u * (Math.PI / 2);
+        const rr = r * Math.cos(elev);
+        const yy = cy - domeH * Math.sin(elev);
+        // Compressão elíptica no “chão” da vista
+        const px = cx + Math.cos(a0) * rr;
+        const py = yy + Math.sin(a0) * rr * 0.22;
+        if (s === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.strokePath();
+    }
+
+    // Aro inferior (borda da cúpula no chão)
+    g.lineStyle(4.5, color, 0.55 * alpha);
+    g.strokeCircle(cx, cy, r);
+    g.lineStyle(2, 0xffffff, 0.7 * alpha);
+    g.strokeCircle(cx, cy, r);
+    g.lineStyle(1.5, 0xd0f0ff, 0.35 * alpha);
+    g.strokeCircle(cx, cy, r * 0.92);
+
+    // Reflexo especular (faixa de vidro)
+    const shineAng = -0.7 + settle * 0.15;
+    g.lineStyle(3.5, 0xffffff, 0.55 * alpha * (0.5 + 0.5 * settle));
+    g.beginPath();
+    for (let s = 0; s <= 14; s++) {
+      const u = 0.12 + (s / 14) * 0.62;
+      const elev = u * (Math.PI / 2);
+      const rr = r * Math.cos(elev) * 0.92;
+      const yy = cy - domeH * Math.sin(elev);
+      const px = cx + Math.cos(shineAng) * rr;
+      const py = yy + Math.sin(shineAng) * rr * 0.22;
+      if (s === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+
+    // Segundo brilho mais fino
+    g.lineStyle(1.5, 0xffffff, 0.4 * alpha);
+    g.beginPath();
+    const shine2 = shineAng + 0.55;
+    for (let s = 0; s <= 10; s++) {
+      const u = 0.2 + (s / 10) * 0.45;
+      const elev = u * (Math.PI / 2);
+      const rr = r * Math.cos(elev) * 0.88;
+      const yy = cy - domeH * Math.sin(elev);
+      const px = cx + Math.cos(shine2) * rr;
+      const py = yy + Math.sin(shine2) * rr * 0.22;
+      if (s === 0) g.moveTo(px, py);
+      else g.lineTo(px, py);
+    }
+    g.strokePath();
+
+    // Topo / ápice da cúpula
+    const apexY = cy - domeH * 0.92;
+    g.fillStyle(0xffffff, 0.45 * alpha * (0.4 + 0.6 * settle));
+    g.fillCircle(cx, apexY, Math.max(2.5, r * 0.035));
+    g.fillStyle(color, 0.35 * alpha);
+    g.fillCircle(cx, apexY, Math.max(4, r * 0.055));
+    g.lineStyle(1.5, 0xffffff, 0.5 * alpha);
+    g.strokeEllipse(cx, apexY + 2, r * 0.22, r * 0.08);
+
+    // Partículas de gelo/vidro no perímetro (surgem após o crescimento)
+    if (grow > 0.55) {
+      const n = 10;
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + p * 0.8 + rand() * 0.2;
+        const d = r * (0.88 + rand() * 0.1);
+        const px = cx + Math.cos(a) * d;
+        const py = cy + Math.sin(a) * d * 0.55;
+        g.fillStyle(0xffffff, (0.35 + rand() * 0.35) * alpha * (1 - late));
+        g.fillCircle(px, py, 1.5 + rand() * 1.5);
+      }
+    }
+
+    // Onda radial no momento em que a cúpula “trava”
+    if (settle > 0 && settle < 0.85) {
+      const wave = r * (1 + settle * 0.12);
+      g.lineStyle(2, 0xffffff, (0.35 - settle * 0.35) * alpha);
+      g.strokeCircle(cx, cy, wave);
     }
   }
 
