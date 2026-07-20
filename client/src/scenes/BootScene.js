@@ -407,6 +407,7 @@ export class BootScene extends Phaser.Scene {
     this.createCoinSprite();
     this.createSpellIcons();
     this.createElementIcons();
+    this.createAttackIcons();
     ensureCharacter();
     goToRoute(this.game, getRoute());
   }
@@ -535,6 +536,58 @@ export class BootScene extends Phaser.Scene {
 
     for (const [id, { rows, palette }] of Object.entries(icons)) {
       makePixelTexture(this, `element_${id}`, rows, palette, 2);
+    }
+  }
+
+  /** Ícones 8×8 do tipo de ataque do monstro (melee / ranged / caster). */
+  createAttackIcons() {
+    const icons = {
+      melee: {
+        // Punho fechado (vista frontal)
+        rows: [
+          '........',
+          '.FKKKF..',
+          'FKKKKKF.',
+          'FKKKKKT.',
+          '.FKKKF..',
+          '..FFF...',
+          '..DDD...',
+          '........',
+        ],
+        palette: { F: 0xb8895a, K: 0xe0b888, T: 0x8a6238, D: 0xa67440 },
+      },
+      ranged: {
+        // Arco + flecha
+        rows: [
+          '........',
+          '...B....',
+          '..B.A...',
+          '.B..A...',
+          '..B.A...',
+          '...B....',
+          '........',
+          '........',
+        ],
+        palette: { B: 0x8b5a2b, A: 0xd0d0d0 },
+      },
+      caster: {
+        // Orbe mágico
+        rows: [
+          '........',
+          '...WW...',
+          '..WPPW..',
+          '.WPWWPW.',
+          '..WPPW..',
+          '...WW...',
+          '........',
+          '........',
+        ],
+        palette: { W: 0xaa88ff, P: 0x6b5cff },
+      },
+    };
+
+    for (const [id, { rows, palette }] of Object.entries(icons)) {
+      makePixelTexture(this, `attack_${id}`, rows, palette, 2);
     }
   }
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {
+  attackIconKey,
   getMonsterEntries,
   getSpellEntries,
   getFloorEntries,
@@ -918,8 +919,23 @@ export class GalleryModal {
     nameWrap.appendChild(name);
 
     const badge = document.createElement('span');
-    badge.textContent = tab === 'monsters' ? entry.attackLabel : entry.typeLabel;
-    badge.style.cssText = 'font-size: 11px; color: #9a8bb8; flex-shrink: 0;';
+    badge.style.cssText = [
+      'display: inline-flex',
+      'align-items: center',
+      'gap: 4px',
+      'font-size: 11px',
+      'color: #9a8bb8',
+      'flex-shrink: 0',
+    ].join(';');
+    if (tab === 'monsters') {
+      const atkIcon = this._attackIconEl(entry.attack);
+      if (atkIcon) badge.appendChild(atkIcon);
+      const atkLabel = document.createElement('span');
+      atkLabel.textContent = entry.attackLabel;
+      badge.appendChild(atkLabel);
+    } else {
+      badge.textContent = entry.typeLabel;
+    }
 
     top.appendChild(nameWrap);
     top.appendChild(badge);
@@ -1085,7 +1101,7 @@ export class GalleryModal {
     details.push(entry.resistLine || 'Resistências: neutras');
 
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
-    this._setInfoElement(null);
+    this._setInfoAttack(entry);
     if (this.infoBody) this.infoBody.setText(details.join('\n'));
 
     this._previewedTab = 'monsters';
@@ -1144,17 +1160,32 @@ export class GalleryModal {
     return badge;
   }
 
-  _setInfoElement(entry) {
+  _textureDataUrl(key) {
+    if (!key || !this.scene.textures.exists(key)) return null;
+    const src = this.scene.textures.get(key).getSourceImage();
+    if (src instanceof HTMLCanvasElement) return src.toDataURL();
+    if (src instanceof HTMLImageElement) return src.src || null;
+    return null;
+  }
+
+  _attackIconEl(attack) {
+    const key = attackIconKey(attack);
+    const url = this._textureDataUrl(key);
+    if (!url) return null;
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = '';
+    img.width = 14;
+    img.height = 14;
+    img.style.cssText = 'image-rendering: pixelated; flex-shrink: 0; display: block;';
+    return img;
+  }
+
+  _placeInfoIcon(key) {
     const icon = this.infoElementIcon;
     if (!icon) return;
-    if (!entry?.element && !entry?.id) {
-      icon.setVisible(false);
-      return;
-    }
-    const key = spellElementIconKey(entry.element || entry.id);
     if (key && this.scene.textures.exists(key)) {
       icon.setTexture(key).setDisplaySize(16, 16).setVisible(true);
-      // Alinha à esquerda do título
       const titleW = this.infoTitle?.width || 0;
       const L = this.layout;
       if (L) {
@@ -1163,6 +1194,22 @@ export class GalleryModal {
     } else {
       icon.setVisible(false);
     }
+  }
+
+  _setInfoElement(entry) {
+    if (!entry?.element && !entry?.id) {
+      this._placeInfoIcon(null);
+      return;
+    }
+    this._placeInfoIcon(spellElementIconKey(entry.element || entry.id));
+  }
+
+  _setInfoAttack(entry) {
+    if (!entry?.attack) {
+      this._placeInfoIcon(null);
+      return;
+    }
+    this._placeInfoIcon(attackIconKey(entry.attack));
   }
 
   _selectFloor(id, { syncUrl = true } = {}) {

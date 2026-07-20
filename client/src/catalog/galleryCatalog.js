@@ -279,6 +279,12 @@ const ATTACK_LABEL = {
   caster: 'Conjurador',
 };
 
+/** Texture key Phaser do ícone de tipo de ataque (`attack_melee`, etc.). */
+export function attackIconKey(attack) {
+  const id = ATTACK_LABEL[attack] ? attack : 'melee';
+  return `attack_${id}`;
+}
+
 /** Catálogo de monstros para a galeria (defs do servidor + rótulos). */
 export function getMonsterEntries() {
   const defs = createMonsterTypeDefs({
@@ -312,6 +318,7 @@ export function getMonsterEntries() {
         tierLabel: TIER_LABEL[tier],
         attack: def.attack || 'melee',
         attackLabel: ATTACK_LABEL[def.attack] || def.attack || 'Paulada',
+        attackIconKey: attackIconKey(def.attack || 'melee'),
         projectile: def.projectile || null,
         projectileLabel: def.projectile
           ? spellDisplayName(def.projectile) || def.projectile.replace(/_/g, ' ')
