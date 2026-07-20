@@ -15,9 +15,11 @@ import {
   updateAmbientCreatures,
 } from '../ui/ambientCreatures.js';
 import {
+  getSkin,
+  normalizeSkinId,
   updateWizardPreviewTexture,
-  WIZARD_SKINS,
 } from '../wizardSkin.js';
+import { SkinPickerModal } from '../ui/SkinPickerModal.js';
 import { elementLabel } from '../catalog/elements.js';
 
 function formatDate(value) {
@@ -50,7 +52,7 @@ export class CharacterScene extends Phaser.Scene {
   create() {
     this.character = ensureCharacter();
     this.selectedColor = this.character.color >>> 0;
-    this.selectedSkin = this.character.skin || 'classic';
+    this.selectedSkin = normalizeSkinId(this.character.skin);
     this.errorText = null;
 
     drawMenuBackground(this, { subtitle: 'Personagem' });
@@ -78,7 +80,7 @@ export class CharacterScene extends Phaser.Scene {
     });
 
     this.add
-      .text(editorX, height / 2 - 165, 'Skin do bruxo', {
+      .text(editorX, height / 2 - 165, 'Classe / skin', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '14px',
         color: '#9a8bb8',
@@ -86,7 +88,21 @@ export class CharacterScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(uiDepth);
 
-    this.buildSkinPicker(editorX, height / 2 - 120, uiDepth);
+    this.buildSkinOpener(editorX, height / 2 - 118, uiDepth);
+
+    this.skinModal = new SkinPickerModal(this, {
+      getColor: () => this.selectedColor,
+      getSelectedSkin: () => this.selectedSkin,
+      onSelect: (skinId) => this.selectSkin(skinId),
+      onOpen: () => {
+        this.nameInput?.setVisible(false);
+        this.historyDom?.setVisible(false);
+      },
+      onClose: () => {
+        this.nameInput?.setVisible(true);
+        this.historyDom?.setVisible(true);
+      },
+    });
 
     this.add
       .text(editorX, height / 2 - 55, 'Nome', {
@@ -161,6 +177,8 @@ export class CharacterScene extends Phaser.Scene {
     this.buildHistoryPanel(historyX, height / 2 + 20, uiDepth);
 
     this.events.once('shutdown', () => {
+      this.skinModal?.destroy();
+      this.skinModal = null;
       this.destroyDeletePrompt();
       this.nameInput?.destroy();
       this.nameInput = null;
@@ -418,48 +436,54 @@ export class CharacterScene extends Phaser.Scene {
     }
   }
 
-  buildSkinPicker(centerX, y, depth) {
-    const gap = 88;
-    const totalW = (WIZARD_SKINS.length - 1) * gap;
-    const startX = centerX - totalW / 2;
+  buildSkinOpener(centerX, y, depth) {
+    const skin = getSkin(this.selectedSkin);
+    const key = updateWizardPreviewTexture(
+      this,
+      this.selectedColor,
+      this.selectedSkin,
+      'wizard_skin_opener'
+    );
 
-    this.skinButtons = [];
-    WIZARD_SKINS.forEach((skin, i) => {
-      const x = startX + i * gap;
-      const selected = skin.id === this.selectedSkin;
-      const key = updateWizardPreviewTexture(
-        this,
-        this.selectedColor,
-        skin.id,
-        `wizard_skin_pick_${skin.id}`
-      );
+    const frame = this.add
+      .rectangle(centerX, y, 200, 78, 0x1a1430, 0.9)
+      .setStrokeStyle(2, 0x6b5cff, 0.85)
+      .setDepth(depth)
+      .setInteractive({ useHandCursor: true });
 
-      const frame = this.add
-        .rectangle(x, y, 70, 70, 0x1a1430, 0.85)
-        .setStrokeStyle(2, 0xffffff, selected ? 0.95 : 0.2)
-        .setDepth(depth)
-        .setInteractive({ useHandCursor: true });
+    const sprite = this.add
+      .sprite(centerX - 62, y - 2, key)
+      .setScale(1.55)
+      .setDepth(depth + 1);
 
-      const sprite = this.add
-        .sprite(x, y - 4, key)
-        .setScale(1.2)
-        .setDepth(depth + 1);
+    const name = this.add
+      .text(centerX + 18, y - 12, skin.name, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#f4e8ff',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
 
-      const label = this.add
-        .text(x, y + 46, skin.name, {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '10px',
-          color: selected ? '#f4e8ff' : '#9a8bb8',
-        })
-        .setOrigin(0.5)
-        .setDepth(depth);
+    const hint = this.add
+      .text(centerX + 18, y + 12, 'Clique para trocar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
 
-      const pick = () => this.selectSkin(skin.id);
-      frame.on('pointerup', pick);
-      sprite.setInteractive({ useHandCursor: true }).on('pointerup', pick);
+    const open = () => this.skinModal?.show();
+    frame.on('pointerup', open);
+    frame.on('pointerover', () => frame.setStrokeStyle(2, 0x8b7cff, 1));
+    frame.on('pointerout', () => frame.setStrokeStyle(2, 0x6b5cff, 0.85));
+    sprite.setInteractive({ useHandCursor: true }).on('pointerup', open);
 
-      this.skinButtons.push({ skinId: skin.id, frame, sprite, label });
-    });
+    // Preview grande também abre o modal
+    this.preview.setInteractive({ useHandCursor: true }).on('pointerup', open);
+
+    this.skinOpener = { frame, sprite, name, hint };
   }
 
   buildPalette(centerX, y, depth) {
@@ -492,25 +516,22 @@ export class CharacterScene extends Phaser.Scene {
     updateWizardPreviewTexture(this, this.selectedColor, this.selectedSkin);
     this.preview.setTexture('wizard_preview');
 
-    for (const btn of this.skinButtons) {
+    if (this.skinOpener) {
       const key = updateWizardPreviewTexture(
         this,
         this.selectedColor,
-        btn.skinId,
-        `wizard_skin_pick_${btn.skinId}`
+        this.selectedSkin,
+        'wizard_skin_opener'
       );
-      btn.sprite.setTexture(key);
+      this.skinOpener.sprite.setTexture(key);
+      const skin = getSkin(this.selectedSkin);
+      this.skinOpener.name.setText(skin.name);
     }
   }
 
   selectSkin(skinId) {
-    this.selectedSkin = skinId;
+    this.selectedSkin = normalizeSkinId(skinId);
     this.refreshPreviews();
-    for (const btn of this.skinButtons) {
-      const selected = btn.skinId === this.selectedSkin;
-      btn.frame.setStrokeStyle(2, 0xffffff, selected ? 0.95 : 0.2);
-      btn.label.setColor(selected ? '#f4e8ff' : '#9a8bb8');
-    }
   }
 
   selectColor(color) {

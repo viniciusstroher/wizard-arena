@@ -1421,6 +1421,10 @@ export class GameScene extends Phaser.Scene {
     this.playChavesVoice('madruga_nossa');
   }
 
+  playMadrugaLoteria() {
+    this.playChavesVoice('madruga_loteria');
+  }
+
   playReprovado() {
     if (!this.cache.audio.exists('reprovado')) return;
     this.sound.play('reprovado', { volume: 0.9 });
@@ -1499,6 +1503,9 @@ export class GameScene extends Phaser.Scene {
       }
       if (ev.type === 'madruga_nossa') {
         this.playMadrugaNossa();
+      }
+      if (ev.type === 'madruga_loteria') {
+        this.playMadrugaLoteria();
       }
       if (ev.type === 'round_win') {
         roundEnded = true;

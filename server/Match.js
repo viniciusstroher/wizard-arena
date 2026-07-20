@@ -78,17 +78,45 @@ const WIZARD_TYPES = [
 ];
 
 const WIZARD_SKIN_IDS = [
-  'classic',
-  'hooded',
-  'crowned',
-  'battle',
+  'magician',
+  'wizard',
+  'sorcerer',
+  'warlock',
+  'necromancer',
+  'druid',
+  'shaman',
+  'priest',
+  'illusionist',
+  'evoker',
+  'conjurer',
+  'enchanter',
+  'archmage',
+  'pyromancer',
+  'cryomancer',
+  'geomancer',
+  'high_wizard',
+  'sage',
+  'runemaster',
+  'elementalist',
   'mystic',
-  'shadow',
+  'shadow_priest',
+  'battlemage',
+  'witch',
+  'chronomancer',
 ];
 
+const WIZARD_SKIN_ALIASES = {
+  classic: 'magician',
+  hooded: 'enchanter',
+  crowned: 'archmage',
+  battle: 'battlemage',
+  shadow: 'shadow_priest',
+};
+
 function normalizeSkin(skin) {
-  const id = String(skin || 'classic');
-  return WIZARD_SKIN_IDS.includes(id) ? id : 'classic';
+  let id = String(skin || 'magician');
+  if (WIZARD_SKIN_ALIASES[id]) id = WIZARD_SKIN_ALIASES[id];
+  return WIZARD_SKIN_IDS.includes(id) ? id : 'magician';
 }
 
 const CHARACTER_ID_RE =
@@ -1079,7 +1107,8 @@ export class Match {
     if (this.kikoLaughTimer > 0) return;
     if (Math.random() < CONFIG.KIKO_LAUGH_CHANCE) {
       // Um clip por vez: Kiko ou Seu Madruga (o client também bloqueia overlap).
-      const type = Math.random() < 0.5 ? 'kiko_laugh' : 'madruga_nossa';
+      const voices = ['kiko_laugh', 'madruga_nossa', 'madruga_loteria'];
+      const type = voices[Math.floor(Math.random() * voices.length)];
       this.pushEvent({ type });
     }
     this.scheduleNextKikoLaugh();

@@ -162,17 +162,45 @@ function leaveCurrentMatch(socket) {
 }
 
 const WIZARD_SKIN_IDS = new Set([
-  'classic',
-  'hooded',
-  'crowned',
-  'battle',
+  'magician',
+  'wizard',
+  'sorcerer',
+  'warlock',
+  'necromancer',
+  'druid',
+  'shaman',
+  'priest',
+  'illusionist',
+  'evoker',
+  'conjurer',
+  'enchanter',
+  'archmage',
+  'pyromancer',
+  'cryomancer',
+  'geomancer',
+  'high_wizard',
+  'sage',
+  'runemaster',
+  'elementalist',
   'mystic',
-  'shadow',
+  'shadow_priest',
+  'battlemage',
+  'witch',
+  'chronomancer',
 ]);
 
+const WIZARD_SKIN_ALIASES = {
+  classic: 'magician',
+  hooded: 'enchanter',
+  crowned: 'archmage',
+  battle: 'battlemage',
+  shadow: 'shadow_priest',
+};
+
 function normalizeSkin(skin) {
-  const id = String(skin || 'classic');
-  return WIZARD_SKIN_IDS.has(id) ? id : 'classic';
+  let id = String(skin || 'magician');
+  if (WIZARD_SKIN_ALIASES[id]) id = WIZARD_SKIN_ALIASES[id];
+  return WIZARD_SKIN_IDS.has(id) ? id : 'magician';
 }
 
 const CHARACTER_ID_RE =

@@ -109,7 +109,7 @@ export function defineModels(sequelize) {
       skin: {
         type: DataTypes.STRING(32),
         allowNull: false,
-        defaultValue: 'classic',
+        defaultValue: 'magician',
       },
       score: {
         type: DataTypes.INTEGER,
