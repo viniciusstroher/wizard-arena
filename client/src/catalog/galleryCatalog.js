@@ -274,7 +274,7 @@ const TIER_LABEL = {
 };
 
 const ATTACK_LABEL = {
-  melee: 'Corpo a corpo',
+  melee: 'Paulada',
   ranged: 'À distância',
   caster: 'Conjurador',
 };
@@ -311,7 +311,7 @@ export function getMonsterEntries() {
         tier,
         tierLabel: TIER_LABEL[tier],
         attack: def.attack || 'melee',
-        attackLabel: ATTACK_LABEL[def.attack] || def.attack || 'Corpo a corpo',
+        attackLabel: ATTACK_LABEL[def.attack] || def.attack || 'Paulada',
         projectile: def.projectile || null,
         projectileLabel: def.projectile
           ? spellDisplayName(def.projectile) || def.projectile.replace(/_/g, ' ')
