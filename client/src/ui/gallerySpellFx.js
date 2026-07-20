@@ -389,12 +389,12 @@ export function buildGallerySpellEffects(spellId, color, from, to) {
     case 'magma_surge':
       add({
         type: 'nova',
-        spellId: spellId === 'magma_surge' ? 'flame_nova' : 'flame_nova',
+        spellId: 'flame_nova',
         x: x1,
         y: y1,
         radius: R(def.radius || 110),
-        life: 0.55,
-        maxLife: 0.55,
+        life: 0.7,
+        maxLife: 0.7,
         color: fxColor,
       });
       break;

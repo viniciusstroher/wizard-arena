@@ -201,6 +201,8 @@ export class Match {
     this.shrinkElapsed = 0;
     this.monsterSpawnTimer = 0;
     this.lastSpawnedMonsterType = null;
+    /** Contagem de mortes por tipo de monstro (type → count). */
+    this.monsterKillCounts = Object.create(null);
     /** Round atual é luta de boss (sem tempo; win ao matar o boss). */
     this.bossRound = false;
     this.countdown = 0;
@@ -2174,7 +2176,16 @@ export class Match {
       }
     }
     this.monsters = this.monsters.filter((m) => m.entityId !== target.entityId);
-    this.pushEvent({ type: 'monster_kill', monsterId: target.entityId, killerId: sourcePlayerId, x: mx, y: my });
+    const killType = target.type || 'monster';
+    this.monsterKillCounts[killType] = (this.monsterKillCounts[killType] || 0) + 1;
+    this.pushEvent({
+      type: 'monster_kill',
+      monsterId: target.entityId,
+      killerId: sourcePlayerId,
+      monsterType: killType,
+      x: mx,
+      y: my,
+    });
     // Round de boss termina ao derrotar o boss
     if (this.bossRound && wasBoss && this.phase === 'playing') {
       const winner =
@@ -2267,6 +2278,7 @@ export class Match {
       winnerId: this.winnerId,
       result: this.matchResult,
       reason,
+      monsterKillStats: this.serializeMonsterKillStats(),
       scores: [...this.players.values()]
         .map((p) => ({
           id: p.id,
@@ -2324,6 +2336,15 @@ export class Match {
 
   monsterTypeDefs() {
     return createMonsterTypeDefs(CONFIG);
+  }
+
+  serializeMonsterKillStats() {
+    const byType = Object.entries(this.monsterKillCounts || {})
+      .map(([type, count]) => ({ type, count: count || 0 }))
+      .filter((e) => e.count > 0)
+      .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
+    const total = byType.reduce((sum, e) => sum + e.count, 0);
+    return { total, byType };
   }
 
   /** Sorteia tipo com pesos + diversidade (evita repetir tipos já vivos / último spawn). */
@@ -2857,6 +2878,8 @@ export class Match {
       x: origin.x,
       y: origin.y,
       radius,
+      /** Segundos para o fogo crescer do centro até o raio máximo. */
+      expandTime: 0.4,
       damage: burnDmgSafe,
       tick: burnTickSafe,
       burnDuration: burnDurationSafe,
@@ -2871,10 +2894,27 @@ export class Match {
       x: origin.x,
       y: origin.y,
       radius,
-      life: 0.55,
-      maxLife: 0.55,
+      life: 0.7,
+      maxLife: 0.7,
       color: stats.color || 0xff8844,
     });
+  }
+
+  /**
+   * Raio efetivo do AoE (flame_nova cresce do centro até o raio máximo).
+   * @param {{ radius?: number, life?: number, maxLife?: number, expandTime?: number }} aoe
+   */
+  aoeEffectiveRadius(aoe) {
+    const full = Number(aoe.radius) || 0;
+    const expandTime = Number(aoe.expandTime) || 0;
+    if (expandTime <= 0 || full <= 0) return full;
+    const maxLife = Number(aoe.maxLife) || Number(aoe.life) || 0;
+    const life = Number(aoe.life) || 0;
+    const age = Math.max(0, maxLife - life);
+    const t = Math.min(1, age / expandTime);
+    // smoothstep
+    const ease = t * t * (3 - 2 * t);
+    return full * ease;
   }
 
   /** Empurra um raio do céu até o chão (efeito + impacto). */
@@ -4457,7 +4497,7 @@ export class Match {
       aoe.life -= dt;
       const tick = Math.max(0.05, Number(aoe.tick) || 1);
       const dmg = Math.max(0, Math.round(Number(aoe.damage) || 0));
-      const aoeR = Number(aoe.radius) || 0;
+      const aoeR = this.aoeEffectiveRadius(aoe);
       const isFlameNova = aoe.spellId === 'flame_nova' || aoe.burnDuration != null;
       const isPoisonCloud = aoe.spellId === 'poison_cloud' || aoe.poisonDuration != null;
       if (isFlameNova) {
@@ -4692,6 +4732,7 @@ export class Match {
         x: a.x,
         y: a.y,
         radius: a.radius,
+        expandTime: a.expandTime || 0,
         color: a.color,
         life: a.life,
         maxLife: a.maxLife || a.life,
@@ -4720,6 +4761,7 @@ export class Match {
       events: this.events,
       winnerId: this.winnerId,
       matchResult: this.matchResult,
+      monsterKillStats: this.serializeMonsterKillStats(),
       intermissionTimer: this.intermissionTimer,
     };
   }

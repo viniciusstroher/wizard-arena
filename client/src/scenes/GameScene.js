@@ -905,6 +905,8 @@ export class GameScene extends Phaser.Scene {
     const resultLabel = success ? 'SUCCESS' : 'FAIL';
     const resultColor = success ? '#6dffb0' : '#ff6b6b';
     const resultStroke = success ? 0x6dffb0 : 0xff6b6b;
+    if (!success) this.playReprovado();
+
     const header = 'Jogador          K/M   Mob  Loot  Gold   Dano   Pts';
     const rows = ranking
       .map((p, i) => {
@@ -920,14 +922,31 @@ export class GameScene extends Phaser.Scene {
       })
       .join('\n');
 
-    const panelW = 620;
-    const panelH = Math.min(480, 270 + ranking.length * 22);
+    const killStats = state.monsterKillStats || { total: 0, byType: [] };
+    const killEntries = Array.isArray(killStats.byType) ? killStats.byType : [];
+    const killTotal = killStats.total || 0;
+    const killCols = 3;
+    const killRowH = 24;
+    const boardH = Math.max(22, ranking.length * 22);
+    const topBlockH = 148 + boardH;
+    const panelW = 640;
+    const maxPanelH = height - 40;
+    const footerH = 70;
+    const titleKillH = 28;
+    const availKillH = Math.max(killRowH, maxPanelH - topBlockH - footerH - titleKillH - 8);
+    const maxKillRows = Math.max(1, Math.floor(availKillH / killRowH));
+    const maxKillVisible = maxKillRows * killCols;
+    const killVisible = Math.min(killEntries.length, maxKillVisible);
+    const killRows = Math.max(1, Math.ceil(Math.max(1, killVisible) / killCols));
+    const killSectionH = titleKillH + killRows * killRowH + (killEntries.length > killVisible ? 16 : 4);
+    const panelH = Math.min(maxPanelH, topBlockH + killSectionH + footerH);
+    const panelTop = height / 2 - panelH / 2;
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
     const panel = this.add
       .rectangle(width / 2, height / 2, panelW, panelH, 0x161228, 0.98)
       .setStrokeStyle(2, resultStroke);
     const title = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 36, resultLabel, {
+      .text(width / 2, panelTop + 36, resultLabel, {
         fontFamily: 'Georgia, serif',
         fontSize: '34px',
         color: resultColor,
@@ -936,7 +955,7 @@ export class GameScene extends Phaser.Scene {
     const subtitle = this.add
       .text(
         width / 2,
-        height / 2 - panelH / 2 + 68,
+        panelTop + 68,
         success
           ? 'Todos os níveis concluídos'
           : 'Partida encerrada — níveis incompletos',
@@ -952,7 +971,7 @@ export class GameScene extends Phaser.Scene {
     const goldLine = this.add
       .text(
         width / 2,
-        height / 2 - panelH / 2 + 90,
+        panelTop + 90,
         `Você ganhou ${lootGained} loot · ${goldGained} gold`,
         {
           fontFamily: 'Trebuchet MS, sans-serif',
@@ -963,7 +982,7 @@ export class GameScene extends Phaser.Scene {
       )
       .setOrigin(0.5);
     const boardHeader = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 116, header, {
+      .text(width / 2, panelTop + 116, header, {
         fontFamily: 'Consolas, Monaco, monospace',
         fontSize: '13px',
         color: '#7a6d9a',
@@ -971,7 +990,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
     const board = this.add
-      .text(width / 2, height / 2 - panelH / 2 + 138, rows || 'Sem jogadores', {
+      .text(width / 2, panelTop + 138, rows || 'Sem jogadores', {
         fontFamily: 'Consolas, Monaco, monospace',
         fontSize: '14px',
         color: '#e8dfff',
@@ -979,6 +998,70 @@ export class GameScene extends Phaser.Scene {
         lineSpacing: 6,
       })
       .setOrigin(0.5, 0);
+
+    const killTop = panelTop + topBlockH + 4;
+    const killTitle = this.add
+      .text(
+        width / 2,
+        killTop,
+        `Monstros derrotados: ${killTotal}`,
+        {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '14px',
+          fontStyle: 'bold',
+          color: '#c4b5e0',
+        }
+      )
+      .setOrigin(0.5, 0);
+
+    const modalItems = [dim, panel, title, subtitle, goldLine, boardHeader, board, killTitle];
+    const colW = (panelW - 48) / killCols;
+    const listLeft = width / 2 - panelW / 2 + 24;
+    const listTop = killTop + 26;
+
+    if (killVisible === 0) {
+      const empty = this.add
+        .text(width / 2, listTop + 4, 'Nenhum monstro derrotado', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '13px',
+          color: '#7a6d9a',
+        })
+        .setOrigin(0.5, 0);
+      modalItems.push(empty);
+    } else {
+      for (let i = 0; i < killVisible; i++) {
+        const entry = killEntries[i];
+        const col = i % killCols;
+        const row = Math.floor(i / killCols);
+        const x = listLeft + col * colW;
+        const y = listTop + row * killRowH + killRowH / 2;
+        const tex = this.monsterTexture(entry.type);
+        const icon = this.add.image(x + 12, y, tex).setDisplaySize(20, 20);
+        const label = this.add
+          .text(x + 28, y, `${this.monsterLabel(entry.type)}  ×${entry.count}`, {
+            fontFamily: 'Trebuchet MS, sans-serif',
+            fontSize: '13px',
+            color: '#e8dfff',
+          })
+          .setOrigin(0, 0.5);
+        modalItems.push(icon, label);
+      }
+      if (killEntries.length > killVisible) {
+        const more = this.add
+          .text(
+            width / 2,
+            listTop + killRows * killRowH + 2,
+            `+${killEntries.length - killVisible} tipos…`,
+            {
+              fontFamily: 'Trebuchet MS, sans-serif',
+              fontSize: '12px',
+              color: '#7a6d9a',
+            }
+          )
+          .setOrigin(0.5, 0);
+        modalItems.push(more);
+      }
+    }
 
     const btnY = height / 2 + panelH / 2 - 42;
     const lobbyBg = this.add.rectangle(width / 2, btnY, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
@@ -994,7 +1077,8 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
-    this.matchEndModal.add([dim, panel, title, subtitle, goldLine, boardHeader, board, lobbyBg, lobbyLabel]);
+    modalItems.push(lobbyBg, lobbyLabel);
+    this.matchEndModal.add(modalItems);
     this.bannerText.setAlpha(0);
   }
 
@@ -1335,6 +1419,11 @@ export class GameScene extends Phaser.Scene {
 
   playMadrugaNossa() {
     this.playChavesVoice('madruga_nossa');
+  }
+
+  playReprovado() {
+    if (!this.cache.audio.exists('reprovado')) return;
+    this.sound.play('reprovado', { volume: 0.9 });
   }
 
   onState(state) {
@@ -3404,66 +3493,79 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Fogo no chão em forma radial (Flame Nova) — bem visível. */
+  /** Fração 0–1 do crescimento do fogo (centro → raio máximo). */
+  aoeExpandFactor(a) {
+    const expandTime = Number(a.expandTime) || 0;
+    if (expandTime <= 0) return 1;
+    const maxLife = a.maxLife || a.life || 1;
+    const age = Math.max(0, maxLife - (a.life || 0));
+    const t = Math.min(1, age / expandTime);
+    return t * t * (3 - 2 * t);
+  }
+
+  /** Fogo no chão: nasce no centro e cresce até o raio máximo. */
   drawGroundFireAoe(a, t) {
     const g = this.aoeGraphics;
     const maxLife = a.maxLife || a.life || 1;
     const lifeFade = Math.min(1, Math.max(0.25, (a.life || 0) / Math.min(1.2, maxLife)));
     const pulse = 0.94 + 0.06 * Math.sin(t * 8 + (a.x || 0) * 0.02);
-    const r = (a.radius || 110) * pulse;
+    const expand = this.aoeExpandFactor(a);
+    const fullR = a.radius || 110;
+    const r = Math.max(4, fullR * pulse * expand);
+    if (expand < 0.02) return;
 
     g.setBlendMode(Phaser.BlendModes.ADD);
 
-    // Base de brasa
-    g.fillStyle(0xff2200, 0.45 * lifeFade);
+    // Núcleo branco-quente no centro (origem do fogo)
+    g.fillStyle(0xffeeaa, 0.55 * lifeFade * (1.1 - expand * 0.3));
+    g.fillCircle(a.x, a.y, Math.max(3, r * 0.12));
+    g.fillStyle(0xffaa33, 0.4 * lifeFade);
+    g.fillCircle(a.x, a.y, r * 0.28);
+    g.fillStyle(0xff6622, 0.38 * lifeFade);
+    g.fillCircle(a.x, a.y, r * 0.55);
+    g.fillStyle(0xff2200, 0.32 * lifeFade);
     g.fillCircle(a.x, a.y, r);
-    g.fillStyle(0xff6622, 0.4 * lifeFade);
-    g.fillCircle(a.x, a.y, r * 0.72);
-    g.fillStyle(0xffaa33, 0.35 * lifeFade);
-    g.fillCircle(a.x, a.y, r * 0.42);
-    g.fillStyle(0xffee66, 0.4 * lifeFade);
-    g.fillCircle(a.x, a.y, r * 0.18);
 
-    // Fatias radiais de fogo (centro → borda)
+    // Fatias radiais saindo do centro
     const wedges = 18;
     for (let i = 0; i < wedges; i++) {
       const flicker = 0.65 + 0.35 * Math.sin(t * 11 + i * 1.9);
       const a0 = (i / wedges) * Math.PI * 2 + t * 0.7;
       const a1 = ((i + 0.72) / wedges) * Math.PI * 2 + t * 0.7;
-      const len = r * (0.55 + 0.45 * flicker);
+      const len = r * (0.7 + 0.3 * flicker);
       const x1 = a.x + Math.cos(a0) * len;
       const y1 = a.y + Math.sin(a0) * len;
       const x2 = a.x + Math.cos(a1) * len;
       const y2 = a.y + Math.sin(a1) * len;
       g.fillStyle(i % 2 === 0 ? 0xff4422 : 0xff8800, 0.55 * lifeFade * flicker);
       g.fillTriangle(a.x, a.y, x1, y1, x2, y2);
-      g.fillStyle(0xffee66, 0.35 * lifeFade * flicker);
+      g.fillStyle(0xffee66, 0.4 * lifeFade * flicker);
       g.fillTriangle(
         a.x,
         a.y,
-        a.x + Math.cos(a0) * len * 0.55,
-        a.y + Math.sin(a0) * len * 0.55,
-        a.x + Math.cos(a1) * len * 0.55,
-        a.y + Math.sin(a1) * len * 0.55
+        a.x + Math.cos(a0) * len * 0.45,
+        a.y + Math.sin(a0) * len * 0.45,
+        a.x + Math.cos(a1) * len * 0.45,
+        a.y + Math.sin(a1) * len * 0.45
       );
     }
 
-    // Contorno e línguas
-    g.lineStyle(3, 0xffee66, 0.7 * lifeFade);
-    g.strokeCircle(a.x, a.y, r * 0.95);
-    g.lineStyle(2, 0xff5522, 0.55 * lifeFade);
+    // Anel de frente de fogo na borda em expansão
+    g.lineStyle(4, 0xffee66, 0.85 * lifeFade * (0.5 + 0.5 * expand));
+    g.strokeCircle(a.x, a.y, r * 0.98);
+    g.lineStyle(2, 0xff5522, 0.5 * lifeFade);
     g.strokeCircle(a.x, a.y, r * 0.55);
 
     const tongues = 14;
     for (let i = 0; i < tongues; i++) {
       const ang = (i / tongues) * Math.PI * 2 + t * 1.2 + Math.sin(t * 5 + i) * 0.12;
-      const len = r * (0.7 + 0.3 * Math.sin(t * 10 + i * 1.4));
+      const len = r * (0.75 + 0.25 * Math.sin(t * 10 + i * 1.4));
       g.lineStyle(4, 0xff3300, 0.65 * lifeFade);
       g.lineBetween(a.x, a.y, a.x + Math.cos(ang) * len, a.y + Math.sin(ang) * len);
       g.lineStyle(2, 0xffee88, 0.85 * lifeFade);
-      g.lineBetween(a.x, a.y, a.x + Math.cos(ang) * len * 0.75, a.y + Math.sin(ang) * len * 0.75);
-      g.fillStyle(0xffffff, 0.55 * lifeFade);
-      g.fillCircle(a.x + Math.cos(ang) * len, a.y + Math.sin(ang) * len, 3);
+      g.lineBetween(a.x, a.y, a.x + Math.cos(ang) * len * 0.7, a.y + Math.sin(ang) * len * 0.7);
+      g.fillStyle(0xffffff, 0.6 * lifeFade);
+      g.fillCircle(a.x + Math.cos(ang) * len, a.y + Math.sin(ang) * len, 2.5 + expand);
     }
 
     g.setBlendMode(Phaser.BlendModes.NORMAL);
@@ -3473,9 +3575,11 @@ export class GameScene extends Phaser.Scene {
       const last = this.aoeFxAt.get(a.entityId) || 0;
       if (now - last > 40) {
         this.aoeFxAt.set(a.entityId, now);
-        for (let n = 0; n < 3; n++) {
+        // Partículas na frente de expansão + núcleo
+        this.fireballFx.emitParticleAt(a.x, a.y, 2);
+        for (let n = 0; n < 4; n++) {
           const ang = Math.random() * Math.PI * 2;
-          const dist = Math.random() * r * 0.9;
+          const dist = r * (0.55 + Math.random() * 0.45);
           const px = a.x + Math.cos(ang) * dist;
           const py = a.y + Math.sin(ang) * dist;
           this.fireballFx.emitParticleAt(px, py, 2);
@@ -3802,28 +3906,38 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** Explosão da Flame Nova: fogo nasce no centro e avança até o raio máximo. */
   drawNova(e) {
     const g = this.effectGraphics;
     const fade = this.effectFade(e);
     const p = this.effectProgress(e);
     const baseR = e.radius || 80;
-    const expand = 0.25 + 0.85 * Math.min(1, p * 1.6);
-    const r = baseR * expand;
+    // Cresce do centro (0) ao raio cheio ~no meio da animação
+    const growT = Math.min(1, p / 0.55);
+    const expand = growT * growT * (3 - 2 * growT);
+    const r = Math.max(3, baseR * expand);
+    const coreBoost = 1 - expand * 0.45;
 
     g.setBlendMode(Phaser.BlendModes.ADD);
-    g.fillStyle(0xff2200, 0.55 * fade);
-    g.fillCircle(e.x, e.y, r);
-    g.fillStyle(0xff6622, 0.5 * fade);
-    g.fillCircle(e.x, e.y, r * 0.65);
-    g.fillStyle(0xffee66, 0.45 * fade);
-    g.fillCircle(e.x, e.y, r * 0.28);
 
-    const wedges = 16;
+    // Núcleo no personagem
+    g.fillStyle(0xffffff, 0.7 * fade * coreBoost);
+    g.fillCircle(e.x, e.y, 4 + r * 0.08);
+    g.fillStyle(0xffee66, 0.55 * fade);
+    g.fillCircle(e.x, e.y, r * 0.22);
+    g.fillStyle(0xff8822, 0.5 * fade);
+    g.fillCircle(e.x, e.y, r * 0.5);
+    g.fillStyle(0xff3300, 0.4 * fade);
+    g.fillCircle(e.x, e.y, r);
+
+    // Línguas saindo do centro rumo à borda
+    const wedges = 20;
     for (let i = 0; i < wedges; i++) {
-      const a0 = (i / wedges) * Math.PI * 2 + p * 2;
-      const a1 = ((i + 0.7) / wedges) * Math.PI * 2 + p * 2;
-      const len = r * (0.6 + 0.4 * Math.sin(p * 12 + i));
-      g.fillStyle(i % 2 === 0 ? 0xff4400 : 0xffaa22, 0.65 * fade);
+      const spin = p * 1.8;
+      const a0 = (i / wedges) * Math.PI * 2 + spin;
+      const a1 = ((i + 0.65) / wedges) * Math.PI * 2 + spin;
+      const len = r * (0.75 + 0.25 * Math.sin(p * 14 + i));
+      g.fillStyle(i % 2 === 0 ? 0xff4400 : 0xffaa22, 0.7 * fade);
       g.fillTriangle(
         e.x,
         e.y,
@@ -3832,10 +3946,36 @@ export class GameScene extends Phaser.Scene {
         e.x + Math.cos(a1) * len,
         e.y + Math.sin(a1) * len
       );
+      g.fillStyle(0xffee88, 0.45 * fade);
+      g.fillTriangle(
+        e.x,
+        e.y,
+        e.x + Math.cos(a0) * len * 0.4,
+        e.y + Math.sin(a0) * len * 0.4,
+        e.x + Math.cos(a1) * len * 0.4,
+        e.y + Math.sin(a1) * len * 0.4
+      );
     }
 
-    g.lineStyle(3, 0xffee66, 0.85 * fade);
+    // Frente de fogo na borda em expansão
+    g.lineStyle(5, 0xffee66, 0.9 * fade);
     g.strokeCircle(e.x, e.y, r);
+    g.lineStyle(2, 0xffffff, 0.55 * fade * coreBoost);
+    g.strokeCircle(e.x, e.y, Math.max(2, r * 0.15));
+
+    // Faíscas na borda
+    if (this.fireballFx && expand > 0.15 && (Math.floor(this.time.now / 40) % 2 === 0)) {
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2 + p * 4;
+        this.fireballFx.emitParticleAt(
+          e.x + Math.cos(ang) * r,
+          e.y + Math.sin(ang) * r,
+          1
+        );
+      }
+      this.sparkFx?.emitParticleAt(e.x, e.y, 2);
+    }
+
     g.setBlendMode(Phaser.BlendModes.NORMAL);
   }
 
