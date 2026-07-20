@@ -235,8 +235,6 @@ export class Match {
     this.lastSpawnedMonsterType = null;
     /** Contagem de mortes por tipo de monstro (type → count). */
     this.monsterKillCounts = Object.create(null);
-    /** Dano de jogadores a monstros por elemento (elementId → amount). */
-    this.elementDamageDealt = Object.create(null);
     /** Round atual é luta de boss (sem tempo; win ao matar o boss). */
     this.bossRound = false;
     /**
@@ -817,6 +815,11 @@ export class Match {
       loot: 0,
       gold: 0,
       damageDealt: 0,
+      damageTaken: 0,
+      /** Dano causado por elemento (elementId | 'other' → amount). */
+      elementDamageDealt: Object.create(null),
+      /** Dano recebido por elemento (elementId | 'other' → amount). */
+      elementDamageTaken: Object.create(null),
       critChance: CONFIG.PLAYER_CRIT_CHANCE,
       critMult: CONFIG.PLAYER_CRIT_MULT,
       wizardType: wizard.type,
@@ -2283,18 +2286,20 @@ export class Match {
       }
     }
     const source = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
-    if (source) {
-      const hpHit = dmg > 0 ? Math.min(dmg, target.hp) : 0;
-      const dealt = absorbed + hpHit;
-      source.damageDealt += dealt;
-      if (!isPlayer && dealt > 0) {
-        const element =
-          options?.element ||
-          (options?.spellId ? spellElementId(options.spellId) : null);
-        if (element) {
-          this.elementDamageDealt[element] = (this.elementDamageDealt[element] || 0) + dealt;
-        }
-      }
+    const hpHit = dmg > 0 ? Math.min(dmg, target.hp) : 0;
+    const applied = absorbed + hpHit;
+    const element =
+      options?.element ||
+      (options?.spellId ? spellElementId(options.spellId) : null) ||
+      'other';
+    if (source && applied > 0) {
+      source.damageDealt += applied;
+      source.elementDamageDealt[element] = (source.elementDamageDealt[element] || 0) + applied;
+    }
+    if (isPlayer && applied > 0) {
+      target.damageTaken = (target.damageTaken || 0) + applied;
+      if (!target.elementDamageTaken) target.elementDamageTaken = Object.create(null);
+      target.elementDamageTaken[element] = (target.elementDamageTaken[element] || 0) + applied;
     }
     if (dmg <= 0) return false;
     target.hp -= dmg;
@@ -2508,7 +2513,6 @@ export class Match {
       result: this.matchResult,
       reason,
       monsterKillStats: this.serializeMonsterKillStats(),
-      elementDamageStats: this.serializeElementDamageStats(),
       scores: [...this.players.values()]
         .map((p) => ({
           id: p.id,
@@ -2521,6 +2525,8 @@ export class Match {
           loot: p.loot || 0,
           gold: p.gold || 0,
           damageDealt: Math.round(p.damageDealt || 0),
+          damageTaken: Math.round(p.damageTaken || 0),
+          elementDamage: this.serializePlayerElementDamage(p),
           level: p.level,
           isBot: !!p.isBot,
           wizardType: p.wizardType,
@@ -2582,21 +2588,28 @@ export class Match {
     return { total, byType };
   }
 
-  serializeElementDamageStats() {
-    const byElement = Object.entries(this.elementDamageDealt || {})
+  serializeElementBreakdown(byElementMap, totalFallback = 0) {
+    const byElement = Object.entries(byElementMap || {})
       .map(([element, damage]) => ({
         element,
         damage: Math.round(damage || 0),
       }))
       .filter((e) => e.damage > 0)
       .sort((a, b) => b.damage - a.damage || a.element.localeCompare(b.element));
-    const total = byElement.reduce((sum, e) => sum + e.damage, 0);
+    const total = byElement.reduce((sum, e) => sum + e.damage, 0) || Math.round(totalFallback || 0);
     return {
       total,
       byElement: byElement.map((e) => ({
         ...e,
         pct: total > 0 ? Math.round((e.damage / total) * 100) : 0,
       })),
+    };
+  }
+
+  serializePlayerElementDamage(player) {
+    return {
+      dealt: this.serializeElementBreakdown(player?.elementDamageDealt, player?.damageDealt),
+      taken: this.serializeElementBreakdown(player?.elementDamageTaken, player?.damageTaken),
     };
   }
 
@@ -4984,6 +4997,8 @@ export class Match {
       gold: p.gold || 0,
       score: p.score,
       damageDealt: Math.round(p.damageDealt || 0),
+      damageTaken: Math.round(p.damageTaken || 0),
+      elementDamage: this.serializePlayerElementDamage(p),
       pendingLevelUps: p.pendingLevelUps,
       spellChoices: p.spellChoices,
       choiceSetId: p.choiceSetId,
@@ -5117,7 +5132,6 @@ export class Match {
       winnerId: this.winnerId,
       matchResult: this.matchResult,
       monsterKillStats: this.serializeMonsterKillStats(),
-      elementDamageStats: this.serializeElementDamageStats(),
       intermissionTimer: this.intermissionTimer,
     };
   }

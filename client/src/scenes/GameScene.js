@@ -948,8 +948,11 @@ export class GameScene extends Phaser.Scene {
     const killStats = state.monsterKillStats || { total: 0, byType: [] };
     const killEntries = Array.isArray(killStats.byType) ? killStats.byType : [];
     const killTotal = killStats.total || 0;
-    const elementStats = state.elementDamageStats || { total: 0, byElement: [] };
-    const elementEntries = Array.isArray(elementStats.byElement) ? elementStats.byElement : [];
+    const myElement = me?.elementDamage || {};
+    const takenStats = myElement.taken || { total: me?.damageTaken || 0, byElement: [] };
+    const dealtStats = myElement.dealt || { total: me?.damageDealt || 0, byElement: [] };
+    const takenEntries = Array.isArray(takenStats.byElement) ? takenStats.byElement : [];
+    const dealtEntries = Array.isArray(dealtStats.byElement) ? dealtStats.byElement : [];
     const killCols = 3;
     const killRowH = 24;
     const boardH = Math.max(22, ranking.length * 22);
@@ -958,7 +961,8 @@ export class GameScene extends Phaser.Scene {
     const maxPanelH = height - 40;
     const footerH = 70;
     const titleKillH = 28;
-    const elementSectionH = elementEntries.length > 0 ? 42 : 0;
+    const elementRowH = 36;
+    const elementSectionH = 22 + elementRowH + 22 + elementRowH;
     const availKillH = Math.max(
       killRowH * 3,
       maxPanelH - topBlockH - footerH - titleKillH - elementSectionH - 8
@@ -1033,31 +1037,81 @@ export class GameScene extends Phaser.Scene {
     const killNeedsScroll = killContentH > killViewportH;
     const modalItems = [dim, panel, title, subtitle, goldLine, boardHeader, board];
 
-    if (elementEntries.length > 0) {
-      const slotW = Math.min(68, (panelW - 48) / elementEntries.length);
-      const rowW = slotW * elementEntries.length;
-      const rowLeft = width / 2 - rowW / 2;
-      const rowY = killTop + 16;
-      for (let i = 0; i < elementEntries.length; i++) {
-        const entry = elementEntries[i];
-        const cx = rowLeft + i * slotW + slotW / 2;
-        const iconKey = spellElementIconKey(entry.element);
-        if (this.textures.exists(iconKey)) {
-          modalItems.push(this.add.image(cx - 14, rowY, iconKey).setDisplaySize(16, 16));
-        }
-        const pctColor = `#${spellElementColor(entry.element).toString(16).padStart(6, '0')}`;
+    const addElementDamageBlock = (y, label, total, entries, accent) => {
+      modalItems.push(
+        this.add
+          .text(width / 2, y, `${label}: ${Math.round(total || 0)}`, {
+            fontFamily: 'Trebuchet MS, sans-serif',
+            fontSize: '13px',
+            fontStyle: 'bold',
+            color: accent,
+          })
+          .setOrigin(0.5, 0)
+      );
+      const rowY = y + 22;
+      if (!entries.length) {
         modalItems.push(
           this.add
-            .text(cx + 2, rowY, `${entry.pct ?? 0}%`, {
+            .text(width / 2, rowY, '—', {
+              fontFamily: 'Trebuchet MS, sans-serif',
+              fontSize: '12px',
+              color: '#7a6d9a',
+            })
+            .setOrigin(0.5, 0.5)
+        );
+        return;
+      }
+      const slotW = Math.min(68, (panelW - 48) / entries.length);
+      const rowW = slotW * entries.length;
+      const rowLeft = width / 2 - rowW / 2;
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i];
+        const cx = rowLeft + i * slotW + slotW / 2;
+        const isOther = entry.element === 'other';
+        const iconKey = isOther ? null : spellElementIconKey(entry.element);
+        if (iconKey && this.textures.exists(iconKey)) {
+          modalItems.push(this.add.image(cx - 14, rowY, iconKey).setDisplaySize(16, 16));
+        } else if (isOther) {
+          modalItems.push(
+            this.add
+              .text(cx - 14, rowY, '·', {
+                fontFamily: 'Trebuchet MS, sans-serif',
+                fontSize: '16px',
+                color: '#a99bc8',
+              })
+              .setOrigin(0.5)
+          );
+        }
+        const pctColor = isOther
+          ? '#a99bc8'
+          : `#${spellElementColor(entry.element).toString(16).padStart(6, '0')}`;
+        modalItems.push(
+          this.add
+            .text(cx + (iconKey || isOther ? 2 : 0), rowY, `${entry.pct ?? 0}%`, {
               fontFamily: 'Trebuchet MS, sans-serif',
               fontSize: '13px',
               fontStyle: 'bold',
               color: pctColor,
             })
-            .setOrigin(0, 0.5)
+            .setOrigin(iconKey || isOther ? 0 : 0.5, 0.5)
         );
       }
-    }
+    };
+
+    addElementDamageBlock(
+      killTop,
+      'Dano recebido',
+      takenStats.total ?? me?.damageTaken ?? 0,
+      takenEntries,
+      '#ff8a80'
+    );
+    addElementDamageBlock(
+      killTop + 22 + elementRowH,
+      'Dano causado',
+      dealtStats.total ?? me?.damageDealt ?? 0,
+      dealtEntries,
+      '#6dffb0'
+    );
 
     const killTitle = this.add
       .text(
