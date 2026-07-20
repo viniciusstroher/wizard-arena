@@ -159,10 +159,10 @@ export class MatchmakingScene extends Phaser.Scene {
     addLabel(y - 49, 'Rounds');
     const roundsEl = document.createElement('select');
     roundsEl.style.cssText = selectStyle;
-    for (const n of [5, 10, 15, 20]) {
+    for (const n of [1, 5, 10, 15, 20]) {
       const opt = document.createElement('option');
       opt.value = String(n);
-      opt.textContent = `${n} rounds`;
+      opt.textContent = n === 1 ? '1 round' : `${n} rounds`;
       if (n === this.maxRounds) opt.selected = true;
       roundsEl.appendChild(opt);
     }
@@ -345,7 +345,7 @@ export class MatchmakingScene extends Phaser.Scene {
     if (this.durationSelectEl) {
       this.roundDuration = Number(this.durationSelectEl.value) || this.roundDuration;
     }
-    const maxRounds = [5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 5;
+    const maxRounds = [1, 5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 5;
     const roundDuration = [60, 120, 180].includes(this.roundDuration)
       ? this.roundDuration
       : 60;

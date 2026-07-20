@@ -615,7 +615,11 @@ export class LobbyScene extends Phaser.Scene {
       this.lobby.players.find((p) => !p.isBot) || this.lobby.players[0];
     const roomName = host?.name ? `Sala de ${host.name}` : 'Lobby';
     const mode = this.lobby.pvpEnabled ? 'PvP' : 'PvE';
-    const rounds = this.lobby.maxRounds ? `${this.lobby.maxRounds} rounds` : null;
+    const rounds = this.lobby.maxRounds
+      ? this.lobby.maxRounds === 1
+        ? '1 round'
+        : `${this.lobby.maxRounds} rounds`
+      : null;
     const durSec = Number(this.lobby.roundDuration);
     const dur =
       Number.isFinite(durSec) && durSec > 0 ? `${Math.round(durSec / 60)} min` : null;
