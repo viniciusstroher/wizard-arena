@@ -5,6 +5,11 @@ import { MessageBoard } from '../ui/MessageBoard.js';
 import { monsterLabel as monsterLabelOf } from '../catalog/monsterLabels.js';
 import { spellDisplayName } from '../catalog/galleryCatalog.js';
 import {
+  spellElementIconKey,
+  spellElementLabel,
+  spellElementColor,
+} from '../catalog/spellElements.js';
+import {
   getCombatStatusEffect,
   getArenaEventCooldownStatusEffect,
   getFloorStatusEffect,
@@ -536,6 +541,10 @@ export class GameScene extends Phaser.Scene {
           color: '#9a8bb8',
         })
         .setOrigin(0);
+      const elementIcon = this.add
+        .image(-20, -16, 'element_arcane')
+        .setDisplaySize(12, 12)
+        .setVisible(false);
       const name = this.add
         .text(0, 18, '-', {
           fontFamily: 'Trebuchet MS, sans-serif',
@@ -555,9 +564,14 @@ export class GameScene extends Phaser.Scene {
         i === 5 || i === 6 || i === 7
           ? this.add.image(0, -2, 'icon_lock').setScale(1.15).setVisible(false).setDepth(1)
           : null;
-      slot.add(lock ? [bg, icon, lock, key, name, cd] : [bg, icon, key, name, cd]);
+      slot.add(
+        lock
+          ? [bg, icon, lock, key, elementIcon, name, cd]
+          : [bg, icon, key, elementIcon, name, cd]
+      );
       slot.bg = bg;
       slot.icon = icon;
+      slot.elementIcon = elementIcon;
       slot.lock = lock;
       slot.name = name;
       slot.cd = cd;
@@ -5454,11 +5468,13 @@ export class GameScene extends Phaser.Scene {
         slot.name.setText('-');
         slot.cd.setText('');
         slot.icon.setVisible(false);
+        this.setSpellSlotElement(slot, null);
         slot.bg.setStrokeStyle(selected ? 3 : 2, selected ? 0xffffff : 0x443866);
         slot.bg.setFillStyle(selected ? 0x2a2250 : 0x1a1430, 0.95);
         continue;
       }
       this.setSpellSlotIcon(slot, spell.id || spell.stats?.id);
+      this.setSpellSlotElement(slot, spell.id || spell.stats?.id);
       slot.name.setText(`Lv${spell.level}`);
       slot.cd.setText(spell.cooldownLeft > 0 ? spell.cooldownLeft.toFixed(1) : 'OK');
       slot.icon.setAlpha(spell.cooldownLeft > 0 ? 0.45 : 1);
@@ -5472,10 +5488,12 @@ export class GameScene extends Phaser.Scene {
       ultSlot.name.setText('Ult');
       ultSlot.cd.setText('');
       ultSlot.icon.setVisible(false);
+      this.setSpellSlotElement(ultSlot, null);
       ultSlot.bg.setStrokeStyle(ultSelected ? 3 : 2, ultSelected ? 0xffffff : 0x443866);
       ultSlot.bg.setFillStyle(ultSelected ? 0x2a2250 : 0x1a1430, 0.95);
     } else {
       this.setSpellSlotIcon(ultSlot, ult.id || ult.stats?.id);
+      this.setSpellSlotElement(ultSlot, ult.id || ult.stats?.id);
       ultSlot.name.setText('ult');
       ultSlot.cd.setText(ult.cooldownLeft > 0 ? ult.cooldownLeft.toFixed(1) : 'OK');
       ultSlot.icon.setAlpha(ult.cooldownLeft > 0 ? 0.45 : 1);
@@ -5488,6 +5506,7 @@ export class GameScene extends Phaser.Scene {
     const dashCd = me.dashCooldown || 0;
     const dashing = !!me.dashing;
     this.setSpellSlotIcon(dashSlot, 'dash');
+    this.setSpellSlotElement(dashSlot, null);
     dashSlot.name.setText(dashing ? 'dash!' : 'dash');
     dashSlot.cd.setText(dashCd > 0 ? dashCd.toFixed(1) : '');
     dashSlot.icon.setAlpha(dashCd > 0 && !dashing ? 0.45 : 1);
@@ -5500,6 +5519,7 @@ export class GameScene extends Phaser.Scene {
     const barrierCd = me.barrierCooldown || 0;
     const shielded = !!me.alive && (me.shield || 0) > 0;
     this.setSpellSlotIcon(barrierSlot, 'barrier');
+    this.setSpellSlotElement(barrierSlot, barrierUnlocked ? 'barrier' : null);
     if (!barrierUnlocked) {
       barrierSlot.name.setText('lv1');
       barrierSlot.cd.setText('');
@@ -5521,6 +5541,7 @@ export class GameScene extends Phaser.Scene {
     const mendUnlocked = (me.level || 1) >= 1;
     const mendCd = me.mendCooldown || 0;
     this.setSpellSlotIcon(mendSlot, 'mend');
+    this.setSpellSlotElement(mendSlot, mendUnlocked ? 'mend' : null);
     if (!mendUnlocked) {
       mendSlot.name.setText('lv1');
       mendSlot.cd.setText('');
@@ -5542,6 +5563,7 @@ export class GameScene extends Phaser.Scene {
     const blinkUnlocked = (me.level || 1) >= 5;
     const blinkCd = me.blinkCooldown || 0;
     this.setSpellSlotIcon(blinkSlot, 'blink');
+    this.setSpellSlotElement(blinkSlot, blinkUnlocked ? 'blink' : null);
     if (!blinkUnlocked) {
       blinkSlot.name.setText('lv5');
       blinkSlot.cd.setText('');
@@ -5709,6 +5731,21 @@ export class GameScene extends Phaser.Scene {
       slot.icon.setTexture(key).setVisible(true);
     } else {
       slot.icon.setVisible(false);
+    }
+  }
+
+  setSpellSlotElement(slot, spellId) {
+    const el = slot?.elementIcon;
+    if (!el) return;
+    if (!spellId) {
+      el.setVisible(false);
+      return;
+    }
+    const key = spellElementIconKey(spellId);
+    if (key && this.textures.exists(key)) {
+      el.setTexture(key).setDisplaySize(14, 14).setVisible(true);
+    } else {
+      el.setVisible(false);
     }
   }
 
@@ -5911,12 +5948,35 @@ export class GameScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
 
-      const iconKey = this.spellIconKey(choice.spellId || choice.def?.id);
+      const spellId = choice.spellId || choice.def?.id;
+      const iconKey = this.spellIconKey(spellId);
       const iconBg = this.add.rectangle(0, iconY, 52, 52, 0x0e0a1a, 0.95).setStrokeStyle(2, stroke);
       const icon =
         iconKey && this.textures.exists(iconKey)
           ? this.add.image(0, iconY, iconKey).setScale(1.5)
           : this.add.circle(0, iconY, 15, choice.def?.color || 0x6b5cff, 0.9);
+
+      const elementKey = spellId ? spellElementIconKey(spellId) : null;
+      const elementIcon =
+        elementKey && this.textures.exists(elementKey)
+          ? this.add.image(-18, iconY - 18, elementKey).setDisplaySize(16, 16)
+          : null;
+      const elementName = choice.def?.elementLabel || (spellId ? spellElementLabel(spellId) : '');
+      const elementColorHex = `#${(choice.def?.element
+        ? spellElementColor(choice.def.element)
+        : spellId
+          ? spellElementColor(spellId)
+          : 0xa99bc8
+      )
+        .toString(16)
+        .padStart(6, '0')}`;
+      const elementText = this.add
+        .text(0, nameY - 16, elementName, {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '11px',
+          color: elementColorHex,
+        })
+        .setOrigin(0.5);
 
       const name = this.add
         .text(0, nameY, choice.def?.name || choice.spellId, {
@@ -5952,7 +6012,11 @@ export class GameScene extends Phaser.Scene {
         )
         .setOrigin(0.5);
 
-      card.add([bg, keyHint, badge, iconBg, icon, name, desc, meta]);
+      card.add(
+        [bg, keyHint, badge, iconBg, icon, elementIcon, elementText, name, desc, meta].filter(
+          Boolean
+        )
+      );
       card.setSize(cardW, cardH);
       card.setScale(cardScale);
       // Escolha só por hotkeys 1–4 (sem clique)

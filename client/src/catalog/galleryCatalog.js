@@ -1,5 +1,11 @@
 import { createMonsterTypeDefs } from '../../../server/monsterTypes.js';
 import { SPELLS, ULTIMATES } from '../../../server/spells.js';
+import {
+  spellElementId,
+  spellElementLabel,
+  spellElementColor,
+  spellElementCssColor,
+} from './spellElements.js';
 import { monsterLabel } from './monsterLabels.js';
 import {
   FLOOR_SPEED_MUL,
@@ -270,6 +276,17 @@ export function getMonsterEntries() {
     .map(([id, def]) => {
       const tier = def.isBoss ? 'boss' : def.isElite ? 'elite' : 'normal';
       const spells = Array.isArray(def.spells) ? [...def.spells] : [];
+      const spellDetails = spells.map((sid) => {
+        const element = spellElementId(sid);
+        return {
+          id: sid,
+          name: spellDisplayName(sid),
+          element,
+          elementLabel: spellElementLabel(element),
+          elementColor: spellElementColor(element),
+          elementCss: spellElementCssColor(element),
+        };
+      });
       return {
         id,
         name: monsterLabel(id),
@@ -282,7 +299,8 @@ export function getMonsterEntries() {
           ? spellDisplayName(def.projectile) || def.projectile.replace(/_/g, ' ')
           : null,
         spells,
-        spellNames: spells.map((s) => spellDisplayName(s)),
+        spellDetails,
+        spellNames: spellDetails.map((s) => s.name),
         color: def.color ?? 0xffffff,
       };
     })
@@ -329,6 +347,7 @@ function spellTypeLabel(s) {
 
 function spellEntryFromDef(s) {
   const category = spellCategory(s);
+  const element = s.element || spellElementId(s.id);
   return {
     id: s.id,
     name: s.name,
@@ -336,6 +355,10 @@ function spellEntryFromDef(s) {
     type: s.type || 'basic',
     category,
     typeLabel: spellTypeLabel(s),
+    element,
+    elementLabel: spellElementLabel(element),
+    elementColor: spellElementColor(element),
+    elementCss: spellElementCssColor(element),
     color: s.color ?? 0xffffff,
     playerUsable: s.playerUsable !== false,
     bossOnly: !!s.bossOnly,

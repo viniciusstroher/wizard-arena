@@ -406,8 +406,136 @@ export class BootScene extends Phaser.Scene {
     this.createLootBagSprite();
     this.createCoinSprite();
     this.createSpellIcons();
+    this.createElementIcons();
     ensureCharacter();
     goToRoute(this.game, getRoute());
+  }
+
+  /** Ícones pequenos 8×8 (escalados) para selo de elemento nas magias. */
+  createElementIcons() {
+    const icons = {
+      fire: {
+        rows: [
+          '........',
+          '...YY...',
+          '..YOOY..',
+          '.YORROY.',
+          '.YORRRY.',
+          '..YORY..',
+          '...YY...',
+          '........',
+        ],
+        palette: { Y: 0xffe066, O: 0xff8844, R: 0xff4422 },
+      },
+      ice: {
+        rows: [
+          '........',
+          '...WW...',
+          '..WCWC..',
+          '.WCWWCW.',
+          '..WCWC..',
+          '...WW...',
+          '...CC...',
+          '........',
+        ],
+        palette: { W: 0xffffff, C: 0x66ccff },
+      },
+      lightning: {
+        rows: [
+          '........',
+          '...YY...',
+          '..YLL...',
+          '...LLY..',
+          '..YLL...',
+          '...LY...',
+          '...Y....',
+          '........',
+        ],
+        palette: { Y: 0xffdd33, L: 0xffffff },
+      },
+      poison: {
+        rows: [
+          '........',
+          '...GG...',
+          '..GLLG..',
+          '.GL..LG.',
+          '.GLLLLG.',
+          '..GLLG..',
+          '...GG...',
+          '........',
+        ],
+        palette: { G: 0x44aa22, L: 0x88ff44 },
+      },
+      shadow: {
+        rows: [
+          '........',
+          '..PPPP..',
+          '.PWWWWP.',
+          '.PWDDWP.',
+          '.PWWWWP.',
+          '..PPPP..',
+          '...PP...',
+          '........',
+        ],
+        palette: { P: 0x4a0080, W: 0xaa88ff, D: 0x1a0033 },
+      },
+      nature: {
+        rows: [
+          '........',
+          '...LL...',
+          '..LGLG..',
+          '.LGGGL..',
+          '..LGL...',
+          '...S....',
+          '...S....',
+          '........',
+        ],
+        palette: { L: 0x58d68d, G: 0x27ae60, S: 0x8b5a2b },
+      },
+      holy: {
+        rows: [
+          '........',
+          '...WW...',
+          '..WYYW..',
+          '.WYYYYW.',
+          '..WYYW..',
+          '...WW...',
+          '........',
+          '........',
+        ],
+        palette: { W: 0xffffff, Y: 0x55ff88 },
+      },
+      arcane: {
+        rows: [
+          '........',
+          '...AA...',
+          '..APPA..',
+          '.APWWPA.',
+          '..APPA..',
+          '...AA...',
+          '........',
+          '........',
+        ],
+        palette: { A: 0x6b5cff, P: 0xaa88ff, W: 0xffffff },
+      },
+      water: {
+        rows: [
+          '........',
+          '..BBBB..',
+          '.BWWWWB.',
+          '.BWCCWB.',
+          '.BWWWWB.',
+          '..BBBB..',
+          '...BB...',
+          '........',
+        ],
+        palette: { B: 0x1a5276, W: 0x5dade2, C: 0xaed6f1 },
+      },
+    };
+
+    for (const [id, { rows, palette }] of Object.entries(icons)) {
+      makePixelTexture(this, `element_${id}`, rows, palette, 2);
+    }
   }
 
   createProjectileSprites() {

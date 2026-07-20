@@ -1,5 +1,7 @@
 /** Catálogo de magias e utilitários de escolha estilo rogue. */
 
+import { spellElementId, spellElementLabel } from './spellElements.js';
+
 export const SPELLS = {
   firebolt: {
     id: 'firebolt',
@@ -570,6 +572,14 @@ export const ULTIMATES = {
   },
 };
 
+// Anexa elemento mágico a cada definição (fonte: spellElements.js).
+for (const s of Object.values(SPELLS)) {
+  if (!s.element) s.element = spellElementId(s.id);
+}
+for (const s of Object.values(ULTIMATES)) {
+  if (!s.element) s.element = spellElementId(s.id);
+}
+
 const BASIC_IDS = Object.keys(SPELLS);
 const ULTIMATE_IDS = Object.keys(ULTIMATES);
 
@@ -620,8 +630,11 @@ export function spellStats(id, level = 1) {
   const base = getSpellDef(id);
   if (!base) return null;
   const mul = 1 + (level - 1) * 0.25;
+  const element = base.element || spellElementId(id);
   return {
     ...base,
+    element,
+    elementLabel: spellElementLabel(element),
     damage: base.damage != null ? Math.round(base.damage * mul) : undefined,
     heal: base.heal != null ? Math.round(base.heal * mul) : undefined,
     shield: base.shield != null ? Math.round(base.shield * mul) : undefined,
