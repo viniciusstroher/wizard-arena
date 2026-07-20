@@ -334,7 +334,7 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInv(equipTitle);
 
     this.invHintText = this.add
-      .text(cx, 230, 'Clique no saco para equipar · clique no equipamento para remover', {
+      .text(cx, 230, 'Clique no saco para equipar · clique 2× no equipamento para remover', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '11px',
         color: '#6b6088',
@@ -343,6 +343,8 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth);
     this.trackInv(this.invHintText);
 
+    this.equipClickKey = null;
+    this.equipClickAt = 0;
     this.buildEquipmentSlots(cx, 278, depth);
 
     const bagTitle = this.add
@@ -364,8 +366,8 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   buildEquipmentSlots(centerX, y, depth) {
-    const slotSize = 48;
-    const gap = 12;
+    const slotSize = 44;
+    const gap = 8;
     const n = EQUIP_SLOTS.length;
     const totalW = n * slotSize + (n - 1) * gap;
     const startX = centerX - totalW / 2 + slotSize / 2;
@@ -380,13 +382,13 @@ export class CharacterScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
 
       const icon = this.add
-        .rectangle(x, y - 2, slotSize - 16, slotSize - 20, 0x6b5cff, 0)
+        .rectangle(x, y - 2, slotSize - 14, slotSize - 18, 0x6b5cff, 0)
         .setDepth(depth + 1);
 
       const label = this.add
         .text(x, y + slotSize / 2 + 11, slot.label, {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '11px',
+          fontSize: '10px',
           color: '#9a8bb8',
         })
         .setOrigin(0.5)
@@ -395,17 +397,26 @@ export class CharacterScene extends Phaser.Scene {
       const name = this.add
         .text(x, y, '', {
           fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '9px',
+          fontSize: '8px',
           color: '#f4e8ff',
           align: 'center',
-          wordWrap: { width: slotSize - 6 },
+          wordWrap: { width: slotSize - 4 },
         })
         .setOrigin(0.5)
         .setDepth(depth + 2);
 
       frame.on('pointerup', () => this.onEquipSlotClick(slot.key));
-      frame.on('pointerover', () => frame.setStrokeStyle(2, 0x8b7cff, 1));
-      frame.on('pointerout', () => this.refreshEquipSlot(slot.key));
+      frame.on('pointerover', () => {
+        frame.setStrokeStyle(2, 0x8b7cff, 1);
+        const item = this.inventory.equipment[slot.key];
+        if (item) {
+          this.invHintText?.setText(`${item.name} · clique 2× para desequipar`);
+        }
+      });
+      frame.on('pointerout', () => {
+        this.refreshEquipSlot(slot.key);
+        this.resetInvHint();
+      });
 
       this.equipSlotViews[slot.key] = { frame, icon, label, name, accepts: slot.accepts };
       this.trackInv(frame, icon, label, name);
@@ -446,9 +457,7 @@ export class CharacterScene extends Phaser.Scene {
       });
       frame.on('pointerout', () => {
         this.refreshBagSlot(i);
-        this.invHintText?.setText(
-          'Clique no saco para equipar · clique no equipamento para remover'
-        );
+        this.resetInvHint();
       });
 
       this.bagSlotViews.push({ frame, fill });
@@ -528,24 +537,47 @@ export class CharacterScene extends Phaser.Scene {
 
   resetInvHint() {
     this.invHintText
-      ?.setText('Clique no saco para equipar · clique no equipamento para remover')
+      ?.setText('Clique no saco para equipar · clique 2× no equipamento para remover')
       .setColor('#6b6088');
   }
 
   onEquipSlotClick(key) {
     if (this.activeTab !== TAB_INVENTORY) return;
+    if (!this.inventory.equipment[key]) {
+      this.equipClickKey = null;
+      return;
+    }
+
+    const now = this.time.now;
+    const isDouble =
+      this.equipClickKey === key && now - this.equipClickAt < 400;
+
+    this.equipClickKey = key;
+    this.equipClickAt = now;
+
+    if (!isDouble) {
+      this.invHintText?.setText('Clique novamente para desequipar').setColor('#c4b5e0');
+      this.time.delayedCall(400, () => {
+        if (this.equipClickKey === key && this.time.now - this.equipClickAt >= 400) {
+          this.resetInvHint();
+        }
+      });
+      return;
+    }
+
+    this.equipClickKey = null;
     const result = unequipToBag(this.inventory, key);
     if (!result.ok) {
-      if (result.error !== 'Slot vazio.') {
-        this.invHintText?.setText(result.error).setColor('#ff6b6b');
-        this.time.delayedCall(1800, () => this.resetInvHint());
-      }
+      this.invHintText?.setText(result.error).setColor('#ff6b6b');
+      this.time.delayedCall(2200, () => this.resetInvHint());
       return;
     }
     this.inventory = result.inventory;
     this.persistInventory();
     this.refreshAllEquipSlots();
     this.refreshAllBagSlots();
+    this.invHintText?.setText('Item desequipado').setColor('#2ecc71');
+    this.time.delayedCall(1400, () => this.resetInvHint());
   }
 
   async loadInventoryCurrency() {

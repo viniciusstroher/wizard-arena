@@ -1,7 +1,7 @@
 /** Persistência do personagem no localStorage. */
 
 import { DEFAULT_SKIN, normalizeSkinId, WIZARD_SKIN_IDS } from './wizardSkin.js';
-import { defaultInventory, normalizeInventory } from './inventory.js';
+import { defaultInventory, normalizeInventory, STARTER_KIT_VERSION } from './inventory.js';
 
 export const CHARACTER_KEY = 'wa_character';
 export { DEFAULT_SKIN, WIZARD_SKIN_IDS };
@@ -99,6 +99,8 @@ export function loadCharacter() {
         const hadId = !!normalizeCharacterId(data.id);
         const hadCreatedAt = data.createdAt != null && data.createdAt !== '';
         const hadInventory = data.inventory != null && typeof data.inventory === 'object';
+        const hadStarterKit =
+          hadInventory && (Number(data.inventory?.starterKit) || 0) >= STARTER_KIT_VERSION;
         const char = {
           id,
           name,
@@ -107,8 +109,8 @@ export function loadCharacter() {
           createdAt: normalizeCreatedAt(data.createdAt),
           inventory: normalizeInventory(data.inventory),
         };
-        // Migra personagens antigos sem UUID, data de criação ou inventário
-        if (!hadId || !hadCreatedAt || !hadInventory) {
+        // Migra personagens antigos sem UUID, data, inventário ou kit inicial
+        if (!hadId || !hadCreatedAt || !hadInventory || !hadStarterKit) {
           saveCharacter(char);
         }
         return char;
