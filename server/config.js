@@ -1,4 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Sempre carrega o .env na raiz do projeto (não depende do cwd do processo).
+dotenv.config({
+  path: path.join(path.dirname(fileURLToPath(import.meta.url)), '../.env'),
+});
 
 function envNumber(key, fallback) {
   const raw = process.env[key];
@@ -62,6 +69,27 @@ function parseBossAppears(raw, fallback = []) {
 /** Faixas de maxRounds do lobby que têm config própria de boss. */
 const BOSS_APPEARS_MAX_ROUNDS = [1, 5, 10, 15, 20];
 
+/** Defaults se a env da faixa não estiver definida. */
+const BOSS_APPEARS_DEFAULTS = {
+  1: [{ round: 1, chance: 1 }],
+  5: [{ round: 5, chance: 1 }],
+  10: [
+    { round: 5, chance: 1 },
+    { round: 10, chance: 1 },
+  ],
+  15: [
+    { round: 5, chance: 1 },
+    { round: 10, chance: 1 },
+    { round: 15, chance: 1 },
+  ],
+  20: [
+    { round: 5, chance: 1 },
+    { round: 10, chance: 1 },
+    { round: 15, chance: 1 },
+    { round: 20, chance: 1 },
+  ],
+};
+
 function buildBossAppearsByMaxRounds() {
   const legacy = envIntList('BOSS_APPEARS', []).map((round) => ({
     round,
@@ -70,10 +98,28 @@ function buildBossAppearsByMaxRounds() {
   const map = Object.create(null);
   for (const maxRounds of BOSS_APPEARS_MAX_ROUNDS) {
     const key = `BOSS_APPEARS_${maxRounds}`;
+    const raw = process.env[key];
     const legacyForLength = legacy.filter((e) => e.round <= maxRounds);
-    map[maxRounds] = parseBossAppears(process.env[key], legacyForLength);
+    if (raw === undefined) {
+      // Env ausente → legado filtrado, senão default da faixa.
+      map[maxRounds] = legacyForLength.length
+        ? legacyForLength
+        : BOSS_APPEARS_DEFAULTS[maxRounds] || [];
+    } else {
+      // Env presente (mesmo vazia) → só o que estiver parseado (vazio = sem boss).
+      map[maxRounds] = parseBossAppears(raw, []);
+    }
   }
   return map;
+}
+
+const BOSS_APPEARS_BY_MAX_ROUNDS = buildBossAppearsByMaxRounds();
+
+/** Agenda de boss para uma duração de partida. */
+export function getBossAppearsForMaxRounds(maxRounds) {
+  const n = Math.floor(Number(maxRounds));
+  const list = BOSS_APPEARS_BY_MAX_ROUNDS[n] || BOSS_APPEARS_BY_MAX_ROUNDS[String(n)];
+  return Array.isArray(list) ? list.map((e) => ({ ...e })) : [];
 }
 
 const ARENA_MIN_RADIUS = 80;
@@ -391,7 +437,7 @@ export const CONFIG = {
    * Ex.: BOSS_APPEARS_5="5#100%" → 100% de boss após o round 5 numa partida de 5 rounds.
    * Fallback legado: BOSS_APPEARS=5,10 (100% em cada round listado, se couber na duração).
    */
-  BOSS_APPEARS_BY_MAX_ROUNDS: buildBossAppearsByMaxRounds(),
+  BOSS_APPEARS_BY_MAX_ROUNDS,
   /** @deprecated use BOSS_APPEARS_BY_MAX_ROUNDS — lista plana só do legado. */
   BOSS_APPEARS: envIntList('BOSS_APPEARS', []),
   /** Intervalo (segundos) entre tentativas de auto-cura do boss. */

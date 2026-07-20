@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js';
+import { CONFIG, getBossAppearsForMaxRounds } from './config.js';
 import { BotController } from './Bot.js';
 import { createMonsterTypeDefs } from './monsterTypes.js';
 import { applyElementResistance } from './monsterResistances.js';
@@ -191,6 +191,8 @@ export class Match {
       : roundsOpt.includes(CONFIG.MAX_ROUNDS)
         ? CONFIG.MAX_ROUNDS
         : 5;
+    /** Agenda de boss desta partida (snapshot da config para maxRounds). */
+    this.bossAppearSchedule = getBossAppearsForMaxRounds(this.maxRounds);
     const duration = Math.floor(Number(options.roundDuration));
     this.roundDuration = durationOpt.includes(duration)
       ? duration
@@ -1065,17 +1067,32 @@ export class Match {
 
   /** Entradas de boss para a duração desta partida (maxRounds). */
   getBossAppearEntries() {
-    const byMax = CONFIG.BOSS_APPEARS_BY_MAX_ROUNDS || {};
-    const list = byMax[this.maxRounds];
-    return Array.isArray(list) ? list : [];
+    if (Array.isArray(this.bossAppearSchedule) && this.bossAppearSchedule.length) {
+      return this.bossAppearSchedule;
+    }
+    return getBossAppearsForMaxRounds(this.maxRounds);
   }
 
   getBossAppearEntry(round = this.round) {
-    return this.getBossAppearEntries().find((e) => e.round === round) || null;
+    const r = Math.floor(Number(round));
+    return this.getBossAppearEntries().find((e) => e.round === r) || null;
   }
 
   isBossAppearRound(round = this.round) {
     return !!this.getBossAppearEntry(round);
+  }
+
+  /** Sorteia (1x) se a boss fight deve ocorrer após o round, segundo a chance da config. */
+  rollBossAppear(round, entry) {
+    if (this.bossAppearRolls.has(round)) return this.bossAppearRolls.get(round) === true;
+    const raw = entry?.chance;
+    const chance =
+      raw == null || !Number.isFinite(Number(raw))
+        ? 1
+        : Math.min(1, Math.max(0, Number(raw)));
+    const ok = Math.random() < chance;
+    this.bossAppearRolls.set(round, ok);
+    return ok;
   }
 
   /**
@@ -1083,14 +1100,11 @@ export class Match {
    * A chance (#N%) é sorteada uma vez por round e cacheada.
    */
   needsBossFightAfterRound(round = this.round) {
+    if (this.pendingBossFight) return true;
     if (this.clearedBossFights.has(round)) return false;
     const entry = this.getBossAppearEntry(round);
     if (!entry) return false;
-    if (!this.bossAppearRolls.has(round)) {
-      const chance = Math.min(1, Math.max(0, Number(entry.chance) || 0));
-      this.bossAppearRolls.set(round, Math.random() < chance);
-    }
-    return this.bossAppearRolls.get(round) === true;
+    return this.rollBossAppear(round, entry);
   }
 
   /** Agenda a boss fight (intermissão → countdown → startBossFight). */
@@ -1098,6 +1112,12 @@ export class Match {
     this.pendingBossFight = true;
     this.phase = 'intermission';
     this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
+    console.log('[match] queue boss fight', {
+      matchId: this.id,
+      round: this.round,
+      maxRounds: this.maxRounds,
+      schedule: this.getBossAppearEntries(),
+    });
     this.broadcastState(true);
   }
 
@@ -2511,7 +2531,7 @@ export class Match {
       this.clearedBossFights.add(this.round);
     }
 
-    // Round normal listado em BOSS_APPEARS → boss fight em seguida (mesmo no último round).
+    // Round normal com config de boss → boss fight em seguida (mesmo no último round).
     if (!wasBossRound && this.needsBossFightAfterRound(this.round)) {
       this.queueBossFight();
       return;
@@ -2520,6 +2540,11 @@ export class Match {
     this.pendingBossFight = false;
 
     if (this.round >= this.maxRounds) {
+      // Cinto de segurança: nunca encerra com sucesso se ainda houver boss configurado.
+      if (!wasBossRound && this.needsBossFightAfterRound(this.round)) {
+        this.queueBossFight();
+        return;
+      }
       const cleared = [...this.players.values()].some((p) => p.alive);
       // Passou todos os níveis = success; wipe no último nível = fail.
       this.endMatch(this.leadingPlayer() || winner, {
@@ -4322,7 +4347,11 @@ export class Match {
       this.countdown -= dt;
       if (this.countdown <= 0) {
         if (this.round === 0) this.matchTime = 0;
-        if (this.pendingBossFight || this.needsBossFightAfterRound(this.round)) {
+        // Boss fight só depois de um round normal (round > 0), nunca no início da partida.
+        if (
+          this.round > 0 &&
+          (this.pendingBossFight || this.needsBossFightAfterRound(this.round))
+        ) {
           this.startBossFight();
         } else {
           this.startRound();
@@ -4344,7 +4373,13 @@ export class Match {
           this.pendingBossFight = true;
           this.startCountdown();
         } else if (this.round >= this.maxRounds) {
-          this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
+          // Não encerra se a config ainda exige boss neste round.
+          if (this.needsBossFightAfterRound(this.round)) {
+            this.pendingBossFight = true;
+            this.startCountdown();
+          } else {
+            this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
+          }
         } else {
           this.startCountdown();
         }
