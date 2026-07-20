@@ -198,7 +198,7 @@ export class Match {
       ? duration
       : durationOpt.includes(CONFIG.ROUND_DURATION)
         ? CONFIG.ROUND_DURATION
-        : 60;
+        : 30;
     this.password = options.password ? String(options.password) : null;
     this.onLobbyListChange =
       typeof options.onLobbyListChange === 'function' ? options.onLobbyListChange : null;

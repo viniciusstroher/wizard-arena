@@ -43,7 +43,7 @@ function clampRoundDuration(n) {
   if (LOBBY_ROUND_DURATIONS.includes(v)) return v;
   return LOBBY_ROUND_DURATIONS.includes(CONFIG.ROUND_DURATION)
     ? CONFIG.ROUND_DURATION
-    : 60;
+    : 30;
 }
 
 function normalizePassword(raw) {

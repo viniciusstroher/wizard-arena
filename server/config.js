@@ -127,7 +127,7 @@ const ARENA_START_RADIUS = envInt('ARENA_START_RADIUS', 320, ARENA_MIN_RADIUS);
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
 const ARENA_SHRINK_AMOUNT = (ARENA_START_RADIUS - ARENA_MIN_RADIUS) / ARENA_SHRINK_TIMES;
 const MAX_ROUNDS = envInt('MAX_ROUNDS', 5);
-const ROUND_DURATION = envInt('ROUND_DURATION', 60);
+const ROUND_DURATION = envInt('ROUND_DURATION', 30);
 
 /** Níveis de dificuldade da partida (afeta mobs / spawn / bosses). */
 const DIFFICULTY_PRESETS = {
