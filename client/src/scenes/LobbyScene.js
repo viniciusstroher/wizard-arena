@@ -36,9 +36,6 @@ export class LobbyScene extends Phaser.Scene {
     this.joined = false;
     this.ready = false;
     this.lobby = null;
-    this.adminModalOpen = false;
-    this.adminModal = null;
-    this.adminChecksDom = null;
     this.leavingToMenu = false;
     this.enteringGame = false;
 
@@ -70,7 +67,6 @@ export class LobbyScene extends Phaser.Scene {
     this.joinLobby();
 
     this.events.once('shutdown', () => {
-      this.closeAdminModal();
       this.messageBoard?.destroy();
       this.messageBoard = null;
       destroyAmbientCreatures(this);
@@ -197,30 +193,18 @@ export class LobbyScene extends Phaser.Scene {
     this.readyBtn = this.makeButton(panelX, btnStartY, 'Pronto', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
-    this.adminBtn = this.makeButton(
-      panelX,
-      btnStartY + step,
-      'Opções da Partida',
-      0x8e44ad,
-      () => this.openAdminModal(),
-      btnW
-    );
-    this.setButtonEnabled(this.adminBtn, false);
-
     this.leaveBtn = this.makeButton(
       panelX,
-      btnStartY + step * 2,
+      btnStartY + step,
       'Sair',
       0xc0392b,
       () => this.leaveToMatchmaking(),
       btnW
     );
 
-    for (const btn of [this.readyBtn, this.adminBtn, this.leaveBtn]) {
+    for (const btn of [this.readyBtn, this.leaveBtn]) {
       btn.setDepth(uiDepth);
     }
-
-    this.adminModal = this.add.container(0, 0).setDepth(400).setVisible(false);
 
     this.hint = this.add
       .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos', {
@@ -240,190 +224,12 @@ export class LobbyScene extends Phaser.Scene {
         if (!this.joined) return;
         this.socket.emit('chat_message', { text });
       },
-      canFocusChat: () => !this.adminModalOpen,
     });
     this.messageBoard.setChatEnabled(false);
     this.messageBoard.pushChat('Entre no lobby para conversar.');
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
       this.messageBoard?.onWheel(dy);
     });
-  }
-
-  setLobbyDomVisible(visible) {
-    if (this.playersListDom) this.playersListDom.setVisible(visible);
-    this.messageBoard?.setDomVisible(visible);
-  }
-
-  openAdminModal() {
-    if (this.adminModalOpen) return;
-    if (!this.joined) return;
-    this.adminModalOpen = true;
-
-    this.setLobbyDomVisible(false);
-
-    const { width, height } = this.scale;
-    this.adminModal.removeAll(true);
-    this.adminModal.setDepth(10000).setVisible(true);
-    this.children.bringToTop(this.adminModal);
-
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
-    dim.setInteractive();
-    dim.on('pointerup', () => this.closeAdminModal());
-
-    const panel = this.add
-      .rectangle(width / 2, height / 2, 420, 390, 0x161228, 0.98)
-      .setStrokeStyle(2, 0x8e44ad);
-    // Impede o clique no painel de fechar o modal (propaga pro dim)
-    panel.setInteractive();
-    panel.on('pointerup', (_p, _x, _y, event) => event.stopPropagation());
-
-    const title = this.add
-      .text(width / 2, height / 2 - 155, 'Opções da Partida', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '24px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5);
-
-    const hint = this.add
-      .text(width / 2, height / 2 - 117, 'Marque as opções e clique em Salvar', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
-        color: '#9a8bb8',
-      })
-      .setOrigin(0.5);
-
-    const botIdle = this.lobby?.botAiEnabled === false;
-    const mobSpawn = this.lobby?.monsterSpawnEnabled !== false;
-    const botLevelUp = this.lobby?.botLevelUpChoiceEnabled !== false;
-    const pvpOn = this.lobby?.pvpEnabled !== false;
-
-    const wrap = document.createElement('div');
-    wrap.style.cssText = [
-      'display: flex',
-      'flex-direction: column',
-      'gap: 18px',
-      'width: 320px',
-      'padding: 8px 12px',
-      'box-sizing: border-box',
-      'font-family: Trebuchet MS, sans-serif',
-      'font-size: 16px',
-      'color: #e8dfff',
-      'user-select: none',
-      'pointer-events: auto',
-      'z-index: 10001',
-    ].join(';');
-
-    const makeCheck = (labelText, checked) => {
-      const row = document.createElement('label');
-      row.style.cssText = [
-        'display: flex',
-        'align-items: center',
-        'gap: 12px',
-        'cursor: pointer',
-        'pointer-events: auto',
-      ].join(';');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = checked;
-      cb.style.cssText = [
-        'width: 22px',
-        'height: 22px',
-        'accent-color: #8e44ad',
-        'cursor: pointer',
-        'pointer-events: auto',
-        'flex-shrink: 0',
-      ].join(';');
-      const span = document.createElement('span');
-      span.textContent = labelText;
-      row.append(cb, span);
-      wrap.appendChild(row);
-      return cb;
-    };
-
-    this.adminBotIdleCheck = makeCheck('Bot parado (não ataca)', botIdle);
-    this.adminMobSpawnCheck = makeCheck('Respawn de mobs', mobSpawn);
-    this.adminBotLevelUpCheck = makeCheck(
-      'Bot escolhe habilidade (outros esperam)',
-      botLevelUp
-    );
-    this.adminPvpCheck = makeCheck('PvP (jogadores/bots se atacam)', pvpOn);
-
-    this.adminChecksDom = this.add
-      .dom(width / 2, height / 2 - 5, wrap)
-      .setOrigin(0.5)
-      .setDepth(10001);
-
-    const saveBg = this.add
-      .rectangle(width / 2 - 80, height / 2 + 150, 140, 40, 0x2ecc71, 1)
-      .setStrokeStyle(1, 0xffffff, 0.15);
-    const saveLabel = this.add
-      .text(width / 2 - 80, height / 2 + 150, 'Salvar', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    saveBg.setInteractive({ useHandCursor: true });
-    saveBg.on('pointerover', () => saveBg.setScale(1.04));
-    saveBg.on('pointerout', () => saveBg.setScale(1));
-    saveBg.on('pointerup', () => this.saveAdminSettings());
-
-    const closeBg = this.add
-      .rectangle(width / 2 + 80, height / 2 + 150, 140, 40, 0x443866, 1)
-      .setStrokeStyle(1, 0xffffff, 0.15);
-    const closeLabel = this.add
-      .text(width / 2 + 80, height / 2 + 150, 'Fechar', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    closeBg.setInteractive({ useHandCursor: true });
-    closeBg.on('pointerover', () => closeBg.setScale(1.04));
-    closeBg.on('pointerout', () => closeBg.setScale(1));
-    closeBg.on('pointerup', () => this.closeAdminModal());
-
-    this.adminModal.add([dim, panel, title, hint, saveBg, saveLabel, closeBg, closeLabel]);
-  }
-
-  closeAdminModal() {
-    if (!this.adminModalOpen && !this.adminChecksDom) return;
-    this.adminModalOpen = false;
-    if (this.adminChecksDom) {
-      this.adminChecksDom.destroy();
-      this.adminChecksDom = null;
-    }
-    this.adminBotIdleCheck = null;
-    this.adminMobSpawnCheck = null;
-    this.adminBotLevelUpCheck = null;
-    this.adminPvpCheck = null;
-    if (this.adminModal) {
-      this.adminModal.removeAll(true);
-      this.adminModal.setVisible(false);
-    }
-    this.setLobbyDomVisible(true);
-  }
-
-  saveAdminSettings() {
-    if (!this.joined) return;
-    const botIdle = !!this.adminBotIdleCheck?.checked;
-    const mobSpawn = !!this.adminMobSpawnCheck?.checked;
-    const botLevelUp = !!this.adminBotLevelUpCheck?.checked;
-    const pvpOn = !!this.adminPvpCheck?.checked;
-    this.socket.emit('admin_settings', {
-      botAiEnabled: !botIdle,
-      monsterSpawnEnabled: mobSpawn,
-      botLevelUpChoiceEnabled: botLevelUp,
-      pvpEnabled: pvpOn,
-    });
-    if (this.lobby) {
-      this.lobby.botAiEnabled = !botIdle;
-      this.lobby.monsterSpawnEnabled = mobSpawn;
-      this.lobby.botLevelUpChoiceEnabled = botLevelUp;
-      this.lobby.pvpEnabled = pvpOn;
-    }
-    this.closeAdminModal();
   }
 
   makeButton(x, y, label, color, onClick, width = 280) {
@@ -476,7 +282,6 @@ export class LobbyScene extends Phaser.Scene {
     this.socket.on('joined', () => {
       this.joined = true;
       this.setButtonEnabled(this.readyBtn, true);
-      this.setButtonEnabled(this.adminBtn, true);
       this.messageBoard?.setChatEnabled(true);
       this.statusText.setText('Marque Pronto quando estiver preparado. Se todos estiverem prontos, a partida será iniciada automaticamente.');
     });
