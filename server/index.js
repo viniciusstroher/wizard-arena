@@ -29,14 +29,8 @@ function clampMaxPlayers(n) {
   return Math.min(CONFIG.MAX_PLAYERS, Math.max(1, v));
 }
 
-const LOBBY_ROUND_DURATIONS = [30, 60, 120, 180];
-
-function clampRoundDuration(n) {
-  const v = Math.floor(Number(n));
-  if (LOBBY_ROUND_DURATIONS.includes(v)) return v;
-  return LOBBY_ROUND_DURATIONS.includes(CONFIG.ROUND_DURATION)
-    ? CONFIG.ROUND_DURATION
-    : 30;
+function clampRoundDuration(_n) {
+  return 30;
 }
 
 function normalizePassword(raw) {

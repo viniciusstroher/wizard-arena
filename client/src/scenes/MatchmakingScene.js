@@ -80,7 +80,6 @@ export class MatchmakingScene extends Phaser.Scene {
       this.destroyPasswordPrompt();
       this.modeSelectDom?.destroy();
       this.maxSelectDom?.destroy();
-      this.durationSelectDom?.destroy();
       this.passInputDom?.destroy();
       this.listDom?.destroy();
       destroyAmbientCreatures(this);
@@ -155,28 +154,7 @@ export class MatchmakingScene extends Phaser.Scene {
     });
     this.maxSelectDom = addSelect(y - 85, selectEl);
 
-    addLabel(y - 49, 'Duração do round');
-    const durationEl = document.createElement('select');
-    durationEl.style.cssText = selectStyle;
-    for (const [secs, label] of [
-      [30, '30 segundos'],
-      [60, '1 minuto'],
-      [120, '2 minutos'],
-      [180, '3 minutos'],
-    ]) {
-      const opt = document.createElement('option');
-      opt.value = String(secs);
-      opt.textContent = label;
-      if (secs === this.roundDuration) opt.selected = true;
-      durationEl.appendChild(opt);
-    }
-    durationEl.addEventListener('change', () => {
-      this.roundDuration = Number(durationEl.value) || 30;
-    });
-    this.durationSelectEl = durationEl;
-    this.durationSelectDom = addSelect(y - 22, durationEl);
-
-    addLabel(y + 14, 'Senha (opcional, 4 dígitos)');
+    addLabel(y - 22, 'Senha (opcional, 4 dígitos)');
     const passEl = document.createElement('input');
     passEl.type = 'password';
     passEl.inputMode = 'numeric';
@@ -190,13 +168,13 @@ export class MatchmakingScene extends Phaser.Scene {
       passEl.value = passEl.value.replace(/\D/g, '').slice(0, 4);
     });
     const passWrap = wrapPasswordInput(passEl, '220px');
-    this.passInputDom = this.add.dom(x, y + 41, passWrap).setOrigin(0.5).setDepth(uiDepth);
+    this.passInputDom = this.add.dom(x, y + 5, passWrap).setOrigin(0.5).setDepth(uiDepth);
     this.passInputEl = passEl;
 
-    makeMenuButton(this, x, y + 92, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
+    makeMenuButton(this, x, y + 56, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
       uiDepth
     );
-    makeMenuButton(this, x, y + 147, 'Voltar', 0x443866, () => {
+    makeMenuButton(this, x, y + 111, 'Voltar', 0x443866, () => {
       navigate('/');
     }, 220).setDepth(uiDepth);
   }
@@ -323,13 +301,7 @@ export class MatchmakingScene extends Phaser.Scene {
         ? this.modeSelectEl.value === 'true'
         : !!this.pvpEnabled;
     this.pvpEnabled = pvpEnabled;
-    if (this.durationSelectEl) {
-      this.roundDuration = Number(this.durationSelectEl.value) || this.roundDuration;
-    }
-    const roundDuration = [30, 60, 120, 180].includes(this.roundDuration)
-      ? this.roundDuration
-      : 30;
-    this.roundDuration = roundDuration;
+    this.roundDuration = 30;
     const bonuses = equipmentBonusesFromInventory(this.character.inventory);
     this.socket.emit('create_lobby', {
       characterId: this.character.id,
@@ -340,7 +312,7 @@ export class MatchmakingScene extends Phaser.Scene {
       maxPlayers: this.maxPlayers,
       password: password || null,
       pvpEnabled,
-      roundDuration,
+      roundDuration: 30,
     });
   }
 

@@ -192,13 +192,7 @@ export class Match {
     this.maxPlayers = Number.isFinite(max)
       ? Math.min(CONFIG.MAX_PLAYERS, Math.max(1, max))
       : CONFIG.MAX_PLAYERS;
-    const durationOpt = [30, 60, 120, 180];
-    const duration = Math.floor(Number(options.roundDuration));
-    this.roundDuration = durationOpt.includes(duration)
-      ? duration
-      : durationOpt.includes(CONFIG.ROUND_DURATION)
-        ? CONFIG.ROUND_DURATION
-        : 30;
+    this.roundDuration = 30;
     this.password = options.password ? String(options.password) : null;
     this.onLobbyListChange =
       typeof options.onLobbyListChange === 'function' ? options.onLobbyListChange : null;
