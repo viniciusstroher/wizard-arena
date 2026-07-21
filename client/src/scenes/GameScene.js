@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { getSocket } from '../net/socket.js';
 import { navigate } from '../router.js';
-import { MessageBoard } from '../ui/MessageBoard.js';
 import { monsterLabel as monsterLabelOf } from '../catalog/monsterLabels.js';
 import { spellDisplayName } from '../catalog/galleryCatalog.js';
 import {
@@ -11,7 +10,6 @@ import {
 } from '../catalog/spellElements.js';
 import {
   getCombatStatusEffect,
-  getArenaEventCooldownStatusEffect,
   getFloorStatusEffect,
   getGaleStatusEffect,
   getLavaStatusEffect,
@@ -54,7 +52,6 @@ export class GameScene extends Phaser.Scene {
     this.levelUpHint = null;
     this.levelUpCountdown = null;
     this.levelUpPointsText = null;
-    this.messageBoard = null;
     this.disconnectConfirmOpen = false;
     this.leaving = false;
     this.matchEndOpen = false;
@@ -138,7 +135,6 @@ export class GameScene extends Phaser.Scene {
     this.createSpellParticleFx();
 
     this.createHud();
-    this.createEventBoard();
     this.createDisconnectUi();
     this.createMatchEndUi();
     this.createRoundSpotlight();
@@ -170,7 +166,6 @@ export class GameScene extends Phaser.Scene {
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
       if (this.onMatchEndKillWheel(dy)) return;
-      if (this.messageBoard?.onWheel(dy)) return;
       this.onSpellSlotWheel(dy);
     });
 
@@ -196,8 +191,6 @@ export class GameScene extends Phaser.Scene {
       this.stopBattleMusic();
       this.clearAimCursor();
       this.clearMatchEndKillScroll();
-      this.messageBoard?.destroy();
-      this.messageBoard = null;
       this.arenaFireWall?.destroy();
       this.arenaFireEmbers?.destroy();
       this.conjureFx?.destroy();
@@ -796,14 +789,6 @@ export class GameScene extends Phaser.Scene {
     this.layoutDisconnectButton();
   }
 
-  createEventBoard() {
-    this.messageBoard = new MessageBoard(this, {
-      tabs: ['events'],
-      initialTab: 'events',
-    });
-    this.messageBoard.pushEvent('Partida iniciada');
-  }
-
   createDisconnectUi() {
     const btnW = 120;
     const btnH = 32;
@@ -842,7 +827,6 @@ export class GameScene extends Phaser.Scene {
   openDisconnectConfirm() {
     if (this.disconnectConfirmOpen || this.leaving || this.matchEndOpen) return;
     this.disconnectConfirmOpen = true;
-    this.messageBoard?.setDomVisible(false);
 
     const { width, height } = this.scale;
     this.disconnectModal.removeAll(true);
@@ -898,14 +882,12 @@ export class GameScene extends Phaser.Scene {
     this.disconnectConfirmOpen = false;
     this.disconnectModal.removeAll(true);
     this.disconnectModal.setVisible(false);
-    if (!this.matchEndOpen) this.messageBoard?.setDomVisible(true);
   }
 
   confirmDisconnect() {
     if (this.leaving) return;
     this.leaving = true;
     this.closeDisconnectConfirm();
-    this.pushBoardEvent('Você desconectou da partida');
     this.socket.emit('leave_lobby');
     this.time.delayedCall(450, () => {
       navigate('/matchmaking');
@@ -920,7 +902,6 @@ export class GameScene extends Phaser.Scene {
     if (this.matchEndOpen || this.leaving) return;
     this.matchEndOpen = true;
     this.closeDisconnectConfirm();
-    this.messageBoard?.setDomVisible(false);
 
     const { width, height } = this.scale;
     this.matchEndModal.removeAll(true);
@@ -1254,112 +1235,11 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  pushBoardEvent(message) {
-    this.messageBoard?.pushEvent(message);
-  }
-
   onSpellSlotWheel(dy) {
     if (!dy) return;
     if (this.leaving || this.disconnectConfirmOpen || this.matchEndOpen) return;
     // Scroll para baixo = próxima magia; para cima = anterior
     this.cycleSpellSlot(dy > 0 ? 1 : -1);
-  }
-
-  playerName(id) {
-    const p = this.state?.players?.find((pl) => pl.id === id);
-    return p?.name || 'Jogador';
-  }
-
-  formatGameEvent(ev) {
-    switch (ev.type) {
-      case 'countdown': {
-        const bossSoon = !!this.state?.bossRound || !!this.state?.pendingBossFight;
-        const next = bossSoon
-          ? this.state?.round || 1
-          : (this.state?.round ?? 0) + 1;
-        return bossSoon
-          ? `BOSS FIGHT — Round ${next} (${ev.seconds}s)`
-          : `Round ${next} começando (${ev.seconds}s)`;
-      }
-      case 'round_start': {
-        return ev.bossRound
-          ? `BOSS FIGHT — Round ${ev.round}`
-          : `Round ${ev.round} iniciado`;
-      }
-      case 'boss_fight': {
-        return `BOSS FIGHT! Round ${ev.round}`;
-      }
-      case 'round_win':
-        return `${this.playerName(ev.playerId)} venceu o round ${ev.round}`;
-      case 'player_kill':
-        return `${this.playerName(ev.killerId)} eliminou ${this.playerName(ev.victimId)}`;
-      case 'player_death':
-        return ev.reason === 'time'
-          ? `${this.playerName(ev.playerId)} morreu (tempo)`
-          : `${this.playerName(ev.playerId)} morreu`;
-      case 'monster_kill':
-        return `${this.playerName(ev.killerId)} derrotou um monstro`;
-      case 'loot_pickup':
-        return `${this.playerName(ev.playerId)} coletou loot (+1)`;
-      case 'coin_pickup':
-        return `${this.playerName(ev.playerId)} coletou moeda (+${ev.value || 1} gold)`;
-      case 'damage': {
-        // Zona/DoT contínuo: só números flutuantes (evita spam no painel)
-        if (!ev.fromHit && !ev.sourceId) return null;
-        let target = ev.targetName || (ev.isPlayer ? this.playerName(ev.targetId) : 'Monstro');
-        // Servidor às vezes manda o type (com _); mostra o rótulo legível
-        if (typeof target === 'string' && target.includes('_')) {
-          target = this.monsterLabel(target);
-        }
-        if (ev.sourceId) {
-          return `${this.playerName(ev.sourceId)} causou ${ev.amount} em ${target}`;
-        }
-        return `${target} recebeu ${ev.amount} de dano`;
-      }
-      case 'level_up':
-        return `${this.playerName(ev.playerId)} subiu para Lv ${ev.level}`;
-      case 'monster_level_up': {
-        const mon = this.state?.monsters?.find((m) => m.entityId === ev.monsterId);
-        const label = mon ? this.monsterLabel(mon.type) : 'Monstro';
-        return `${label} subiu para Lv ${ev.level}`;
-      }
-      case 'arena_shrink':
-        return 'A arena está encolhendo!';
-      case 'meteor_warn':
-        return 'Atenção: meteoro se aproxima!';
-      case 'meteor_strike':
-        return 'Um meteoro atingiu a arena!';
-      case 'mass_heal_warn':
-        return 'Atenção: bênção de cura se aproxima!';
-      case 'mass_heal_strike':
-        return 'Uma onda de cura varreu a arena!';
-      case 'cooldown_mist_warn':
-        return 'Atenção: névoa mística se aproxima!';
-      case 'cooldown_mist_strike':
-        return 'A névoa acelerou os cooldowns!';
-      case 'gale_warn':
-        return 'Atenção: ventania se forma!';
-      case 'gale_strike':
-        return 'Uma ventania varre a arena!';
-      case 'lever_spawn':
-        return 'Uma alavanca surgiu na arena!';
-      case 'lever_pull':
-        return `${this.playerName(ev.playerId)} puxou a alavanca!`;
-      case 'lever_expand':
-        return 'A arena segura cresceu!';
-      case 'cooldown_mist':
-      case 'heal':
-        return null;
-      case 'match_end': {
-        const r = ev.round ?? this.state?.round ?? 0;
-        return r > 0 ? `Partida encerrada — round ${r}` : 'Partida encerrada';
-      }
-      case 'player_left':
-        if (ev.playerId === this.playerId) return null;
-        return `${ev.name || 'Jogador'} saiu da partida`;
-      default:
-        return null;
-    }
   }
 
   spawnDamageNumber(x, y, amount, isSelf = false, isCrit = false) {
@@ -1589,8 +1469,6 @@ export class GameScene extends Phaser.Scene {
     }
     let roundEnded = false;
     for (const ev of state.events || []) {
-      const msg = this.formatGameEvent(ev);
-      if (msg) this.pushBoardEvent(msg);
       if (ev.type === 'damage') {
         const isSelf = ev.isPlayer && ev.targetId === this.playerId;
         this.spawnDamageNumber(ev.x, ev.y, ev.amount, isSelf, !!ev.crit);
@@ -5979,12 +5857,6 @@ export class GameScene extends Phaser.Scene {
 
     // Status recebidos + terreno (abaixo do mapa)
     const effects = [];
-    const eventCd = getArenaEventCooldownStatusEffect(
-      this.state?.arenaEventCooldown,
-      this.state?.arenaEventCooldownMax
-    );
-    if (eventCd) effects.push(eventCd);
-
     if (me.alive) {
       const floorEff = getFloorStatusEffect(this.state?.arena?.floorType);
       if (floorEff) effects.push(floorEff);
