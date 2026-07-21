@@ -158,7 +158,7 @@ export class HomeScene extends Phaser.Scene {
         spellId: link.spellId,
         monsterId: link.monsterId,
         floorId: link.floorId,
-        oreId: link.oreId,
+        itemId: link.itemId,
       });
     });
   }

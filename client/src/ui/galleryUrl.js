@@ -5,31 +5,33 @@
  *   ?gallery=monsters
  *   ?gallery=spells
  *   ?gallery=floors
- *   ?gallery=ores
+ *   ?gallery=items
  *   ?gallery=spells&spell=firebolt
  *   ?gallery=monsters&monster=goblin
  *   ?gallery=floors&floor=glacier
- *   ?gallery=ores&ore=copper_ore
+ *   ?gallery=items&item=copper_ore
  */
 
-const GALLERY_TABS = new Set(['monsters', 'spells', 'floors', 'ores']);
+const GALLERY_TABS = new Set(['monsters', 'spells', 'floors', 'items', 'ores']);
 
 export function parseGalleryUrl(search = window.location.search) {
   const params = new URLSearchParams(search);
   const gallery = String(params.get('gallery') || '').trim().toLowerCase();
+  const normalizedTab = gallery === 'ores' ? 'items' : gallery;
   if (!GALLERY_TABS.has(gallery)) return null;
 
   const spell = String(params.get('spell') || '').trim();
   const monster = String(params.get('monster') || '').trim();
   const floor = String(params.get('floor') || '').trim();
-  const ore = String(params.get('ore') || '').trim();
+  const item = String(params.get('item') || params.get('ore') || '').trim();
 
   return {
-    tab: gallery,
+    tab: normalizedTab,
     spellId: spell || null,
     monsterId: monster || null,
     floorId: floor || null,
-    oreId: ore || null,
+    itemId: item || null,
+    oreId: item || null,
   };
 }
 
@@ -38,43 +40,53 @@ export function buildGalleryUrl({
   spellId = null,
   monsterId = null,
   floorId = null,
+  itemId = null,
   oreId = null,
 } = {}) {
   const url = new URL(window.location.href);
+  const displayTab = tab === 'items' ? 'items' : tab;
+  const id = itemId || oreId;
+
   if (!tab) {
     url.searchParams.delete('gallery');
     url.searchParams.delete('spell');
     url.searchParams.delete('monster');
     url.searchParams.delete('floor');
+    url.searchParams.delete('item');
     url.searchParams.delete('ore');
     return url;
   }
 
-  url.searchParams.set('gallery', tab);
+  url.searchParams.set('gallery', displayTab);
   if (tab === 'spells' && spellId) {
     url.searchParams.set('spell', spellId);
     url.searchParams.delete('monster');
     url.searchParams.delete('floor');
+    url.searchParams.delete('item');
     url.searchParams.delete('ore');
   } else if (tab === 'monsters' && monsterId) {
     url.searchParams.set('monster', monsterId);
     url.searchParams.delete('spell');
     url.searchParams.delete('floor');
+    url.searchParams.delete('item');
     url.searchParams.delete('ore');
   } else if (tab === 'floors' && floorId) {
     url.searchParams.set('floor', floorId);
     url.searchParams.delete('spell');
     url.searchParams.delete('monster');
+    url.searchParams.delete('item');
     url.searchParams.delete('ore');
-  } else if (tab === 'ores' && oreId) {
-    url.searchParams.set('ore', oreId);
+  } else if (tab === 'items' && id) {
+    url.searchParams.set('item', id);
     url.searchParams.delete('spell');
     url.searchParams.delete('monster');
     url.searchParams.delete('floor');
+    url.searchParams.delete('ore');
   } else {
     url.searchParams.delete('spell');
     url.searchParams.delete('monster');
     url.searchParams.delete('floor');
+    url.searchParams.delete('item');
     url.searchParams.delete('ore');
   }
   return url;
@@ -97,8 +109,9 @@ export function galleryShareUrl({
   spellId = null,
   monsterId = null,
   floorId = null,
+  itemId = null,
   oreId = null,
 } = {}) {
-  const url = buildGalleryUrl({ tab, spellId, monsterId, floorId, oreId });
+  const url = buildGalleryUrl({ tab, spellId, monsterId, floorId, itemId, oreId });
   return url.toString();
 }

@@ -4,7 +4,8 @@ import {
   getMonsterEntries,
   getSpellEntries,
   getFloorEntries,
-  getOreEntries,
+  getItemEntries,
+  ITEM_CATEGORY_SECTIONS,
 } from '../catalog/galleryCatalog.js';
 import { spellElementIconKey } from '../catalog/spellElements.js';
 import {
@@ -74,7 +75,8 @@ export class GalleryModal {
     this.selectedMonsterId = null;
     this.selectedSpellId = null;
     this.selectedFloorId = null;
-    this.selectedOreId = null;
+    this.selectedItemId = null;
+    this.itemCategory = 'equipment';
     this._previewedTab = null;
     this._previewedId = null;
 
@@ -102,7 +104,7 @@ export class GalleryModal {
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
-    this.ores = getOreEntries();
+    this.items = getItemEntries();
     this.layout = null;
   }
 
@@ -161,7 +163,7 @@ export class GalleryModal {
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
-    this.ores = getOreEntries();
+    this.items = getItemEntries();
     this._applyDeepLinkState(options);
 
     const { width, height } = this.scene.scale;
@@ -199,7 +201,7 @@ export class GalleryModal {
     const tabs = [
       { id: 'monsters', label: `Monstros (${this.monsters.length})` },
       { id: 'spells', label: `Magias (${this.spells.length})` },
-      { id: 'ores', label: `Minérios (${this.ores.length})` },
+      { id: 'items', label: `Itens (${this.items.length})` },
       { id: 'floors', label: `Terrenos (${this.floors.length})` },
     ];
     let tabX = L.cx - 220;
@@ -331,7 +333,7 @@ export class GalleryModal {
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
-    this.ores = getOreEntries();
+    this.items = getItemEntries();
     this._applyDeepLinkState(options);
     if (!this.open) {
       this.show({ ...options, syncUrl: options.syncUrl });
@@ -342,10 +344,10 @@ export class GalleryModal {
   }
 
   _applyDeepLinkState(options = {}) {
-    if (options.tab === 'monsters' || options.tab === 'spells' || options.tab === 'floors' || options.tab === 'ores') {
-      this.tab = options.tab;
-    } else if (options.oreId) {
-      this.tab = 'ores';
+    if (options.tab === 'monsters' || options.tab === 'spells' || options.tab === 'floors' || options.tab === 'items' || options.tab === 'ores') {
+      this.tab = options.tab === 'ores' ? 'items' : options.tab;
+    } else if (options.itemId || options.oreId) {
+      this.tab = 'items';
     } else if (options.spellId) {
       this.tab = 'spells';
     } else if (options.monsterId) {
@@ -364,11 +366,13 @@ export class GalleryModal {
       }
     }
 
-    if (options.oreId) {
-      const ore = this.ores.find((o) => o.id === options.oreId);
-      if (ore) {
-        this.tab = 'ores';
-        this.selectedOreId = ore.id;
+    const itemId = options.itemId || options.oreId;
+    if (itemId) {
+      const item = this.items.find((i) => i.id === itemId);
+      if (item) {
+        this.tab = 'items';
+        this.itemCategory = item.category;
+        this.selectedItemId = item.id;
         this.searchQuery = '';
       }
     }
@@ -398,25 +402,25 @@ export class GalleryModal {
     const spellId = this.tab === 'spells' ? this.selectedSpellId : null;
     const monsterId = this.tab === 'monsters' ? this.selectedMonsterId : null;
     const floorId = this.tab === 'floors' ? this.selectedFloorId : null;
-    const oreId = this.tab === 'ores' ? this.selectedOreId : null;
-    syncGalleryUrl({ tab: this.tab, spellId, monsterId, floorId, oreId });
+    const itemId = this.tab === 'items' ? this.selectedItemId : null;
+    syncGalleryUrl({ tab: this.tab, spellId, monsterId, floorId, itemId });
   }
 
   async _copyCurrentLink() {
     const spellId = this.tab === 'spells' ? this.selectedSpellId : null;
     const monsterId = this.tab === 'monsters' ? this.selectedMonsterId : null;
     const floorId = this.tab === 'floors' ? this.selectedFloorId : null;
-    const oreId = this.tab === 'ores' ? this.selectedOreId : null;
+    const itemId = this.tab === 'items' ? this.selectedItemId : null;
     if (
       (this.tab === 'spells' && !spellId) ||
       (this.tab === 'monsters' && !monsterId) ||
       (this.tab === 'floors' && !floorId) ||
-      (this.tab === 'ores' && !oreId)
+      (this.tab === 'items' && !itemId)
     ) {
       this._setCopyFeedback('Selecione um item');
       return;
     }
-    const url = galleryShareUrl({ tab: this.tab, spellId, monsterId, floorId, oreId });
+    const url = galleryShareUrl({ tab: this.tab, spellId, monsterId, floorId, itemId });
     const ok = await this._writeClipboard(url);
     this._setCopyFeedback(ok ? 'Link copiado!' : 'Falha ao copiar');
   }
@@ -537,27 +541,27 @@ export class GalleryModal {
   }
 
   _selectDefaultForCurrentView() {
-    if (this.tab === 'ores') {
-      const filtered = this._filteredOres();
-      const keep = filtered.find((o) => o.id === this.selectedOreId);
+    if (this.tab === 'items') {
+      const filtered = this._filteredItems();
+      const keep = filtered.find((o) => o.id === this.selectedItemId);
       if (keep) {
-        const samePreview = this._previewedTab === 'ores' && this._previewedId === keep.id;
+        const samePreview = this._previewedTab === 'items' && this._previewedId === keep.id;
         if (samePreview) this._highlightListSelection();
-        else this._selectOre(keep.id, { syncUrl: false });
+        else this._selectItem(keep.id, { syncUrl: false });
         return;
       }
       const first = filtered[0];
       if (first) {
-        this._selectOre(first.id);
+        this._selectItem(first.id);
         return;
       }
-      this.selectedOreId = null;
+      this.selectedItemId = null;
       this._previewedId = null;
       this._previewedTab = null;
       this._clearPreview();
       if (this.infoTitle) this.infoTitle.setText('');
       this._setInfoElement(null);
-      if (this.infoBody) this.infoBody.setText('Nenhum minério encontrado.');
+      if (this.infoBody) this.infoBody.setText('Nenhum item encontrado.');
       return;
     }
 
@@ -669,12 +673,13 @@ export class GalleryModal {
     });
   }
 
-  _filteredOres() {
+  _filteredItems() {
     const q = this.searchQuery.trim().toLowerCase();
-    return this.ores.filter((o) => {
+    return this.items.filter((it) => {
+      if (it.category !== this.itemCategory) return false;
       if (!q) return true;
-      const name = (o.name || '').toLowerCase();
-      const id = (o.id || '').toLowerCase();
+      const name = (it.name || '').toLowerCase();
+      const id = (it.id || '').toLowerCase();
       return name.includes(q) || id.includes(q);
     });
   }
@@ -682,14 +687,14 @@ export class GalleryModal {
   _filterSections() {
     if (this.tab === 'monsters') return TIER_SECTIONS;
     if (this.tab === 'floors') return FLOOR_SECTIONS;
-    if (this.tab === 'ores') return [{ id: 'all', label: 'Todos', color: '#e8c84a' }];
+    if (this.tab === 'items') return ITEM_CATEGORY_SECTIONS;
     return SPELL_SECTIONS;
   }
 
   _activeFilterId() {
     if (this.tab === 'monsters') return this.monsterTier;
     if (this.tab === 'floors') return this.floorGroup;
-    if (this.tab === 'ores') return 'all';
+    if (this.tab === 'items') return this.itemCategory;
     return this.spellCategory;
   }
 
@@ -709,8 +714,8 @@ export class GalleryModal {
         ? 'Procurar monstro...'
         : this.tab === 'floors'
           ? 'Procurar terreno...'
-          : this.tab === 'ores'
-            ? 'Procurar minério...'
+          : this.tab === 'items'
+            ? 'Procurar item...'
             : 'Procurar magia...';
 
     const root = document.createElement('div');
@@ -752,7 +757,7 @@ export class GalleryModal {
         e.stopPropagation();
         if (this.tab === 'monsters') this._setMonsterTier(section.id);
         else if (this.tab === 'floors') this._setFloorGroup(section.id);
-        else if (this.tab === 'ores') { /* single category — noop */ }
+        else if (this.tab === 'items') this._setItemCategory(section.id);
         else this._setSpellCategory(section.id);
       });
       this.tierTabEls.push(btn);
@@ -824,8 +829,8 @@ export class GalleryModal {
         ? this.monsters.filter((m) => m.tier === section.id).length
         : this.tab === 'floors'
           ? this.floors.filter((f) => f.group === section.id).length
-          : this.tab === 'ores'
-            ? this.ores.length
+          : this.tab === 'items'
+            ? this.items.filter((it) => it.category === section.id).length
             : this.spells.filter((s) => s.category === section.id).length;
     return `${section.label} (${count})`;
   }
@@ -864,7 +869,7 @@ export class GalleryModal {
   _selectedIdForTab(tab) {
     if (tab === 'monsters') return this.selectedMonsterId;
     if (tab === 'floors') return this.selectedFloorId;
-    if (tab === 'ores') return this.selectedOreId;
+    if (tab === 'items') return this.selectedItemId;
     return this.selectedSpellId;
   }
 
@@ -891,20 +896,20 @@ export class GalleryModal {
       return;
     }
 
-    if (this.tab === 'ores') {
-      const group = this._filteredOres();
+    if (this.tab === 'items') {
+      const group = this._filteredItems();
       if (!group.length) {
         const empty = document.createElement('div');
         empty.style.cssText =
           'padding: 16px 12px; color: #7a6e96; font-size: 12px; text-align: center;';
         empty.textContent = this.searchQuery.trim()
-          ? 'Nenhum minério corresponde à procura.'
-          : 'Nenhum minério disponível.';
+          ? 'Nenhum item corresponde à procura.'
+          : 'Nenhum item disponível.';
         scroll.appendChild(empty);
         return;
       }
       for (const entry of group) {
-        scroll.appendChild(this._makeListRow(entry, 'ores'));
+        scroll.appendChild(this._makeListRow(entry, 'items'));
       }
       return;
     }
@@ -986,7 +991,7 @@ export class GalleryModal {
     if (tab === 'spells' && entry.elementLabel) {
       nameWrap.appendChild(this._elementBadgeEl(entry.elementCss, entry.elementLabel, true));
     }
-    if (tab === 'ores' && entry.color != null) {
+    if (tab === 'items' && entry.color != null) {
       const colorCss = `#${(entry.color >>> 0).toString(16).padStart(6, '0')}`;
       nameWrap.appendChild(this._elementBadgeEl(colorCss, '', true));
     }
@@ -1017,6 +1022,8 @@ export class GalleryModal {
       const atkLabel = document.createElement('span');
       atkLabel.textContent = entry.attackLabel;
       badge.appendChild(atkLabel);
+    } else if (tab === 'items') {
+      badge.textContent = entry.categoryLabel;
     } else {
       badge.textContent = entry.typeLabel;
     }
@@ -1037,6 +1044,20 @@ export class GalleryModal {
         'max-width: 100%',
       ].join(';');
       row.appendChild(elLine);
+    }
+
+    if (tab === 'items' && entry.set) {
+      const setLine = document.createElement('div');
+      setLine.textContent = entry.set;
+      setLine.style.cssText = [
+        'font-size: 10px',
+        'color: #7a6e96',
+        'overflow: hidden',
+        'text-overflow: ellipsis',
+        'white-space: nowrap',
+        'max-width: 100%',
+      ].join(';');
+      row.appendChild(setLine);
     }
 
     if (tab === 'monsters' && entry.spellDetails?.length) {
@@ -1131,7 +1152,7 @@ export class GalleryModal {
     row.addEventListener('click', () => {
       if (tab === 'monsters') this._selectMonster(entry.id);
       else if (tab === 'floors') this._selectFloor(entry.id);
-      else if (tab === 'ores') this._selectOre(entry.id);
+      else if (tab === 'items') this._selectItem(entry.id);
       else this._selectSpell(entry.id);
     });
     return row;
@@ -1332,47 +1353,58 @@ export class GalleryModal {
     if (syncUrl) this._syncUrl();
   }
 
-  _selectOre(id, { syncUrl = true } = {}) {
-    const entry = this.ores.find((o) => o.id === id);
+  _setItemCategory(category) {
+    if (this.itemCategory === category) return;
+    this.itemCategory = category;
+    this._syncFilterTabs();
+    this._fillListContent();
+    this._selectDefaultForCurrentView();
+    this._syncUrl();
+  }
+
+  _selectItem(id, { syncUrl = true } = {}) {
+    const entry = this.items.find((o) => o.id === id);
     if (!entry) return;
-    this.selectedOreId = id;
+    this.selectedItemId = id;
+    if (entry.category !== this.itemCategory) {
+      this.itemCategory = entry.category;
+      this._syncFilterTabs();
+      this._fillListContent();
+    }
     this._highlightListSelection();
 
+    const isEquipable = entry.category === 'equipment';
     const details = [
-      'Minério',
-      'Item de coleta (não equipável)',
+      `${entry.categoryLabel}${isEquipable ? ' (equipável)' : ' (não equipável)'}`,
     ];
 
-    if (this.infoTitle) this.infoTitle.setText(entry.name);
+    if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
     this._setInfoElement(null);
     if (this.infoBody) this.infoBody.setText(details.join('\n'));
-    this._previewedTab = 'ores';
+    this._previewedTab = 'items';
     this._previewedId = id;
-    this._playOrePreview(entry);
+    this._playItemPreview(entry);
     if (syncUrl) this._syncUrl();
   }
 
-  _playOrePreview(entry) {
+  _playItemPreview(entry) {
     this._clearPreview();
     if (!this.previewRoot || !entry) return;
 
-    const texKey = entry.textureKey || 'ore_copper';
-    const hasTex = this.scene.textures.exists(texKey);
+    const color = Number.isFinite(entry.color) ? entry.color >>> 0 : 0xffffff;
+    const circle = this.scene.add.circle(0, 0, 48, color, 1);
+    this.previewRoot.add(circle);
+    this.previewSprites.push(circle);
 
-    if (hasTex) {
-      const sprite = this.scene.add
-        .image(0, 0, texKey)
-        .setOrigin(0.5)
-        .setScale(4)
-        .setDepth(1);
-      this.previewRoot.add(sprite);
-      this.previewSprites.push(sprite);
-    } else {
-      const color = Number.isFinite(entry.color) ? entry.color >>> 0 : 0xffffff;
-      const circle = this.scene.add.circle(0, 0, 48, color, 1);
-      this.previewRoot.add(circle);
-      this.previewSprites.push(circle);
-    }
+    const label = this.scene.add
+      .text(0, 62, entry.categoryLabel, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        color: '#9a8bb8',
+      })
+      .setOrigin(0.5);
+    this.previewRoot.add(label);
+    this.previewSprites.push(label);
   }
 
   _playFloorPreview(entry) {

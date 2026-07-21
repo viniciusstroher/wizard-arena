@@ -141,6 +141,23 @@ function drawBoots(ctx, color) {
   ctx.fillRect(16, 12, 3, 14);
 }
 
+function drawOther(ctx, color) {
+  fill(ctx, 0x2a2250);
+  ctx.fillRect(12, 16, 24, 24);
+  fill(ctx, color);
+  ctx.fillRect(14, 18, 20, 20);
+  fill(ctx, 0xffffff, 0.3);
+  ctx.fillRect(16, 20, 8, 8);
+  fill(ctx, 0x1a1430, 0.5);
+  ctx.fillRect(12, 22, 24, 2);
+  ctx.beginPath();
+  ctx.moveTo(20, 12);
+  ctx.lineTo(28, 12);
+  ctx.lineTo(24, 16);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawOre(ctx, color) {
   // Rocha base
   fill(ctx, 0x554433);
@@ -191,6 +208,7 @@ const DRAWER_BY_SLOT = {
   necklace: drawNecklace,
   boots: drawBoots,
   ore: drawOre,
+  other: drawOther,
 };
 
 export function itemIconKey(itemId) {

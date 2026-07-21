@@ -12,6 +12,7 @@ import {
   BAG_SIZE,
   EQUIP_SLOTS,
   equipFromBag,
+  isEquippable,
   itemTooltipLines,
   normalizeInventory,
   unequipToBag,
@@ -516,14 +517,28 @@ export class CharacterScene extends Phaser.Scene {
         .setDepth(depth + 1)
         .setVisible(false);
 
+      const qtyText = this.add
+        .text(x + 12, y + 9, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '11px',
+          color: '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(1, 0.5)
+        .setDepth(depth + 2)
+        .setVisible(false);
+
       frame.on('pointerup', () => this.onBagSlotClick(i));
       frame.on('pointerover', (pointer) => {
-        const item = this.inventory.bag[i];
+        const stack = this.inventory.bag[i];
+        const item = stack?.item || null;
         frame.setStrokeStyle(1, item ? 0x8b7cff : 0x5a4e88, 1);
         if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
       });
       frame.on('pointermove', (pointer) => {
-        const item = this.inventory.bag[i];
+        const stack = this.inventory.bag[i];
+        const item = stack?.item || null;
         if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
       });
       frame.on('pointerout', () => {
@@ -531,8 +546,8 @@ export class CharacterScene extends Phaser.Scene {
         this.hideItemTooltip();
       });
 
-      this.bagSlotViews.push({ frame, icon });
-      this.trackInv(frame, icon);
+      this.bagSlotViews.push({ frame, icon, qtyText });
+      this.trackInv(frame, icon, qtyText);
     }
 
     this.refreshAllBagSlots();
@@ -563,20 +578,26 @@ export class CharacterScene extends Phaser.Scene {
   refreshBagSlot(index) {
     const view = this.bagSlotViews[index];
     if (!view) return;
-    const item = this.inventory.bag[index];
-    if (item) {
+    const stack = this.inventory.bag[index];
+    if (stack && stack.item) {
       view.frame.setStrokeStyle(1, 0x6b5cff, 0.95);
       view.frame.setFillStyle(0x1e1840, 0.95);
-      const keyTex = itemIconKey(item.id);
+      const keyTex = itemIconKey(stack.item.id);
       if (this.textures.exists(keyTex)) {
         view.icon.setTexture(keyTex).setDisplaySize(26, 26).setVisible(true);
       } else {
         view.icon.setVisible(false);
       }
+      if (stack.qty > 1 && view.qtyText) {
+        view.qtyText.setText(String(stack.qty)).setVisible(true);
+      } else if (view.qtyText) {
+        view.qtyText.setVisible(false);
+      }
     } else {
       view.frame.setStrokeStyle(1, 0x3a2f66, 0.9);
       view.frame.setFillStyle(0x12101c, 0.92);
       view.icon.setVisible(false);
+      if (view.qtyText) view.qtyText.setVisible(false);
     }
   }
 
@@ -600,6 +621,16 @@ export class CharacterScene extends Phaser.Scene {
 
   onBagSlotClick(index) {
     if (this.activeTab !== TAB_INVENTORY) return;
+    const stack = this.inventory.bag[index];
+    if (!stack || !stack.item) {
+      this.equipClickKey = null;
+      return;
+    }
+    if (!isEquippable(stack.item)) {
+      this.invHintText?.setText('Este item não pode ser equipado.').setColor('#ff6b6b');
+      this.time.delayedCall(1800, () => this.resetInvHint());
+      return;
+    }
     const result = equipFromBag(this.inventory, index);
     if (!result.ok) {
       this.invHintText?.setText(result.error).setColor('#ff6b6b');

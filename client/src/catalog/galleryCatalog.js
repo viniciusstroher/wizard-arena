@@ -14,7 +14,7 @@ import {
   FLOOR_META,
   floorDescription,
 } from './statusEffects.js';
-import { ITEM_DEFS } from '../inventory.js';
+import { ITEM_DEFS, CATEGORY_LABELS } from '../inventory.js';
 
 /** Grupos temáticos da galeria de terrenos. */
 const FLOOR_GROUP_OF = {
@@ -449,17 +449,31 @@ export function floorDisplayName(id) {
   return FLOOR_META[id]?.name || id;
 }
 
-/** Catálogo de minérios para a galeria. */
-export function getOreEntries() {
-  const ores = [];
+/** Catálogo de itens para a galeria. */
+export function getItemEntries() {
+  const items = [];
   for (const def of Object.values(ITEM_DEFS)) {
-    if (def.slot !== 'ore') continue;
-    ores.push({
+    items.push({
       id: def.id,
       name: def.name,
+      category: def.category,
+      categoryLabel: CATEGORY_LABELS[def.category] || def.category,
+      slot: def.slot,
       color: def.color,
-      textureKey: `ore_${def.id.replace('_ore', '')}`,
+      set: def.set || null,
+      bonus: def.bonus || null,
     });
   }
-  return ores.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+  return items.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
+}
+
+export const ITEM_CATEGORY_SECTIONS = [
+  { id: 'equipment', label: 'Equip.', color: '#8b7cff' },
+  { id: 'ore', label: 'Minérios', color: '#e8c84a' },
+  { id: 'other', label: 'Outros', color: '#5dade2' },
+];
+
+/** @deprecated Use getItemEntries. */
+export function getOreEntries() {
+  return getItemEntries().filter((i) => i.category === 'ore');
 }
