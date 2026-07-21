@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ensureCharacter } from '../character.js';
+import { equipmentBonusesFromInventory } from '../inventory.js';
 import { getSocket } from '../net/socket.js';
 import { navigate } from '../router.js';
 import { MessageBoard } from '../ui/MessageBoard.js';
@@ -552,12 +553,14 @@ export class LobbyScene extends Phaser.Scene {
 
   joinLobby() {
     if (!this.matchId) return;
+    const bonuses = equipmentBonusesFromInventory(this.character.inventory);
     const payload = {
       matchId: this.matchId,
       characterId: this.character.id,
       name: this.character.name,
       color: this.character.color,
       skin: this.character.skin,
+      cooldownReduction: bonuses.cooldownReduction,
     };
     if (this.joinPassword) payload.password = this.joinPassword;
     this.socket.emit('join_lobby', payload);

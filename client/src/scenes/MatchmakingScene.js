@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ensureCharacter } from '../character.js';
+import { equipmentBonusesFromInventory } from '../inventory.js';
 import { getSocket } from '../net/socket.js';
 import { navigate } from '../router.js';
 import { ensureMenuMusic } from '../audio/menuMusic.js';
@@ -352,11 +353,13 @@ export class MatchmakingScene extends Phaser.Scene {
       : 30;
     this.maxRounds = maxRounds;
     this.roundDuration = roundDuration;
+    const bonuses = equipmentBonusesFromInventory(this.character.inventory);
     this.socket.emit('create_lobby', {
       characterId: this.character.id,
       name: this.character.name,
       color: this.character.color,
       skin: this.character.skin,
+      cooldownReduction: bonuses.cooldownReduction,
       maxPlayers: this.maxPlayers,
       password: password || null,
       pvpEnabled,

@@ -213,11 +213,16 @@ function normalizeCharacterId(value) {
 
 function appearanceFromPayload(payload = {}) {
   const color = Number(payload.color);
+  const cooldownReduction = Number(payload.cooldownReduction);
   return {
     name: payload.name,
     color: Number.isFinite(color) ? color >>> 0 : undefined,
     skin: normalizeSkin(payload.skin),
     characterId: normalizeCharacterId(payload.characterId),
+    cooldownReduction:
+      Number.isFinite(cooldownReduction) && cooldownReduction > 0
+        ? Math.min(0.95, cooldownReduction)
+        : 0,
   };
 }
 
@@ -294,6 +299,7 @@ io.on('connection', (socket) => {
       color: appearance.color,
       skin: appearance.skin,
       characterId: appearance.characterId,
+      cooldownReduction: appearance.cooldownReduction,
       skipPassword: true,
     });
     if (!result.ok) {
@@ -360,6 +366,7 @@ io.on('connection', (socket) => {
       color: appearance.color,
       skin: appearance.skin,
       characterId: appearance.characterId,
+      cooldownReduction: appearance.cooldownReduction,
       password: payload.password,
     });
     if (!result.ok) {

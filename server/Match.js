@@ -48,6 +48,15 @@ function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+/** Reduz cooldown de magias conforme bônus de equipamento (ex.: túnica -1%). */
+function effectiveSpellCooldown(baseCd, player) {
+  const base = Number(baseCd);
+  if (!Number.isFinite(base) || base <= 0) return baseCd;
+  const red = player?.cooldownReduction || 0;
+  if (red <= 0) return base;
+  return Math.max(0.2, +(base * (1 - red)).toFixed(2));
+}
+
 /** Aproxima vx/vy da velocidade alvo com inércia configurável (segundos). */
 function applyInertia(entity, targetVx, targetVy, inertia, dt) {
   if (inertia <= 0) {
@@ -833,6 +842,10 @@ export class Match {
       skin: wizard.skin || 'classic',
       zoneDmgAcc: 0,
       score: 0,
+      cooldownReduction: Math.min(
+        0.95,
+        Math.max(0, Number(appearance.cooldownReduction) || 0)
+      ),
     };
   }
 
@@ -868,6 +881,7 @@ export class Match {
       color: opts.color,
       skin: opts.skin,
       characterId,
+      cooldownReduction: opts.cooldownReduction,
     });
     this.players.set(socket.id, player);
     socket.join(this.id);
@@ -4286,7 +4300,9 @@ export class Match {
     this.announceNonProjectileCast(player, spellInst.id, true);
 
     spellInst.cooldownLeft =
-      spellInst.type === 'ultimate' ? CONFIG.PLAYER_ULTIMATE_COOLDOWN : stats.cooldown;
+      spellInst.type === 'ultimate'
+        ? effectiveSpellCooldown(CONFIG.PLAYER_ULTIMATE_COOLDOWN, player)
+        : effectiveSpellCooldown(stats.cooldown, player);
     player.input.castSlot = -1;
   }
 

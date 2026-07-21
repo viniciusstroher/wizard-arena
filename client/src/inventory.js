@@ -4,15 +4,14 @@ export const BAG_COLS = 12;
 export const BAG_ROWS = 12;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
-/** v2: kit inicial já vem equipado. */
-export const STARTER_KIT_VERSION = 2;
+/** v3: anéis substituídos por túnica com bônus de cooldown. */
+export const STARTER_KIT_VERSION = 3;
 
 /** Slots de equipamento. */
 export const EQUIP_SLOTS = [
   { key: 'hat', label: 'Chapéu', accepts: 'hat' },
   { key: 'necklace', label: 'Colar', accepts: 'necklace' },
-  { key: 'ring1', label: 'Anel', accepts: 'ring' },
-  { key: 'ring2', label: 'Anel', accepts: 'ring' },
+  { key: 'tunic', label: 'Túnica', accepts: 'tunic' },
   { key: 'cape', label: 'Capa', accepts: 'cape' },
   { key: 'boots', label: 'Botas', accepts: 'boots' },
 ];
@@ -22,8 +21,8 @@ export const SET_LABELS = {
 };
 
 /**
- * Itens iniciais — sem bônus.
- * Conjunto de pano = chapéu + capa.
+ * Itens iniciais.
+ * Conjunto de pano = chapéu + capa + túnica.
  */
 export const ITEM_DEFS = {
   cloth_hat: {
@@ -40,17 +39,13 @@ export const ITEM_DEFS = {
     color: 0xb8a88a,
     set: 'conjunto_de_pano',
   },
-  plastic_ring_1: {
-    id: 'plastic_ring_1',
-    name: 'Anel de Plástico',
-    slot: 'ring',
-    color: 0x7ec8e3,
-  },
-  plastic_ring_2: {
-    id: 'plastic_ring_2',
-    name: 'Anel de Plástico',
-    slot: 'ring',
-    color: 0x5eb4d6,
+  cloth_tunic: {
+    id: 'cloth_tunic',
+    name: 'Túnica de Pano',
+    slot: 'tunic',
+    color: 0xa89878,
+    set: 'conjunto_de_pano',
+    bonus: { cooldownReduction: 0.01 },
   },
   brass_necklace: {
     id: 'brass_necklace',
@@ -70,8 +65,7 @@ export const ITEM_DEFS = {
 const STARTER_EQUIP_PLAN = [
   { key: 'hat', id: 'cloth_hat' },
   { key: 'cape', id: 'cloth_cape' },
-  { key: 'ring1', id: 'plastic_ring_1' },
-  { key: 'ring2', id: 'plastic_ring_2' },
+  { key: 'tunic', id: 'cloth_tunic' },
   { key: 'necklace', id: 'brass_necklace' },
   { key: 'boots', id: 'holey_boots' },
 ];
@@ -94,6 +88,15 @@ function emptyBag() {
   return Array.from({ length: BAG_SIZE }, () => null);
 }
 
+function copyBonus(bonus) {
+  if (!bonus || typeof bonus !== 'object') return null;
+  const out = {};
+  if (Number.isFinite(bonus.cooldownReduction)) {
+    out.cooldownReduction = bonus.cooldownReduction;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function createItem(defId) {
   const def = ITEM_DEFS[defId];
   if (!def) return null;
@@ -103,7 +106,7 @@ export function createItem(defId) {
     slot: def.slot,
     color: def.color >>> 0,
     set: def.set || null,
-    bonus: null,
+    bonus: copyBonus(def.bonus),
   };
 }
 
@@ -114,13 +117,19 @@ export function itemTooltipLines(item) {
   if (item.set && SET_LABELS[item.set]) {
     lines.push(SET_LABELS[item.set]);
   }
-  lines.push('Sem bônus');
+  if (item.bonus?.cooldownReduction) {
+    const pct = Math.round(item.bonus.cooldownReduction * 100);
+    lines.push(`Cooldown das magias: -${pct}%`);
+  } else {
+    lines.push('Sem bônus');
+  }
   return lines;
 }
 
 function normalizeItem(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const id = String(raw.id || '').trim();
+  let id = String(raw.id || '').trim();
+  if (id === 'plastic_ring_1' || id === 'plastic_ring_2') id = 'cloth_tunic';
   const def = ITEM_DEFS[id];
   if (def) {
     return {
@@ -129,7 +138,7 @@ function normalizeItem(raw) {
       slot: def.slot,
       color: def.color >>> 0,
       set: def.set || null,
-      bonus: null,
+      bonus: copyBonus(def.bonus),
     };
   }
   const name = String(raw.name || '').trim().slice(0, 24);
@@ -142,7 +151,7 @@ function normalizeItem(raw) {
     slot,
     color: Number.isFinite(color) ? color >>> 0 : 0x6b5cff,
     set: raw.set ? String(raw.set) : null,
-    bonus: null,
+    bonus: copyBonus(raw.bonus),
   };
 }
 
@@ -238,6 +247,40 @@ export function defaultInventory() {
   });
 }
 
+function migrateLegacyRings(rawEquipment, inv) {
+  if (!rawEquipment || typeof rawEquipment !== 'object') return;
+  const hadRing =
+    rawEquipment.ring1 != null ||
+    rawEquipment.ring2 != null;
+  if (!hadRing) return;
+
+  if (!inv.equipment.tunic) {
+    inv.equipment.tunic = createItem('cloth_tunic');
+  }
+
+  for (const key of ['ring1', 'ring2']) {
+    const item = normalizeItem(rawEquipment[key]);
+    if (!item || item.id === 'cloth_tunic') continue;
+    const idx = firstEmptyBagIndex(inv.bag);
+    if (idx < 0) continue;
+    inv.bag[idx] = item;
+  }
+}
+
+/** Bônus agregados do equipamento (para enviar ao servidor). */
+export function equipmentBonusesFromInventory(inventory) {
+  const inv = normalizeInventory(inventory);
+  let cooldownReduction = 0;
+  for (const key of EQUIP_KEYS) {
+    const item = inv.equipment[key];
+    const red = item?.bonus?.cooldownReduction;
+    if (Number.isFinite(red) && red > 0) cooldownReduction += red;
+  }
+  return {
+    cooldownReduction: Math.min(0.95, Math.max(0, cooldownReduction)),
+  };
+}
+
 export function normalizeInventory(raw) {
   if (!raw || typeof raw !== 'object') return defaultInventory();
 
@@ -248,6 +291,8 @@ export function normalizeInventory(raw) {
     loot: Math.max(0, Math.floor(Number(raw.loot) || 0)),
     starterKit: Math.max(0, Math.floor(Number(raw.starterKit) || 0)),
   };
+
+  migrateLegacyRings(raw.equipment, inv);
 
   if (inv.starterKit < STARTER_KIT_VERSION) {
     return grantStarterKit(inv);
