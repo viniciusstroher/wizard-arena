@@ -1075,6 +1075,11 @@ export class Match {
   /** Sorteia (1x) se a boss fight deve ocorrer após o round, segundo BOSS_FIGHT_CHANCE. */
   rollBossAppear(round) {
     if (this.bossAppearRolls.has(round)) return this.bossAppearRolls.get(round) === true;
+    const minRound = Math.max(1, Math.floor(Number(CONFIG.BOSS_FIGHT_MIN_ROUND) || 50));
+    if (Math.floor(Number(round)) < minRound) {
+      this.bossAppearRolls.set(round, false);
+      return false;
+    }
     const chance = Math.min(1, Math.max(0, Number(CONFIG.BOSS_FIGHT_CHANCE) || 0));
     const ok = Math.random() < chance;
     this.bossAppearRolls.set(round, ok);
@@ -1087,6 +1092,8 @@ export class Match {
     if (this.clearedBossFights.has(round)) return false;
     const r = Math.floor(Number(round));
     if (r < 1) return false;
+    const minRound = Math.max(1, Math.floor(Number(CONFIG.BOSS_FIGHT_MIN_ROUND) || 50));
+    if (r < minRound) return false;
     return this.rollBossAppear(r);
   }
 

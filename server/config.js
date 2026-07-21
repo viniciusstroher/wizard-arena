@@ -127,8 +127,10 @@ const ARENA_START_RADIUS = envInt('ARENA_START_RADIUS', 320, ARENA_MIN_RADIUS);
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
 const ARENA_SHRINK_AMOUNT = (ARENA_START_RADIUS - ARENA_MIN_RADIUS) / ARENA_SHRINK_TIMES;
 const ROUND_DURATION = envInt('ROUND_DURATION', 15);
-/** Chance (0–1) de boss fight após cada round normal. */
-const BOSS_FIGHT_CHANCE = Math.min(1, Math.max(0, envNumber('BOSS_FIGHT_CHANCE', 0.25)));
+/** Round mínimo para sortear boss fight após um round normal. */
+const BOSS_FIGHT_MIN_ROUND = Math.max(1, envInt('BOSS_FIGHT_MIN_ROUND', 50));
+/** Chance (0–1) de boss fight após cada round normal (a partir de BOSS_FIGHT_MIN_ROUND). */
+const BOSS_FIGHT_CHANCE = Math.min(1, Math.max(0, envNumber('BOSS_FIGHT_CHANCE', 0.1)));
 /** Escala de dificuldade por round (round 2+). */
 const ROUND_MOB_HP_STEP = Math.max(0, envNumber('ROUND_MOB_HP_STEP', 0.08));
 const ROUND_MOB_DMG_STEP = Math.max(0, envNumber('ROUND_MOB_DMG_STEP', 0.06));
@@ -435,7 +437,9 @@ export const CONFIG = {
   MONSTER_WEIGHT_ELITE: Math.max(0.5, +(BASE_ELITE_WEIGHT * DIFF.eliteWeight).toFixed(2)),
   /** Peso relativo entre bosses ao sortear qual aparece no round de boss. */
   MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
-  /** Chance (0–1) de boss fight após cada round normal. */
+  /** Round mínimo para sortear boss fight após um round normal. */
+  BOSS_FIGHT_MIN_ROUND,
+  /** Chance (0–1) de boss fight após cada round normal (a partir de BOSS_FIGHT_MIN_ROUND). */
   BOSS_FIGHT_CHANCE,
   /** +HP por round após o 1º (ex.: 0.08 = +8% por round). */
   ROUND_MOB_HP_STEP,
