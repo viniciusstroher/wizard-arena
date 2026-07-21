@@ -355,6 +355,15 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(102);
 
+    this.roundHudText = this.add
+      .text(56, 16, '· Round 1', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#a99bc8',
+      })
+      .setScrollFactor(0)
+      .setDepth(102);
+
     this.hpBarBg = this.add.rectangle(20, 20, 220, 18, 0x221833).setOrigin(0, 0).setScrollFactor(0).setDepth(100);
     this.hpBar = this.add.rectangle(20, 20, 220, 18, 0xe74c3c).setOrigin(0, 0).setScrollFactor(0).setDepth(101);
     this.hpText = this.add
@@ -5902,9 +5911,20 @@ export class GameScene extends Phaser.Scene {
     let y = 18;
 
     const pvpOn = this.state?.pvpEnabled !== false;
+    const bossRound = !!this.state.bossRound || !!this.state.pendingBossFight;
+    const displayRound =
+      this.state.phase === 'countdown' && !bossRound
+        ? Math.max(1, (this.state.round || 0) + 1)
+        : this.state.round || 1;
     this.modeText.setPosition(PAD_X + 4, y);
     this.modeText.setText(pvpOn ? 'PVP' : 'PVE');
     this.modeText.setColor(pvpOn ? '#ff6b6b' : '#6bffb0');
+    this.roundHudText.setPosition(PAD_X + 4 + this.modeText.width + 8, y);
+    this.roundHudText.setText(
+      bossRound && this.state.phase !== 'countdown'
+        ? `· Round ${displayRound} · BOSS`
+        : `· Round ${displayRound}`
+    );
     y += 20;
 
     const hpRatio = me.alive ? me.hp / me.maxHp : 0;
@@ -6010,6 +6030,7 @@ export class GameScene extends Phaser.Scene {
 
     const contentRight = Math.max(
       PAD_X + BAR_W,
+      this.roundHudText.x + this.roundHudText.width,
       this.scoreText.x + this.scoreText.width,
       this.goldText.x + this.goldText.width,
       this.mapText.x + this.mapText.width
@@ -6020,7 +6041,6 @@ export class GameScene extends Phaser.Scene {
     this.hudPanel.setSize(panelW, panelH);
     this.hudPanel.setStrokeStyle(2, 0x6b5cff);
 
-    const bossRound = !!this.state.bossRound || !!this.state.pendingBossFight;
     if (bossRound && this.state.phase === 'playing') {
       this.timerText.setText('BOSS');
     } else if (bossRound && (this.state.phase === 'countdown' || this.state.phase === 'intermission')) {
@@ -6032,10 +6052,6 @@ export class GameScene extends Phaser.Scene {
       const s = Math.floor(remain % 60);
       this.timerText.setText(`${m}:${String(s).padStart(2, '0')}`);
     }
-    const displayRound =
-      this.state.phase === 'countdown' && !bossRound
-        ? Math.max(1, (this.state.round || 0) + 1)
-        : this.state.round || 1;
     const shrinksDone = this.state.arena?.shrinksDone ?? 0;
     const shrinkTimes = this.state.arena?.shrinkTimes ?? 0;
     let zoneLabel = 'posicionando';
