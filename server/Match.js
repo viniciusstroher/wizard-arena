@@ -2060,8 +2060,7 @@ export class Match {
     const next = this.afterLevelUp;
     this.afterLevelUp = null;
     if (next?.type === 'intermission') {
-      this.phase = 'intermission';
-      this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
+      this.beginRoundAfterIntermission();
       return;
     }
     if (next?.type === 'endMatch') {
@@ -2514,15 +2513,15 @@ export class Match {
 
     // Round normal com config de boss → boss fight em seguida (mesmo no último round).
     if (!wasBossRound && this.needsBossFightAfterRound(this.round)) {
+      this.broadcastState(true);
       this.queueBossFight();
       return;
     }
 
     this.pendingBossFight = false;
 
-    this.phase = 'intermission';
-    this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
     this.broadcastState(true);
+    this.beginRoundAfterIntermission();
   }
 
   /** Jogador com maior placar (desempate: kills, menos deaths, depois nível). */

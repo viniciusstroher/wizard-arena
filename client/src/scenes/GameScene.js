@@ -101,6 +101,9 @@ export class GameScene extends Phaser.Scene {
     this.roundSpotlightHole = null;
     this.roundSpotlightRim = null;
     this.roundSpotlightMask = null;
+    /** Tipo de chão já exibido (para crossfade entre rounds). */
+    this.displayedFloorType = null;
+    this.floorTransition = null;
   }
 
   create() {
@@ -116,7 +119,13 @@ export class GameScene extends Phaser.Scene {
 
     this.arenaFloor = this.add.tileSprite(640, 360, 640, 640, 'arena_brick').setDepth(0);
     this.arenaMaskGfx = this.make.graphics({ x: 0, y: 0, add: false });
-    this.arenaFloor.setMask(this.arenaMaskGfx.createGeometryMask());
+    this.arenaFloorMask = this.arenaMaskGfx.createGeometryMask();
+    this.arenaFloor.setMask(this.arenaFloorMask);
+    this.arenaFloorNext = this.add
+      .tileSprite(640, 360, 640, 640, 'arena_brick')
+      .setDepth(0)
+      .setAlpha(0);
+    this.arenaFloorNext.setMask(this.arenaFloorMask);
 
     this.arenaGraphics = this.add.graphics().setDepth(1);
     // Acima do chão/rochas, abaixo dos jogadores — AoEs (veneno/fogo) bem visíveis
@@ -1627,28 +1636,30 @@ export class GameScene extends Phaser.Scene {
         this.playRoundStartSound();
         this.clearFloorDebris();
         this.syncBattleMusic();
-        this.beginRoundSpotlightReveal();
+        const newFloor = state.arena?.floorType;
+        if (newFloor && this.displayedFloorType && newFloor !== this.displayedFloorType) {
+          this.beginArenaFloorTransition(this.displayedFloorType, newFloor, ev.round);
+        } else if (newFloor && !this.displayedFloorType) {
+          this.displayedFloorType = newFloor;
+        }
+        if (ev.round === 1 && prevPhase === 'countdown') {
+          this.beginRoundSpotlightReveal();
+        }
         if (ev.bossRound) this.showBossFightAlert();
       }
       if (ev.type === 'round_win') {
         roundEnded = true;
       }
     }
-    // Som do fim do round: no evento round_win, ou ao ir direto a intermission (sem level-up).
-    // levelup → intermission é só a liberação pós-habilidades; o som já tocou no round_win.
-    if (state.phase === 'intermission' && prevPhase === 'playing') {
-      roundEnded = true;
-    }
+    // Som do fim do round: no evento round_win.
     if (roundEnded) {
       this.playRoundEndSound();
     }
-    if (state.phase === 'countdown' && prevPhase !== 'countdown') {
+    if (state.phase === 'countdown' && prevPhase === 'lobby') {
       this.beginRoundSpotlight();
-      if (prevPhase && prevPhase !== 'lobby') {
-        this.clearFloorDebris();
-      }
     } else if (
       state.phase === 'countdown' &&
+      !prevPhase &&
       this.roundSpotlight &&
       !this.roundSpotlight.active &&
       this.roundSpotlight.mode === 'idle'
@@ -1782,6 +1793,7 @@ export class GameScene extends Phaser.Scene {
     this.renderLootBags();
     this.renderCoins();
     this.updateRoundSpotlight();
+    this.updateFloorTransition();
     this.updateSpellCastLabels();
     this.updateHud();
     this.updateLevelUpUi();
@@ -2880,6 +2892,132 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  floorTextureKey(floorType) {
+    const floorTextures = {
+      grass: 'arena_grass',
+      ice: 'arena_ice',
+      wood: 'arena_wood',
+      sea: 'arena_sea',
+      desert: 'arena_desert',
+      swamp: 'arena_swamp',
+      volcano: 'arena_volcano',
+      ruins: 'arena_ruins',
+      crystal: 'arena_crystal',
+      snow: 'arena_snow',
+      tundra: 'arena_tundra',
+      cave: 'arena_cave',
+      dungeon: 'arena_dungeon',
+      graveyard: 'arena_graveyard',
+      hell: 'arena_hell',
+      sky: 'arena_sky',
+      mushroom: 'arena_mushroom',
+      jungle: 'arena_jungle',
+      mountain: 'arena_mountain',
+      beach: 'arena_beach',
+      coral: 'arena_coral',
+      ashland: 'arena_ashland',
+      enchanted: 'arena_enchanted',
+      blood: 'arena_blood',
+      shadow: 'arena_shadow',
+      temple: 'arena_temple',
+      sewer: 'arena_sewer',
+      meadow: 'arena_meadow',
+      lava_field: 'arena_lava_field',
+      glacier: 'arena_glacier',
+      oasis: 'arena_oasis',
+      canyon: 'arena_canyon',
+      marsh: 'arena_marsh',
+      aurora: 'arena_aurora',
+      obsidian: 'arena_obsidian',
+      sandstone: 'arena_sandstone',
+      storm: 'arena_storm',
+      garden: 'arena_garden',
+      battlefield: 'arena_battlefield',
+      library: 'arena_library',
+      catacomb: 'arena_catacomb',
+      abyss: 'arena_abyss',
+      bramble: 'arena_bramble',
+      saltflat: 'arena_saltflat',
+      crystal_cave: 'arena_crystal_cave',
+      bat_cave: 'arena_bat_cave',
+      vampire_castle: 'arena_vampire_castle',
+      throne_hall: 'arena_throne_hall',
+      crypt: 'arena_crypt',
+      dirt: 'arena_brick',
+    };
+    return floorTextures[floorType] || 'arena_brick';
+  }
+
+  beginArenaFloorTransition(fromType, toType, round = null) {
+    const toKey = this.floorTextureKey(toType);
+    if (!this.textures.exists(toKey) || !this.arenaFloorNext) return;
+
+    this.floorTransition = {
+      active: true,
+      fromType,
+      toType,
+      startedAt: this.time.now,
+      duration: 1200,
+    };
+
+    this.arenaFloorNext.setTexture(toKey);
+    this.arenaFloorNext.setAlpha(0);
+    this.arenaFloorNext.tilePositionX = 0;
+    this.arenaFloorNext.tilePositionY = 0;
+
+    const mapName = this.arenaMapName(toType);
+    const roundLine = round != null ? `Round ${round}\n` : '';
+    this.bannerText.setText(`${roundLine}Mapa ${mapName}`);
+    this.bannerText.setAlpha(1);
+
+    this.tweens.killTweensOf(this.mapText);
+    this.mapText.setColor('#c4b5ff');
+    this.tweens.add({
+      targets: this.mapText,
+      scale: 1.08,
+      duration: 180,
+      yoyo: true,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        this.mapText.setScale(1);
+        this.mapText.setColor('#a99bc8');
+      },
+    });
+
+    this.tweens.killTweensOf(this.arenaGraphics);
+    this.tweens.add({
+      targets: this.arenaGraphics,
+      alpha: { from: 1, to: 0.55 },
+      duration: 120,
+      yoyo: true,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  updateFloorTransition() {
+    const tr = this.floorTransition;
+    if (!tr?.active || !this.arenaFloorNext) return;
+
+    const p = Phaser.Math.Clamp((this.time.now - tr.startedAt) / tr.duration, 0, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    this.arenaFloor.setAlpha(1 - ease);
+    this.arenaFloorNext.setAlpha(ease);
+    this.arenaFloorNext.tilePositionX = ease * 56;
+    this.arenaFloorNext.tilePositionY = ease * 28;
+
+    if (p >= 1) {
+      const key = this.floorTextureKey(tr.toType);
+      this.arenaFloor.setTexture(key).setAlpha(1);
+      this.arenaFloor.tilePositionX = this.arenaFloorNext.tilePositionX;
+      this.arenaFloor.tilePositionY = this.arenaFloorNext.tilePositionY;
+      this.arenaFloorNext.setAlpha(0);
+      this.arenaFloorNext.tilePositionX = 0;
+      this.arenaFloorNext.tilePositionY = 0;
+      this.displayedFloorType = tr.toType;
+      tr.active = false;
+    }
+  }
+
   arenaMapName(floorType) {
     const names = {
       dirt: 'Terra',
@@ -3014,68 +3152,26 @@ export class GameScene extends Phaser.Scene {
 
     this.updateLavaEffects(a);
 
-    const floorTextures = {
-      grass: 'arena_grass',
-      ice: 'arena_ice',
-      wood: 'arena_wood',
-      sea: 'arena_sea',
-      desert: 'arena_desert',
-      swamp: 'arena_swamp',
-      volcano: 'arena_volcano',
-      ruins: 'arena_ruins',
-      crystal: 'arena_crystal',
-      snow: 'arena_snow',
-      tundra: 'arena_tundra',
-      cave: 'arena_cave',
-      dungeon: 'arena_dungeon',
-      graveyard: 'arena_graveyard',
-      hell: 'arena_hell',
-      sky: 'arena_sky',
-      mushroom: 'arena_mushroom',
-      jungle: 'arena_jungle',
-      mountain: 'arena_mountain',
-      beach: 'arena_beach',
-      coral: 'arena_coral',
-      ashland: 'arena_ashland',
-      enchanted: 'arena_enchanted',
-      blood: 'arena_blood',
-      shadow: 'arena_shadow',
-      temple: 'arena_temple',
-      sewer: 'arena_sewer',
-      meadow: 'arena_meadow',
-      lava_field: 'arena_lava_field',
-      glacier: 'arena_glacier',
-      oasis: 'arena_oasis',
-      canyon: 'arena_canyon',
-      marsh: 'arena_marsh',
-      aurora: 'arena_aurora',
-      obsidian: 'arena_obsidian',
-      sandstone: 'arena_sandstone',
-      storm: 'arena_storm',
-      garden: 'arena_garden',
-      battlefield: 'arena_battlefield',
-      library: 'arena_library',
-      catacomb: 'arena_catacomb',
-      abyss: 'arena_abyss',
-      bramble: 'arena_bramble',
-      saltflat: 'arena_saltflat',
-      crystal_cave: 'arena_crystal_cave',
-      bat_cave: 'arena_bat_cave',
-      vampire_castle: 'arena_vampire_castle',
-      throne_hall: 'arena_throne_hall',
-      crypt: 'arena_crypt',
-      dirt: 'arena_brick',
-    };
-    const floorKey = floorTextures[a.floorType] || 'arena_brick';
-    if (this.textures.exists(floorKey) && this.arenaFloor.texture.key !== floorKey) {
+    const floorKey = this.floorTextureKey(a.floorType);
+    const transitioning = !!this.floorTransition?.active;
+    if (
+      !transitioning &&
+      this.textures.exists(floorKey) &&
+      this.arenaFloor.texture.key !== floorKey
+    ) {
       this.arenaFloor.setTexture(floorKey);
+      this.displayedFloorType = a.floorType;
+    } else if (!this.displayedFloorType && a.floorType) {
+      this.displayedFloorType = a.floorType;
     }
 
     this.arenaFloor.setPosition(a.x, a.y);
+    this.arenaFloorNext?.setPosition(a.x, a.y);
     // Keep TileSprite at max size; only the mask shrinks. Resizing every frame
     // shifts UV from the top-left and makes the floor look like it's crawling.
     if (diameter > this.arenaFloor.width) {
       this.arenaFloor.setSize(diameter, diameter);
+      this.arenaFloorNext?.setSize(diameter, diameter);
     }
 
     this.arenaMaskGfx.clear();
@@ -6112,30 +6208,14 @@ export class GameScene extends Phaser.Scene {
 
   handleBanners() {
     if (!this.state || this.matchEndOpen) return;
-    if (this.state.phase === 'countdown') {
+    if (this.state.phase === 'countdown' && (this.state.round || 0) === 0) {
       const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
       const bossSoon = !!this.state.bossRound || !!this.state.pendingBossFight;
-      const nextRound = bossSoon
-        ? this.state.round || 1
-        : (this.state.round || 0) + 1;
+      const nextRound = bossSoon ? this.state.round || 1 : 1;
       this.bannerText.setText(
         bossSoon
           ? `BOSS FIGHT\nRound ${nextRound} · ${sec}`
-          : `Round ${nextRound}\nComeçando`
-      );
-      this.bannerText.setAlpha(1);
-    } else if (this.state.phase === 'intermission') {
-      const w = this.state.players.find((p) => p.id === this.state.winnerId);
-      const bossNext = !!this.state.pendingBossFight || !!this.state.bossRound;
-      const t = Math.ceil(this.state.intermissionTimer);
-      this.bannerText.setText(
-        bossNext
-          ? w
-            ? `${w.name} venceu o round!\nBoss fight em ${t}s`
-            : `Round encerrado\nBoss fight em ${t}s`
-          : w
-            ? `${w.name} venceu o round!\nPróximo em ${t}s`
-            : `Round encerrado\nPróximo em ${t}s`
+          : `Round ${nextRound}\nComeçando · ${sec}`
       );
       this.bannerText.setAlpha(1);
     } else if (
