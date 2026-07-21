@@ -126,7 +126,7 @@ const ARENA_MIN_RADIUS = 80;
 const ARENA_START_RADIUS = envInt('ARENA_START_RADIUS', 320, ARENA_MIN_RADIUS);
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
 const ARENA_SHRINK_AMOUNT = (ARENA_START_RADIUS - ARENA_MIN_RADIUS) / ARENA_SHRINK_TIMES;
-const ROUND_DURATION = envInt('ROUND_DURATION', 30);
+const ROUND_DURATION = envInt('ROUND_DURATION', 15);
 /** Chance (0–1) de boss fight após cada round normal. */
 const BOSS_FIGHT_CHANCE = Math.min(1, Math.max(0, envNumber('BOSS_FIGHT_CHANCE', 0.25)));
 /** Escala de dificuldade por round (round 2+). */

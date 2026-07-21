@@ -5930,7 +5930,7 @@ export class GameScene extends Phaser.Scene {
     } else if (bossRound && (this.state.phase === 'countdown' || this.state.phase === 'intermission')) {
       this.timerText.setText('--:--');
     } else {
-      const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 30;
+      const roundDuration = this.state.roundDuration ?? this.state.matchDuration ?? 15;
       const remain = Math.max(0, roundDuration - (this.state.roundTime || 0));
       const m = Math.floor(remain / 60);
       const s = Math.floor(remain % 60);

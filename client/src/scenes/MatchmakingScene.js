@@ -40,7 +40,7 @@ export class MatchmakingScene extends Phaser.Scene {
     this.lobbies = [];
     this.maxPlayers = 4;
     this.pvpEnabled = false;
-    this.roundDuration = 30;
+    this.roundDuration = 15;
     this.passwordPrompt = null;
     this.lobbyAgeEls = [];
     this._lobbyAgeAcc = 0;
@@ -301,7 +301,7 @@ export class MatchmakingScene extends Phaser.Scene {
         ? this.modeSelectEl.value === 'true'
         : !!this.pvpEnabled;
     this.pvpEnabled = pvpEnabled;
-    this.roundDuration = 30;
+    this.roundDuration = 15;
     const bonuses = equipmentBonusesFromInventory(this.character.inventory);
     this.socket.emit('create_lobby', {
       characterId: this.character.id,
@@ -312,7 +312,7 @@ export class MatchmakingScene extends Phaser.Scene {
       maxPlayers: this.maxPlayers,
       password: password || null,
       pvpEnabled,
-      roundDuration: 30,
+      roundDuration: 15,
     });
   }
 

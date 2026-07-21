@@ -30,7 +30,7 @@ function clampMaxPlayers(n) {
 }
 
 function clampRoundDuration(_n) {
-  return 30;
+  return 15;
 }
 
 function normalizePassword(raw) {
