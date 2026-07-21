@@ -215,7 +215,6 @@ export class Match {
     this.leverTimer = 0;
     /** Tempo restante do cooldown global entre eventos de arena (s). */
     this.arenaEventCooldown = 0;
-    this.kikoLaughTimer = 0;
     this.phase = 'lobby'; // lobby | countdown | playing | levelup | intermission | ended
     this.round = 0;
     this.matchTime = 0;
@@ -987,7 +986,6 @@ export class Match {
     this.galeTimer = 0;
     this.levers = [];
     this.leverTimer = 0;
-    this.kikoLaughTimer = 0;
     this.events = [];
     this.winnerId = null;
     this.generateRocks();
@@ -1115,7 +1113,6 @@ export class Match {
     this.scheduleNextCooldownMist();
     this.scheduleNextGale();
     this.scheduleNextLever();
-    this.scheduleNextKikoLaugh();
     this.pushEvent({ type: 'round_start', round: this.round, bossRound: false });
     this.broadcastState(true);
   }
@@ -1131,7 +1128,6 @@ export class Match {
     this.scheduleNextCooldownMist();
     this.scheduleNextGale();
     this.scheduleNextLever();
-    this.scheduleNextKikoLaugh();
     this.monsters = [];
     const boss = this.spawnBoss();
     if (!boss) {
@@ -1190,25 +1186,6 @@ export class Match {
     const min = CONFIG.LEVER_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.LEVER_EVENT_MAX_INTERVAL);
     this.leverTimer = min + Math.random() * (max - min);
-  }
-
-  scheduleNextKikoLaugh() {
-    const min = CONFIG.KIKO_LAUGH_MIN_INTERVAL;
-    const max = Math.max(min, CONFIG.KIKO_LAUGH_MAX_INTERVAL);
-    this.kikoLaughTimer = min + Math.random() * (max - min);
-  }
-
-  tickKikoLaugh(dt) {
-    if (CONFIG.KIKO_LAUGH_CHANCE <= 0) return;
-    this.kikoLaughTimer -= dt;
-    if (this.kikoLaughTimer > 0) return;
-    if (Math.random() < CONFIG.KIKO_LAUGH_CHANCE) {
-      // Um clip por vez (o client também bloqueia overlap).
-      const voices = ['kiko_laugh', 'madruga_nossa', 'madruga_loteria', 'faaah'];
-      const type = voices[Math.floor(Math.random() * voices.length)];
-      this.pushEvent({ type });
-    }
-    this.scheduleNextKikoLaugh();
   }
 
   /** Escolhe um ponto na plataforma segura para o meteoro. */
@@ -2515,7 +2492,6 @@ export class Match {
     this.galeTimer = 0;
     this.levers = [];
     this.leverTimer = 0;
-    this.kikoLaughTimer = 0;
     this.winnerId = winner?.id || null;
     if (winner) {
       winner.score += 1;
@@ -4549,8 +4525,6 @@ export class Match {
     this.tickCooldownMists(dt);
     this.tickGales(dt);
     this.tickLevers(dt);
-    // Vozes aleatórias (Kiko / Seu Madruga) no client
-    this.tickKikoLaugh(dt);
 
     // Players
     for (const p of this.players.values()) {

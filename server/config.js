@@ -582,12 +582,4 @@ export const CONFIG = {
    * Ex.: 2 = a arena cresce o dobro do quanto fecha por fase.
    */
   LEVER_EXPAND_RATIO: envNumber('LEVER_EXPAND_RATIO', 2),
-
-  /**
-   * Vozes aleatórias (Kiko / Seu Madruga): intervalo min/max entre
-   * tentativas (segundos) e chance (0–1) de tocar quando o timer dispara.
-   */
-  KIKO_LAUGH_MIN_INTERVAL: envNumber('KIKO_LAUGH_MIN_INTERVAL', 25),
-  KIKO_LAUGH_MAX_INTERVAL: envNumber('KIKO_LAUGH_MAX_INTERVAL', 55),
-  KIKO_LAUGH_CHANCE: envNumber('KIKO_LAUGH_CHANCE', 0.35),
 };
