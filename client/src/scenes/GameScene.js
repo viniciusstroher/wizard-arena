@@ -170,15 +170,14 @@ export class GameScene extends Phaser.Scene {
     this.socket.on('game_state', (state) => this.onState(state));
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
-        const maxRounds = this.state?.maxRounds || '?';
         const bossSoon = !!this.state?.bossRound || !!this.state?.pendingBossFight;
         const labelRound = bossSoon
           ? this.state?.round || 1
           : (this.state?.round ?? 0) + 1;
         this.bannerText.setText(
           bossSoon
-            ? `BOSS FIGHT\nRound ${labelRound} de ${maxRounds}`
-            : `Round ${labelRound} de ${maxRounds}\nComeçando`
+            ? `BOSS FIGHT\nRound ${labelRound}`
+            : `Round ${labelRound}\nComeçando`
         );
         this.bannerText.setAlpha(1);
       }
@@ -918,11 +917,10 @@ export class GameScene extends Phaser.Scene {
     );
     const winner = ranking.find((p) => p.id === state.winnerId) || ranking[0] || null;
     const me = ranking.find((p) => p.id === this.playerId) || null;
-    const success = state.matchResult === 'success';
-    const resultLabel = success ? 'SUCCESS' : 'FAIL';
-    const resultColor = success ? '#6dffb0' : '#ff6b6b';
-    const resultStroke = success ? 0x6dffb0 : 0xff6b6b;
-    if (!success) this.playReprovado();
+    const roundReached = state.round || 0;
+    const resultLabel = 'PARTIDA ENCERRADA';
+    const resultColor = '#c4b5e0';
+    const resultStroke = 0x6b5cff;
 
     const header = 'Jogador          K/M   Mob  Loot  Gold   Dano   Pts';
     const rows = ranking
@@ -982,9 +980,7 @@ export class GameScene extends Phaser.Scene {
       .text(
         width / 2,
         panelTop + 68,
-        success
-          ? 'Todos os níveis concluídos'
-          : 'Partida encerrada — níveis incompletos',
+        roundReached > 0 ? `Round ${roundReached} alcançado` : 'Todos morreram',
         {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '14px',
@@ -998,7 +994,7 @@ export class GameScene extends Phaser.Scene {
       .text(
         width / 2,
         panelTop + 90,
-        `Você ganhou ${lootGained} loot · ${goldGained} gold`,
+        `Você levou ${lootGained} loot · ${goldGained} gold`,
         {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '15px',
@@ -1259,24 +1255,21 @@ export class GameScene extends Phaser.Scene {
   formatGameEvent(ev) {
     switch (ev.type) {
       case 'countdown': {
-        const max = this.state?.maxRounds || '?';
         const bossSoon = !!this.state?.bossRound || !!this.state?.pendingBossFight;
         const next = bossSoon
           ? this.state?.round || 1
           : (this.state?.round ?? 0) + 1;
         return bossSoon
-          ? `BOSS FIGHT — Round ${next} de ${max} (${ev.seconds}s)`
-          : `Round ${next} de ${max} começando (${ev.seconds}s)`;
+          ? `BOSS FIGHT — Round ${next} (${ev.seconds}s)`
+          : `Round ${next} começando (${ev.seconds}s)`;
       }
       case 'round_start': {
-        const max = this.state?.maxRounds || '?';
         return ev.bossRound
-          ? `BOSS FIGHT — Round ${ev.round} de ${max}`
-          : `Round ${ev.round} de ${max} iniciado`;
+          ? `BOSS FIGHT — Round ${ev.round}`
+          : `Round ${ev.round} iniciado`;
       }
       case 'boss_fight': {
-        const max = this.state?.maxRounds || '?';
-        return `BOSS FIGHT! Round ${ev.round} de ${max}`;
+        return `BOSS FIGHT! Round ${ev.round}`;
       }
       case 'round_win':
         return `${this.playerName(ev.playerId)} venceu o round ${ev.round}`;
@@ -1340,10 +1333,8 @@ export class GameScene extends Phaser.Scene {
       case 'heal':
         return null;
       case 'match_end': {
-        if (ev.result === 'success') return 'SUCCESS — todos os níveis concluídos!';
-        if (ev.reason === 'boss_wipe') return 'FAIL — o time caiu no boss fight';
-        if (ev.reason === 'wipe') return 'FAIL — todos morreram no round';
-        return 'FAIL — partida encerrada';
+        const r = ev.round ?? this.state?.round ?? 0;
+        return r > 0 ? `Partida encerrada — round ${r}` : 'Partida encerrada';
       }
       case 'player_left':
         if (ev.playerId === this.playerId) return null;
@@ -5980,7 +5971,6 @@ export class GameScene extends Phaser.Scene {
       const s = Math.floor(remain % 60);
       this.timerText.setText(`${m}:${String(s).padStart(2, '0')}`);
     }
-    const maxRounds = this.state.maxRounds || '?';
     const displayRound =
       this.state.phase === 'countdown' && !bossRound
         ? Math.max(1, (this.state.round || 0) + 1)
@@ -6002,8 +5992,8 @@ export class GameScene extends Phaser.Scene {
     }
     this.roundText.setText(
       bossRound && this.state.phase !== 'countdown'
-        ? `Round ${displayRound}/${maxRounds} · BOSS`
-        : `Round ${displayRound}/${maxRounds} · ${zoneLabel}`
+        ? `Round ${displayRound} · BOSS`
+        : `Round ${displayRound} · ${zoneLabel}`
     );
 
     // Spells (máx. 3 básicas)
@@ -6158,7 +6148,6 @@ export class GameScene extends Phaser.Scene {
   handleBanners() {
     if (!this.state || this.matchEndOpen) return;
     if (this.state.phase === 'countdown') {
-      const maxRounds = this.state.maxRounds || '?';
       const sec = Math.max(1, Math.ceil(this.state.countdown || 0));
       const bossSoon = !!this.state.bossRound || !!this.state.pendingBossFight;
       const nextRound = bossSoon
@@ -6166,8 +6155,8 @@ export class GameScene extends Phaser.Scene {
         : (this.state.round || 0) + 1;
       this.bannerText.setText(
         bossSoon
-          ? `BOSS FIGHT\nRound ${nextRound} de ${maxRounds} · ${sec}`
-          : `Round ${nextRound} de ${maxRounds}\nComeçando`
+          ? `BOSS FIGHT\nRound ${nextRound} · ${sec}`
+          : `Round ${nextRound}\nComeçando`
       );
       this.bannerText.setAlpha(1);
     } else if (this.state.phase === 'intermission') {

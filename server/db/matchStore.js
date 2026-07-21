@@ -67,13 +67,13 @@ export async function persistMatch(match) {
     await Match.create(
       {
         id: match.id,
-        result: match.matchResult === 'success' ? 'success' : 'fail',
+        result: 'ended',
         reason: match.endReason || null,
         winnerPlayerId: match.winnerId || null,
         winnerCharacterId: winner?.characterId || null,
         winnerName: winner?.name || null,
         round: match.round || 0,
-        maxRounds: match.maxRoundsSaved ?? 0,
+        maxRounds: match.round || 0,
         matchTime: Number(match.matchTime) || 0,
         pvpEnabled: !!match.pvpEnabled,
         startedAt,
@@ -122,24 +122,6 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
   });
 
   const total = await MatchPlayer.count({ where: { characterId: id, isBot: false } });
-
-  // Contagem por resultado via SQL direto — mais confiável no SQLite do que
-  // Model.count({ include }) (o processo Node não hot-reload; precisa reiniciar).
-  const [resultCounts] = await Match.sequelize.query(
-    `SELECT m.result AS result, COUNT(*) AS c
-     FROM match_players AS mp
-     INNER JOIN matches AS m ON m.id = mp.matchId
-     WHERE mp.characterId = :id AND mp.isBot = 0
-     GROUP BY m.result`,
-    { replacements: { id } }
-  );
-  let wins = 0;
-  let losses = 0;
-  for (const row of resultCounts) {
-    const n = Number(row.c) || 0;
-    if (row.result === 'success') wins = n;
-    else if (row.result === 'fail') losses = n;
-  }
 
   const [lootGoldRows] = await Match.sequelize.query(
     `SELECT COALESCE(SUM(mp.loot), 0) AS totalLoot, COALESCE(SUM(mp.gold), 0) AS totalGold
@@ -205,8 +187,6 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
       };
     }),
     total,
-    wins,
-    losses,
     totalLoot,
     totalGold,
   };

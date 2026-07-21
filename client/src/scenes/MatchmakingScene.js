@@ -40,7 +40,6 @@ export class MatchmakingScene extends Phaser.Scene {
     this.lobbies = [];
     this.maxPlayers = 4;
     this.pvpEnabled = false;
-    this.maxRounds = 5;
     this.roundDuration = 30;
     this.passwordPrompt = null;
     this.lobbyAgeEls = [];
@@ -81,7 +80,6 @@ export class MatchmakingScene extends Phaser.Scene {
       this.destroyPasswordPrompt();
       this.modeSelectDom?.destroy();
       this.maxSelectDom?.destroy();
-      this.roundsSelectDom?.destroy();
       this.durationSelectDom?.destroy();
       this.passInputDom?.destroy();
       this.listDom?.destroy();
@@ -157,23 +155,7 @@ export class MatchmakingScene extends Phaser.Scene {
     });
     this.maxSelectDom = addSelect(y - 85, selectEl);
 
-    addLabel(y - 49, 'Rounds');
-    const roundsEl = document.createElement('select');
-    roundsEl.style.cssText = selectStyle;
-    for (const n of [1, 5, 10, 15, 20]) {
-      const opt = document.createElement('option');
-      opt.value = String(n);
-      opt.textContent = n === 1 ? '1 round' : `${n} rounds`;
-      if (n === this.maxRounds) opt.selected = true;
-      roundsEl.appendChild(opt);
-    }
-    roundsEl.addEventListener('change', () => {
-      this.maxRounds = Number(roundsEl.value) || 5;
-    });
-    this.roundsSelectEl = roundsEl;
-    this.roundsSelectDom = addSelect(y - 22, roundsEl);
-
-    addLabel(y + 14, 'Duração do round');
+    addLabel(y - 49, 'Duração do round');
     const durationEl = document.createElement('select');
     durationEl.style.cssText = selectStyle;
     for (const [secs, label] of [
@@ -192,9 +174,9 @@ export class MatchmakingScene extends Phaser.Scene {
       this.roundDuration = Number(durationEl.value) || 30;
     });
     this.durationSelectEl = durationEl;
-    this.durationSelectDom = addSelect(y + 41, durationEl);
+    this.durationSelectDom = addSelect(y - 22, durationEl);
 
-    addLabel(y + 77, 'Senha (opcional, 4 dígitos)');
+    addLabel(y + 14, 'Senha (opcional, 4 dígitos)');
     const passEl = document.createElement('input');
     passEl.type = 'password';
     passEl.inputMode = 'numeric';
@@ -208,13 +190,13 @@ export class MatchmakingScene extends Phaser.Scene {
       passEl.value = passEl.value.replace(/\D/g, '').slice(0, 4);
     });
     const passWrap = wrapPasswordInput(passEl, '220px');
-    this.passInputDom = this.add.dom(x, y + 104, passWrap).setOrigin(0.5).setDepth(uiDepth);
+    this.passInputDom = this.add.dom(x, y + 41, passWrap).setOrigin(0.5).setDepth(uiDepth);
     this.passInputEl = passEl;
 
-    makeMenuButton(this, x, y + 155, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
+    makeMenuButton(this, x, y + 92, 'Criar lobby', 0x2ecc71, () => this.createLobby(), 220).setDepth(
       uiDepth
     );
-    makeMenuButton(this, x, y + 210, 'Voltar', 0x443866, () => {
+    makeMenuButton(this, x, y + 147, 'Voltar', 0x443866, () => {
       navigate('/');
     }, 220).setDepth(uiDepth);
   }
@@ -341,17 +323,12 @@ export class MatchmakingScene extends Phaser.Scene {
         ? this.modeSelectEl.value === 'true'
         : !!this.pvpEnabled;
     this.pvpEnabled = pvpEnabled;
-    if (this.roundsSelectEl) {
-      this.maxRounds = Number(this.roundsSelectEl.value) || this.maxRounds;
-    }
     if (this.durationSelectEl) {
       this.roundDuration = Number(this.durationSelectEl.value) || this.roundDuration;
     }
-    const maxRounds = [1, 5, 10, 15, 20].includes(this.maxRounds) ? this.maxRounds : 5;
     const roundDuration = [30, 60, 120, 180].includes(this.roundDuration)
       ? this.roundDuration
       : 30;
-    this.maxRounds = maxRounds;
     this.roundDuration = roundDuration;
     const bonuses = equipmentBonusesFromInventory(this.character.inventory);
     this.socket.emit('create_lobby', {
@@ -363,7 +340,6 @@ export class MatchmakingScene extends Phaser.Scene {
       maxPlayers: this.maxPlayers,
       password: password || null,
       pvpEnabled,
-      maxRounds,
       roundDuration,
     });
   }
@@ -440,7 +416,6 @@ export class MatchmakingScene extends Phaser.Scene {
       meta.style.cssText = 'font-size: 12px; color: #9a8bb8; margin-top: 4px;';
       const mode = lobby.pvpEnabled ? 'PvP' : 'PvE';
       const lock = lobby.hasPassword ? ' · 🔒 privada' : '';
-      const rounds = lobby.maxRounds ? `${lobby.maxRounds}r` : null;
       const durSec = Number(lobby.roundDuration);
       const dur =
         Number.isFinite(durSec) && durSec > 0
@@ -448,8 +423,7 @@ export class MatchmakingScene extends Phaser.Scene {
             ? `${durSec}s`
             : `${Math.round(durSec / 60)}m`
           : null;
-      const rules = [rounds, dur].filter(Boolean).join('/');
-      const rulesTag = rules ? ` · ${rules}` : '';
+      const rulesTag = dur ? ` · ${dur}` : '';
       meta.textContent = `${mode}${rulesTag} · ${lobby.playerCount}/${lobby.maxPlayers} jogadores${lock}`;
 
       const created = document.createElement('div');

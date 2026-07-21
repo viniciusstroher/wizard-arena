@@ -768,30 +768,10 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth);
     this.trackInfo(histTitle);
 
-    this.historyWinsText = this.add
-      .text(x - 70, y - 232, 'Vitórias: —', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#2ecc71',
-      })
-      .setOrigin(0.5)
-      .setDepth(depth);
-    this.trackInfo(this.historyWinsText);
-
-    this.historyLossesText = this.add
-      .text(x + 70, y - 232, 'Derrotas: —', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '15px',
-        color: '#ff6b6b',
-      })
-      .setOrigin(0.5)
-      .setDepth(depth);
-    this.trackInfo(this.historyLossesText);
-
     this.historyLootText = this.add
-      .text(x - 70, y - 208, 'Loot: —', {
+      .text(x - 70, y - 232, 'Loot: —', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
+        fontSize: '15px',
         color: '#c4b5e0',
       })
       .setOrigin(0.5)
@@ -799,9 +779,9 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInfo(this.historyLootText);
 
     this.historyGoldText = this.add
-      .text(x + 70, y - 208, 'Gold: —', {
+      .text(x + 70, y - 232, 'Gold: —', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '14px',
+        fontSize: '15px',
         color: '#ffd76a',
       })
       .setOrigin(0.5)
@@ -809,7 +789,7 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInfo(this.historyGoldText);
 
     this.historyStatus = this.add
-      .text(x, y - 182, 'Carregando...', {
+      .text(x, y - 208, 'Carregando...', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#9a8bb8',
@@ -841,20 +821,14 @@ export class CharacterScene extends Phaser.Scene {
   async loadHistory() {
     if (!this.historyEl) return;
     this.historyEl.innerHTML = '';
-    this.historyWinsText?.setText('Vitórias: —');
-    this.historyLossesText?.setText('Derrotas: —');
     this.historyLootText?.setText('Loot: —');
     this.historyGoldText?.setText('Gold: —');
     this.historyStatus?.setText('Carregando...').setColor('#9a8bb8');
     try {
       const data = await fetchCharacterMatches(this.character.id, { limit: 40 });
       const matches = data.matches || [];
-      const wins = Number(data.wins) || 0;
-      const losses = Number(data.losses) || 0;
       const totalLoot = Number(data.totalLoot) || 0;
       const totalGold = Number(data.totalGold) || 0;
-      this.historyWinsText?.setText(`Vitórias: ${wins}`);
-      this.historyLossesText?.setText(`Derrotas: ${losses}`);
       this.historyLootText?.setText(`Loot: ${totalLoot}`);
       this.historyGoldText?.setText(`Gold: ${totalGold}`);
 
@@ -902,9 +876,9 @@ export class CharacterScene extends Phaser.Scene {
           'display: flex; justify-content: space-between; gap: 8px; align-items: baseline;';
 
         const result = document.createElement('div');
-        const ok = m.result === 'success';
-        result.textContent = ok ? 'SUCESSO' : 'DERROTA';
-        result.style.cssText = `font-size: 13px; font-weight: 700; color: ${ok ? '#2ecc71' : '#ff6b6b'};`;
+        const roundLabel = m.round > 0 ? `Round ${m.round}` : 'Partida';
+        result.textContent = roundLabel;
+        result.style.cssText = 'font-size: 13px; font-weight: 700; color: #c4b5e0;';
 
         const points = document.createElement('div');
         points.textContent = `${m.points ?? 0} pts`;

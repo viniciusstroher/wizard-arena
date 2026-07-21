@@ -1,4 +1,4 @@
-import { CONFIG, getBossAppearsForMaxRounds } from './config.js';
+import { CONFIG } from './config.js';
 import { BotController } from './Bot.js';
 import { createMonsterTypeDefs } from './monsterTypes.js';
 import { applyElementResistance } from './monsterResistances.js';
@@ -192,16 +192,7 @@ export class Match {
     this.maxPlayers = Number.isFinite(max)
       ? Math.min(CONFIG.MAX_PLAYERS, Math.max(1, max))
       : CONFIG.MAX_PLAYERS;
-    const roundsOpt = [1, 5, 10, 15, 20];
     const durationOpt = [30, 60, 120, 180];
-    const rounds = Math.floor(Number(options.maxRounds));
-    this.maxRounds = roundsOpt.includes(rounds)
-      ? rounds
-      : roundsOpt.includes(CONFIG.MAX_ROUNDS)
-        ? CONFIG.MAX_ROUNDS
-        : 5;
-    /** Agenda de boss desta partida (snapshot da config para maxRounds). */
-    this.bossAppearSchedule = getBossAppearsForMaxRounds(this.maxRounds);
     const duration = Math.floor(Number(options.roundDuration));
     this.roundDuration = durationOpt.includes(duration)
       ? duration
@@ -249,8 +240,7 @@ export class Match {
     /** Round atual é luta de boss (sem tempo; win ao matar o boss). */
     this.bossRound = false;
     /**
-     * Após terminar um round listado em BOSS_APPEARS_{maxRounds}, a próxima fase
-     * é a boss fight (não consome um round extra — roda “depois” do round N).
+     * Após terminar um round normal, chance de boss fight (não consome round extra).
      */
     this.pendingBossFight = false;
     /** Rounds (número) cuja boss fight pós-round já foi concluída. */
@@ -260,7 +250,7 @@ export class Match {
     this.countdown = 0;
     this.intermissionTimer = 0;
     this.winnerId = null;
-    /** Resultado da partida: null | 'success' | 'fail' */
+    /** Resultado da partida: null | 'ended' */
     this.matchResult = null;
     /** Após level-up no fim do round: null | { type: 'intermission' } | { type: 'endMatch', winner } */
     this.afterLevelUp = null;
@@ -272,7 +262,6 @@ export class Match {
     this.createdAt = new Date();
     this.startedAt = null;
     this.endReason = null;
-    this.maxRoundsSaved = this.maxRounds;
     this._persisted = false;
     this.tickAcc = 0;
     this.running = false;
@@ -1079,46 +1068,22 @@ export class Match {
     if (leftLobbyBrowser) this.onLobbyListChange?.();
   }
 
-  /** Entradas de boss para a duração desta partida (maxRounds). */
-  getBossAppearEntries() {
-    if (Array.isArray(this.bossAppearSchedule) && this.bossAppearSchedule.length) {
-      return this.bossAppearSchedule;
-    }
-    return getBossAppearsForMaxRounds(this.maxRounds);
-  }
-
-  getBossAppearEntry(round = this.round) {
-    const r = Math.floor(Number(round));
-    return this.getBossAppearEntries().find((e) => e.round === r) || null;
-  }
-
-  isBossAppearRound(round = this.round) {
-    return !!this.getBossAppearEntry(round);
-  }
-
-  /** Sorteia (1x) se a boss fight deve ocorrer após o round, segundo a chance da config. */
-  rollBossAppear(round, entry) {
+  /** Sorteia (1x) se a boss fight deve ocorrer após o round, segundo BOSS_FIGHT_CHANCE. */
+  rollBossAppear(round) {
     if (this.bossAppearRolls.has(round)) return this.bossAppearRolls.get(round) === true;
-    const raw = entry?.chance;
-    const chance =
-      raw == null || !Number.isFinite(Number(raw))
-        ? 1
-        : Math.min(1, Math.max(0, Number(raw)));
+    const chance = Math.min(1, Math.max(0, Number(CONFIG.BOSS_FIGHT_CHANCE) || 0));
     const ok = Math.random() < chance;
     this.bossAppearRolls.set(round, ok);
     return ok;
   }
 
-  /**
-   * Ainda falta a boss fight depois deste round (ex.: BOSS_APPEARS_5=5#100%).
-   * A chance (#N%) é sorteada uma vez por round e cacheada.
-   */
+  /** Ainda falta a boss fight depois deste round (chance sorteada uma vez). */
   needsBossFightAfterRound(round = this.round) {
     if (this.pendingBossFight) return true;
     if (this.clearedBossFights.has(round)) return false;
-    const entry = this.getBossAppearEntry(round);
-    if (!entry) return false;
-    return this.rollBossAppear(round, entry);
+    const r = Math.floor(Number(round));
+    if (r < 1) return false;
+    return this.rollBossAppear(r);
   }
 
   /** Agenda a boss fight (intermissão → countdown → startBossFight). */
@@ -1129,8 +1094,7 @@ export class Match {
     console.log('[match] queue boss fight', {
       matchId: this.id,
       round: this.round,
-      maxRounds: this.maxRounds,
-      schedule: this.getBossAppearEntries(),
+      chance: CONFIG.BOSS_FIGHT_CHANCE,
     });
     this.broadcastState(true);
   }
@@ -2098,7 +2062,7 @@ export class Match {
     }
     if (next?.type === 'endMatch') {
       this.endMatch(next.winner || this.leadingPlayer(), {
-        result: next.result || 'success',
+        result: 'ended',
       });
       return;
     }
@@ -2502,9 +2466,9 @@ export class Match {
     if (this.phase === 'ended') return;
     const alive = [...this.players.values()].filter((p) => p.alive);
     if (alive.length > 0) return;
-    // Wipe: todos mortos no round → partida termina com fail.
+    // Wipe: todos mortos → partida encerra; jogadores mantêm loot/gold coletados.
     this.endMatch(this.leadingPlayer(), {
-      result: 'fail',
+      result: 'ended',
       reason: this.bossRound ? 'boss_wipe' : 'wipe',
     });
   }
@@ -2553,21 +2517,6 @@ export class Match {
 
     this.pendingBossFight = false;
 
-    if (this.round >= this.maxRounds) {
-      // Cinto de segurança: nunca encerra com sucesso se ainda houver boss configurado.
-      if (!wasBossRound && this.needsBossFightAfterRound(this.round)) {
-        this.queueBossFight();
-        return;
-      }
-      const cleared = [...this.players.values()].some((p) => p.alive);
-      // Passou todos os níveis = success; wipe no último nível = fail.
-      this.endMatch(this.leadingPlayer() || winner, {
-        result: cleared ? 'success' : 'fail',
-        reason: cleared ? (wasBossRound ? 'boss_cleared' : 'all_rounds') : 'wipe',
-      });
-      return;
-    }
-
     this.phase = 'intermission';
     this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
     this.broadcastState(true);
@@ -2582,29 +2531,21 @@ export class Match {
     );
   }
 
-  endMatch(winner, { result = 'fail', reason = null } = {}) {
+  endMatch(winner, { result = 'ended', reason = null } = {}) {
     if (this.phase === 'ended') return;
-    // Nunca encerra com sucesso se ainda falta a boss fight deste round.
-    if (
-      result === 'success' &&
-      (this.pendingBossFight || this.needsBossFightAfterRound(this.round))
-    ) {
-      this.queueBossFight();
-      return;
-    }
     this.phase = 'ended';
     this.bossRound = false;
     this.pendingBossFight = false;
     this.winnerId = winner?.id || null;
-    this.matchResult = result === 'success' ? 'success' : 'fail';
+    this.matchResult = 'ended';
     this.endReason = reason || null;
-    this.maxRoundsSaved = this.maxRounds;
     if (!this.startedAt) this.startedAt = new Date();
     this.pushEvent({
       type: 'match_end',
       winnerId: this.winnerId,
       result: this.matchResult,
       reason,
+      round: this.round,
       monsterKillStats: this.serializeMonsterKillStats(),
       scores: [...this.players.values()]
         .map((p) => ({
@@ -2660,7 +2601,7 @@ export class Match {
         this.pushEvent({ type: 'player_death', playerId: p.id, reason: 'time' });
       }
     }
-    this.endMatch(null, { result: 'fail', reason: 'wipe' });
+    this.endMatch(null, { result: 'ended', reason: 'wipe' });
   }
 
   monsterTypeDefs() {
@@ -2776,14 +2717,41 @@ export class Match {
     return max;
   }
 
+  /** Multiplicadores de HP/dano dos mobs conforme o round atual. */
+  roundDifficultyMul() {
+    const r = Math.max(1, this.round);
+    const hpStep = CONFIG.ROUND_MOB_HP_STEP || 0.08;
+    const dmgStep = CONFIG.ROUND_MOB_DMG_STEP || 0.06;
+    return {
+      hpMul: 1 + (r - 1) * hpStep,
+      dmgMul: 1 + (r - 1) * dmgStep,
+    };
+  }
+
+  /** Quantidade de mobs spawnados por tick (aumenta a cada round). */
+  getRoundSpawnCount() {
+    const base = CONFIG.MONSTER_SPAWN_COUNT;
+    const step = CONFIG.ROUND_SPAWN_COUNT_STEP || 0.12;
+    const r = Math.max(1, this.round);
+    return Math.min(CONFIG.MONSTER_MAX, Math.max(1, Math.ceil(base * (1 + (r - 1) * step))));
+  }
+
+  /** Intervalo entre spawns (diminui a cada round). */
+  getRoundSpawnInterval() {
+    const base = CONFIG.MONSTER_SPAWN_INTERVAL;
+    const step = CONFIG.ROUND_SPAWN_INTERVAL_STEP || 0.05;
+    const r = Math.max(1, this.round);
+    return Math.max(0.4, base * Math.pow(Math.max(0, 1 - step), r - 1));
+  }
+
   /**
-   * Nível de spawn: lv máximo da partida ±2 (mín. 1).
-   * Ex.: max 5 → monstro entre 3 e 7.
+   * Nível de spawn: lv máximo da partida + bônus por round ±2 (mín. 1).
    */
   rollMonsterSpawnLevel() {
     const maxLv = this.matchMaxPlayerLevel();
+    const roundBonus = Math.floor((Math.max(1, this.round) - 1) * 0.5);
     const delta = Math.floor(Math.random() * 5) - 2; // -2..+2
-    return Math.max(1, maxLv + delta);
+    return Math.max(1, maxLv + roundBonus + delta);
   }
 
   /** Aplica a mesma escala de level-up usada em grantMonsterXp (do lv 1 até target). */
@@ -2816,8 +2784,9 @@ export class Match {
     const isElite = !!def.isElite && !isBoss;
     const bossHpMul = isBoss ? CONFIG.DIFFICULTY_BOSS_HP_MUL || 1 : 1;
     const bossDmgMul = isBoss ? CONFIG.DIFFICULTY_BOSS_DMG_MUL || 1 : 1;
-    const hp = Math.round(CONFIG.MONSTER_HP * def.hpMul * bossHpMul);
-    const damage = Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul * bossDmgMul);
+    const roundScale = this.roundDifficultyMul();
+    const hp = Math.round(CONFIG.MONSTER_HP * def.hpMul * bossHpMul * roundScale.hpMul);
+    const damage = Math.round(CONFIG.MONSTER_DAMAGE * def.dmgMul * bossDmgMul * roundScale.dmgMul);
     const attack = def.attack || 'melee';
     const castRate =
       attack === 'caster'
@@ -4420,14 +4389,6 @@ export class Match {
         if (this.pendingBossFight || this.needsBossFightAfterRound(this.round)) {
           this.pendingBossFight = true;
           this.startCountdown();
-        } else if (this.round >= this.maxRounds) {
-          // Não encerra se a config ainda exige boss neste round.
-          if (this.needsBossFightAfterRound(this.round)) {
-            this.pendingBossFight = true;
-            this.startCountdown();
-          } else {
-            this.endMatch(this.leadingPlayer(), { result: 'success', reason: 'all_rounds' });
-          }
         } else {
           this.startCountdown();
         }
@@ -4472,7 +4433,7 @@ export class Match {
         const soleLead = alive[0].hp > alive[1].hp ? alive[0] : null;
         this.finishRound(soleLead);
       } else {
-        this.endMatch(this.leadingPlayer(), { result: 'fail', reason: 'wipe' });
+        this.endMatch(this.leadingPlayer(), { result: 'ended', reason: 'wipe' });
       }
       return;
     }
@@ -4553,9 +4514,9 @@ export class Match {
     if (this.monsterSpawnEnabled && !this.bossRound) {
       this.monsterSpawnTimer -= dt;
       if (this.monsterSpawnTimer <= 0) {
-        const count = CONFIG.MONSTER_SPAWN_COUNT;
+        const count = this.getRoundSpawnCount();
         for (let i = 0; i < count; i++) this.spawnMonster();
-        this.monsterSpawnTimer = CONFIG.MONSTER_SPAWN_INTERVAL;
+        this.monsterSpawnTimer = this.getRoundSpawnInterval();
       }
     }
 
@@ -5085,7 +5046,6 @@ export class Match {
       phase: this.phase,
       minPlayers: CONFIG.MIN_PLAYERS,
       maxPlayers: this.maxPlayers,
-      maxRounds: this.maxRounds,
       roundDuration: this.roundDuration,
       hasPassword: Boolean(this.password),
       botAiEnabled: this.botAiEnabled,
@@ -5181,9 +5141,8 @@ export class Match {
       matchId: this.id,
       phase: this.phase,
       round: this.round,
-      maxRounds: this.maxRounds,
       matchTime: +this.matchTime.toFixed(2),
-      matchDuration: this.maxRounds * this.roundDuration,
+      matchDuration: this.roundDuration,
       roundTime: +this.roundTime.toFixed(2),
       roundDuration: (() => {
         const boss =

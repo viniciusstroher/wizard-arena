@@ -29,14 +29,7 @@ function clampMaxPlayers(n) {
   return Math.min(CONFIG.MAX_PLAYERS, Math.max(1, v));
 }
 
-const LOBBY_MAX_ROUNDS = [1, 5, 10, 15, 20];
 const LOBBY_ROUND_DURATIONS = [30, 60, 120, 180];
-
-function clampMaxRounds(n) {
-  const v = Math.floor(Number(n));
-  if (LOBBY_MAX_ROUNDS.includes(v)) return v;
-  return LOBBY_MAX_ROUNDS.includes(CONFIG.MAX_ROUNDS) ? CONFIG.MAX_ROUNDS : 5;
-}
 
 function clampRoundDuration(n) {
   const v = Math.floor(Number(n));
@@ -118,7 +111,6 @@ function lobbyListItem(match) {
     maxPlayers: match.maxPlayers,
     hasPassword: Boolean(match.password),
     pvpEnabled: !!match.pvpEnabled,
-    maxRounds: match.maxRounds,
     roundDuration: match.roundDuration,
     hostName: host?.name || 'Wizard',
     phase: match.phase,
@@ -259,7 +251,6 @@ io.on('connection', (socket) => {
     leaveCurrentMatch(socket);
 
     const maxPlayers = clampMaxPlayers(payload.maxPlayers ?? 4);
-    const maxRounds = clampMaxRounds(payload.maxRounds ?? CONFIG.MAX_ROUNDS);
     const roundDuration = clampRoundDuration(
       payload.roundDuration ?? CONFIG.ROUND_DURATION
     );
@@ -289,7 +280,6 @@ io.on('connection', (socket) => {
       maxPlayers,
       password,
       pvpEnabled,
-      maxRounds,
       roundDuration,
       onLobbyListChange: broadcastLobbies,
     });

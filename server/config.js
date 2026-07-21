@@ -126,8 +126,14 @@ const ARENA_MIN_RADIUS = 80;
 const ARENA_START_RADIUS = envInt('ARENA_START_RADIUS', 320, ARENA_MIN_RADIUS);
 const ARENA_SHRINK_TIMES = envInt('ARENA_SHRINK_TIMES', 5);
 const ARENA_SHRINK_AMOUNT = (ARENA_START_RADIUS - ARENA_MIN_RADIUS) / ARENA_SHRINK_TIMES;
-const MAX_ROUNDS = envInt('MAX_ROUNDS', 5);
 const ROUND_DURATION = envInt('ROUND_DURATION', 30);
+/** Chance (0–1) de boss fight após cada round normal. */
+const BOSS_FIGHT_CHANCE = Math.min(1, Math.max(0, envNumber('BOSS_FIGHT_CHANCE', 0.25)));
+/** Escala de dificuldade por round (round 2+). */
+const ROUND_MOB_HP_STEP = Math.max(0, envNumber('ROUND_MOB_HP_STEP', 0.08));
+const ROUND_MOB_DMG_STEP = Math.max(0, envNumber('ROUND_MOB_DMG_STEP', 0.06));
+const ROUND_SPAWN_COUNT_STEP = Math.max(0, envNumber('ROUND_SPAWN_COUNT_STEP', 0.12));
+const ROUND_SPAWN_INTERVAL_STEP = Math.min(0.5, Math.max(0, envNumber('ROUND_SPAWN_INTERVAL_STEP', 0.05)));
 
 /** Níveis de dificuldade da partida (afeta mobs / spawn / bosses). */
 const DIFFICULTY_PRESETS = {
@@ -210,13 +216,11 @@ export const CONFIG = {
   TICK_RATE: 20,
   MAX_PLAYERS: 4,
   MIN_PLAYERS: 1,
-  /** Quantidade de rounds na partida. */
-  MAX_ROUNDS,
   /** Duração de cada round em segundos. */
   ROUND_DURATION,
   ROUND_INTERMISSION: 4,
-  /** Duração total estimada dos rounds (sem intermissões). */
-  MATCH_DURATION: MAX_ROUNDS * ROUND_DURATION,
+  /** Duração de um round (partidas são rounds ilimitados até wipe). */
+  MATCH_DURATION: ROUND_DURATION,
   PLAYER_MAX_HP: 100,
   /** Vida máxima extra por nível do personagem (nível 1 = base). */
   PLAYER_HP_PER_LEVEL: envNumber('PLAYER_HP_PER_LEVEL', 10),
@@ -431,14 +435,19 @@ export const CONFIG = {
   MONSTER_WEIGHT_ELITE: Math.max(0.5, +(BASE_ELITE_WEIGHT * DIFF.eliteWeight).toFixed(2)),
   /** Peso relativo entre bosses ao sortear qual aparece no round de boss. */
   MONSTER_WEIGHT_BOSS: envNumber('MONSTER_WEIGHT_BOSS', 6),
-  /**
-   * Boss fight por duração da partida (maxRounds).
-   * Env (com aspas): BOSS_APPEARS_1 / _5 / _10 / _15 / _20 = "round#chance%,..."
-   * Ex.: BOSS_APPEARS_5="5#100%" → 100% de boss após o round 5 numa partida de 5 rounds.
-   * Fallback legado: BOSS_APPEARS=5,10 (100% em cada round listado, se couber na duração).
-   */
+  /** Chance (0–1) de boss fight após cada round normal. */
+  BOSS_FIGHT_CHANCE,
+  /** +HP por round após o 1º (ex.: 0.08 = +8% por round). */
+  ROUND_MOB_HP_STEP,
+  /** +dano por round após o 1º. */
+  ROUND_MOB_DMG_STEP,
+  /** +quantidade de spawn por round após o 1º. */
+  ROUND_SPAWN_COUNT_STEP,
+  /** Redução relativa do intervalo de spawn por round (ex.: 0.05 = −5%/round). */
+  ROUND_SPAWN_INTERVAL_STEP,
+  /** @deprecated legado — partidas agora são rounds ilimitados. */
   BOSS_APPEARS_BY_MAX_ROUNDS,
-  /** @deprecated use BOSS_APPEARS_BY_MAX_ROUNDS — lista plana só do legado. */
+  /** @deprecated legado. */
   BOSS_APPEARS: envIntList('BOSS_APPEARS', []),
   /** Intervalo (segundos) entre tentativas de auto-cura do boss. */
   BOSS_HEAL_INTERVAL: Math.max(0.5, envNumber('BOSS_HEAL_INTERVAL', 5)),
