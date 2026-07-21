@@ -17,15 +17,6 @@ import {
 } from '../catalog/statusEffects.js';
 import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
-import { ensureCharacter, saveInventory } from '../character.js';
-import {
-  EQUIP_SLOTS,
-  ITEM_DEFS,
-  equipFromBag,
-  unequipToBag,
-  BAG_COLS,
-  BAG_ROWS,
-} from '../inventory.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
@@ -62,7 +53,6 @@ export class GameScene extends Phaser.Scene {
     this.levelUpCountdown = null;
     this.levelUpPointsText = null;
     this.disconnectConfirmOpen = false;
-    this.inventoryOpen = false;
     this.leaving = false;
     this.matchEndOpen = false;
     this.lavaFx = [];
@@ -147,7 +137,6 @@ export class GameScene extends Phaser.Scene {
     this.createHud();
     this.createDisconnectUi();
     this.createMatchEndUi();
-    this.createInventoryUi();
     this.createRoundSpotlight();
     this.setupAimCursor();
     this.cursors = this.input.keyboard.addKeys({
@@ -167,14 +156,12 @@ export class GameScene extends Phaser.Scene {
       three: Phaser.Input.Keyboard.KeyCodes.THREE,
       four: Phaser.Input.Keyboard.KeyCodes.FOUR,
       tab: Phaser.Input.Keyboard.KeyCodes.TAB,
-      inventory: Phaser.Input.Keyboard.KeyCodes.I,
     });
 
     this.selectedSpellSlot = 0;
     this.input.keyboard.addCapture('TAB');
     this.input.keyboard.on('keydown', this.onDashKeyDown, this);
     this.input.keyboard.on('keydown-ESC', this.onEscapeKey, this);
-    this.input.keyboard.on('keydown-I', this.onInventoryKey, this);
     this.input.keyboard.on('keydown-ENTER', this.onDisconnectEnterKey, this);
 
     this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
@@ -217,7 +204,6 @@ export class GameScene extends Phaser.Scene {
       this.arenaIronSprites = [];
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
-      this.input.keyboard.off('keydown-I', this.onInventoryKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
       this.socket.off('game_state');
       this.socket.off('game_event');
@@ -607,25 +593,25 @@ export class GameScene extends Phaser.Scene {
       if (i < 4) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
-          if (this.disconnectConfirmOpen || this.leaving || this.inventoryOpen) return;
+          if (this.disconnectConfirmOpen || this.leaving) return;
           this.selectedSpellSlot = i;
         });
       } else if (i === 5) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
-          if (this.disconnectConfirmOpen || this.leaving || this.inventoryOpen) return;
+          if (this.disconnectConfirmOpen || this.leaving) return;
           this.pendingBarrier = true;
         });
       } else if (i === 6) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
-          if (this.disconnectConfirmOpen || this.leaving || this.inventoryOpen) return;
+          if (this.disconnectConfirmOpen || this.leaving) return;
           this.pendingMend = true;
         });
       } else if (i === 7) {
         bg.setInteractive({ useHandCursor: true });
         bg.on('pointerdown', () => {
-          if (this.disconnectConfirmOpen || this.leaving || this.inventoryOpen) return;
+          if (this.disconnectConfirmOpen || this.leaving) return;
           this.pendingBlink = true;
         });
       }
@@ -840,7 +826,6 @@ export class GameScene extends Phaser.Scene {
 
   openDisconnectConfirm() {
     if (this.disconnectConfirmOpen || this.leaving || this.matchEndOpen) return;
-    this.closeInventory();
     this.disconnectConfirmOpen = true;
 
     const { width, height } = this.scale;
@@ -909,230 +894,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  createInventoryUi() {
-    this.inventoryModal = this.add.container(0, 0).setDepth(420).setScrollFactor(0).setVisible(false);
-    this.inventoryCharacter = null;
-  }
-
-  toggleInventory() {
-    if (this.inventoryOpen) {
-      this.closeInventory();
-    } else {
-      this.openInventory();
-    }
-  }
-
-  openInventory() {
-    if (this.inventoryOpen || this.leaving) return;
-    this.inventoryOpen = true;
-    this.closeDisconnectConfirm();
-    this.inventoryCharacter = ensureCharacter();
-    this.renderInventoryUi();
-  }
-
-  closeInventory() {
-    this.inventoryOpen = false;
-    this.inventoryModal.removeAll(true);
-    this.inventoryModal.setVisible(false);
-  }
-
-  renderInventoryUi() {
-    const char = this.inventoryCharacter;
-    if (!char) return;
-    const inv = char.inventory;
-    const { width, height } = this.scale;
-
-    this.inventoryModal.removeAll(true);
-    this.inventoryModal.setVisible(true);
-
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7);
-    const panelX = width / 2 - 310;
-    const panelY = height / 2 - 260;
-    const panel = this.add.rectangle(width / 2, height / 2, 620, 520, 0x161228, 0.98).setStrokeStyle(2, 0x6b5cff);
-
-    const title = this.add
-      .text(width / 2, panelY + 20, 'Inventário & Equipamentos', {
-        fontFamily: 'Georgia, serif',
-        fontSize: '22px',
-        color: '#f4e8ff',
-      })
-      .setOrigin(0.5);
-
-    const closeBtnBg = this.add
-      .rectangle(width / 2 + 290, panelY + 18, 28, 28, 0xc0392b, 0.95)
-      .setStrokeStyle(1, 0xffffff, 0.2);
-    const closeBtnLabel = this.add
-      .text(width / 2 + 290, panelY + 18, 'X', {
-        fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '16px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    closeBtnBg.setInteractive({ useHandCursor: true });
-    closeBtnBg.on('pointerup', () => this.closeInventory());
-
-    this.inventoryModal.add([dim, panel, title, closeBtnBg, closeBtnLabel]);
-
-    // Equipment slots (left side)
-    const eqStartX = panelX + 20;
-    const eqStartY = panelY + 50;
-    const eqLabelX = eqStartX + 20;
-
-    this.inventoryModal.add(
-      this.add
-        .text(eqStartX + 10, eqStartY, 'Equipamentos', {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '14px',
-          fontStyle: 'bold',
-          color: '#e8c84a',
-        })
-    );
-
-    const slotSize = 50;
-    for (let i = 0; i < EQUIP_SLOTS.length; i++) {
-      const slotDef = EQUIP_SLOTS[i];
-      const sy = eqStartY + 24 + i * (slotSize + 8);
-      const sx = eqStartX + 10;
-
-      const slotBg = this.add.rectangle(eqLabelX + slotSize / 2 + 88, sy + slotSize / 2, 176, slotSize, 0x1a1430, 0.95).setStrokeStyle(1, 0x5a4a90);
-
-      const slotLabel = this.add
-        .text(sx, sy + slotSize / 2, `${slotDef.label}:`, {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '12px',
-          color: '#a99bc8',
-        })
-        .setOrigin(0, 0.5);
-
-      const item = inv.equipment[slotDef.key];
-      let itemName = '—';
-      let itemColor = '#666666';
-      if (item) {
-        itemName = item.name;
-        const c = Number(item.color);
-        itemColor = Number.isFinite(c) ? `#${(c >>> 0).toString(16).padStart(6, '0')}` : '#6b5cff';
-      }
-
-      const itemText = this.add
-        .text(eqLabelX + slotSize / 2 + 88, sy + slotSize / 2, itemName, {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '12px',
-          color: item ? itemColor : '#555',
-        })
-        .setOrigin(0.5);
-
-      slotBg.setInteractive({ useHandCursor: !!item });
-      if (item) {
-        slotBg.on('pointerover', () => slotBg.setStrokeStyle(2, 0x8b7cff));
-        slotBg.on('pointerout', () => slotBg.setStrokeStyle(1, 0x5a4a90));
-        slotBg.on('pointerup', () => this.handleUnequipToBag(slotDef.key));
-        const tooltipText = item.bonus?.cooldownReduction
-          ? `\nCooldown: -${Math.round(item.bonus.cooldownReduction * 100)}%`
-          : '';
-        const tt = this.add
-          .text(eqLabelX + slotSize / 2 + 88, sy + slotSize / 2 + 20, `Clique para desequipar${tooltipText}`, {
-            fontFamily: 'Trebuchet MS, sans-serif',
-            fontSize: '9px',
-            color: '#a99bc8',
-          })
-          .setOrigin(0.5);
-        this.inventoryModal.add(tt);
-      }
-
-      this.inventoryModal.add([slotBg, slotLabel, itemText]);
-    }
-
-    // Bag grid (right side)
-    const bagStartX = panelX + 230;
-    const bagStartY = eqStartY;
-    const cellSize = 28;
-    const gap = 2;
-    const colPitch = cellSize + gap;
-    const rowPitch = cellSize + gap;
-
-    this.inventoryModal.add(
-      this.add
-        .text(bagStartX + 10, bagStartY, 'Mochila', {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '14px',
-          fontStyle: 'bold',
-          color: '#e8c84a',
-        })
-    );
-
-    const slotColors = {
-      hat: 0x553388,
-      necklace: 0x886633,
-      ring: 0x338888,
-      tunic: 0x445588,
-      cape: 0x556644,
-      boots: 0x665533,
-    };
-
-    for (let row = 0; row < BAG_ROWS; row++) {
-      for (let col = 0; col < BAG_COLS; col++) {
-        const idx = row * BAG_COLS + col;
-        const bx = bagStartX + 10 + col * colPitch;
-        const by = bagStartY + 24 + row * rowPitch;
-
-        const item = inv.bag[idx];
-        const cellColor = item ? (slotColors[item.slot] || 0x3a3350) : 0x1a1430;
-        const cell = this.add.rectangle(bx + cellSize / 2, by + cellSize / 2, cellSize, cellSize, cellColor, 0.95)
-          .setStrokeStyle(item ? 1 : 0.5, item ? 0x8b7cff : 0x2a2040);
-
-        if (item) {
-          cell.setInteractive({ useHandCursor: true });
-          cell.on('pointerover', () => cell.setStrokeStyle(2, 0xaabbff));
-          cell.on('pointerout', () => cell.setStrokeStyle(1, 0x8b7cff));
-          cell.on('pointerup', () => this.handleEquipFromBag(idx));
-          const typeLabel = EQUIP_SLOTS.find((s) => s.accepts === item.slot)?.label || item.slot;
-          const tt = this.add
-            .text(bx + cellSize / 2, by + cellSize + 10, `${item.name} (${typeLabel})`, {
-              fontFamily: 'Trebuchet MS, sans-serif',
-              fontSize: '8px',
-              color: '#a99bc8',
-            })
-            .setOrigin(0.5, 0);
-          this.inventoryModal.add(tt);
-        }
-
-        this.inventoryModal.add(cell);
-      }
-    }
-
-    // Gold & Loot display
-    const resY = bagStartY + BAG_ROWS * rowPitch + 10;
-    this.inventoryModal.add(
-      this.add
-        .text(bagStartX + 10, resY, `Ouro: ${inv.gold}  ·  Loot: ${inv.loot}`, {
-          fontFamily: 'Trebuchet MS, sans-serif',
-          fontSize: '13px',
-          fontStyle: 'bold',
-          color: '#ffd76a',
-        })
-    );
-  }
-
-  handleEquipFromBag(bagIndex) {
-    const char = this.inventoryCharacter;
-    if (!char) return;
-    const result = equipFromBag(char.inventory, bagIndex);
-    if (!result.ok) return;
-    char.inventory = result.inventory;
-    saveInventory(result.inventory);
-    this.renderInventoryUi();
-  }
-
-  handleUnequipToBag(equipKey) {
-    const char = this.inventoryCharacter;
-    if (!char) return;
-    const result = unequipToBag(char.inventory, equipKey);
-    if (!result.ok) return;
-    char.inventory = result.inventory;
-    saveInventory(result.inventory);
-    this.renderInventoryUi();
-  }
-
   createMatchEndUi() {
     this.matchEndModal = this.add.container(0, 0).setDepth(450).setScrollFactor(0).setVisible(false);
   }
@@ -1141,7 +902,6 @@ export class GameScene extends Phaser.Scene {
     if (this.matchEndOpen || this.leaving) return;
     this.matchEndOpen = true;
     this.closeDisconnectConfirm();
-    this.closeInventory();
 
     const { width, height } = this.scale;
     this.matchEndModal.removeAll(true);
@@ -1905,7 +1665,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.state || this.leaving) return;
 
-    if (!this.disconnectConfirmOpen && !this.matchEndOpen && !this.inventoryOpen) {
+    if (!this.disconnectConfirmOpen && !this.matchEndOpen) {
       this.sendInput();
     }
     this.renderArena();
@@ -2066,22 +1826,11 @@ export class GameScene extends Phaser.Scene {
   onEscapeKey(event) {
     if (event?.repeat) return;
     if (this.leaving || this.matchEndOpen) return;
-    if (this.inventoryOpen) {
-      this.closeInventory();
-      return;
-    }
     if (this.disconnectConfirmOpen) {
       this.confirmDisconnect();
       return;
     }
     this.openDisconnectConfirm();
-  }
-
-  onInventoryKey(event) {
-    if (event?.repeat) return;
-    if (this.leaving || this.matchEndOpen) return;
-    if (this.disconnectConfirmOpen) return;
-    this.toggleInventory();
   }
 
   onDisconnectEnterKey(event) {
@@ -2092,7 +1841,7 @@ export class GameScene extends Phaser.Scene {
 
   onDashKeyDown(event) {
     if (event.repeat) return;
-    if (this.disconnectConfirmOpen || this.matchEndOpen || this.leaving || this.inventoryOpen) return;
+    if (this.disconnectConfirmOpen || this.matchEndOpen || this.leaving) return;
     const dirByCode = { KeyW: 'up', KeyS: 'down', KeyA: 'left', KeyD: 'right' };
     const dir = dirByCode[event.code];
     const shiftHeld = event.shiftKey || this.cursors.dash?.isDown;
