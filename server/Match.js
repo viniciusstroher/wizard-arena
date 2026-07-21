@@ -1092,17 +1092,16 @@ export class Match {
     return this.rollBossAppear(r);
   }
 
-  /** Agenda a boss fight (intermissão → countdown → startBossFight). */
+  /** Inicia boss fight logo após o round (sem intermissão/contagem). */
   queueBossFight() {
     this.pendingBossFight = true;
-    this.phase = 'intermission';
-    this.intermissionTimer = CONFIG.ROUND_INTERMISSION;
     console.log('[match] queue boss fight', {
       matchId: this.id,
       round: this.round,
       chance: CONFIG.BOSS_FIGHT_CHANCE,
     });
-    this.broadcastState(true);
+    this.prepareRound();
+    this.startBossFight();
   }
 
   startRound() {
