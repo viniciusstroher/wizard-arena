@@ -769,7 +769,7 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInfo(histTitle);
 
     this.historyLootText = this.add
-      .text(x - 70, y - 232, 'Loot: —', {
+      .text(x - 110, y - 232, 'Loot: —', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#c4b5e0',
@@ -778,8 +778,19 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth);
     this.trackInfo(this.historyLootText);
 
+    this.historyPointsText = this.add
+      .text(x, y - 232, 'Pontos: —', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#f4e8ff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth);
+    this.trackInfo(this.historyPointsText);
+
     this.historyGoldText = this.add
-      .text(x + 70, y - 232, 'Gold: —', {
+      .text(x + 110, y - 232, 'Gold: —', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '15px',
         color: '#ffd76a',
@@ -822,6 +833,7 @@ export class CharacterScene extends Phaser.Scene {
     if (!this.historyEl) return;
     this.historyEl.innerHTML = '';
     this.historyLootText?.setText('Loot: —');
+    this.historyPointsText?.setText('Pontos: —');
     this.historyGoldText?.setText('Gold: —');
     this.historyStatus?.setText('Carregando...').setColor('#9a8bb8');
     try {
@@ -829,7 +841,9 @@ export class CharacterScene extends Phaser.Scene {
       const matches = data.matches || [];
       const totalLoot = Number(data.totalLoot) || 0;
       const totalGold = Number(data.totalGold) || 0;
+      const totalPoints = Number(data.totalPoints) || 0;
       this.historyLootText?.setText(`Loot: ${totalLoot}`);
+      this.historyPointsText?.setText(`Pontos: ${totalPoints}`);
       this.historyGoldText?.setText(`Gold: ${totalGold}`);
 
       // Mantém inventário alinhado ao total acumulado nas partidas
@@ -905,7 +919,7 @@ export class CharacterScene extends Phaser.Scene {
           'font-size: 12px; color: #c4b5e0; margin-top: 6px; line-height: 1.35;';
 
         const stats = document.createElement('div');
-        stats.textContent = `${elementLabel(m.wizardType)} · ${m.kills ?? 0}K / ${m.deaths ?? 0}D · ${m.damageDealt ?? 0} dano · ${m.loot ?? 0} loot · ${m.gold ?? 0} gold`;
+        stats.textContent = `${elementLabel(m.wizardType)} · ${m.points ?? 0} pts · ${m.kills ?? 0}K / ${m.deaths ?? 0}D · ${m.damageDealt ?? 0} dano · ${m.loot ?? 0} loot · ${m.gold ?? 0} gold`;
         stats.style.cssText = 'font-size: 11px; color: #9a8bb8; margin-top: 4px;';
 
         row.appendChild(top);

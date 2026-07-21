@@ -101,7 +101,7 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
   const { Match, MatchPlayer } = models;
   const id = String(characterId || '').trim();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
-    return { matches: [], total: 0, wins: 0, losses: 0, totalLoot: 0, totalGold: 0 };
+    return { matches: [], total: 0, totalLoot: 0, totalGold: 0, totalPoints: 0 };
   }
 
   const take = Math.min(50, Math.max(1, Number(limit) || 30));
@@ -123,15 +123,18 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
 
   const total = await MatchPlayer.count({ where: { characterId: id, isBot: false } });
 
-  const [lootGoldRows] = await Match.sequelize.query(
-    `SELECT COALESCE(SUM(mp.loot), 0) AS totalLoot, COALESCE(SUM(mp.gold), 0) AS totalGold
+  const [totalsRows] = await Match.sequelize.query(
+    `SELECT COALESCE(SUM(mp.loot), 0) AS totalLoot,
+            COALESCE(SUM(mp.gold), 0) AS totalGold,
+            COALESCE(SUM(mp.score), 0) AS totalPoints
      FROM match_players AS mp
      WHERE mp.characterId = :id AND mp.isBot = 0`,
     { replacements: { id } }
   );
-  const totalsRow = lootGoldRows?.[0] || {};
+  const totalsRow = totalsRows?.[0] || {};
   const totalLoot = Number(totalsRow.totalLoot) || 0;
   const totalGold = Number(totalsRow.totalGold) || 0;
+  const totalPoints = Number(totalsRow.totalPoints) || 0;
 
   const matchIds = rows.map((r) => r.matchId);
   const peers =
@@ -189,6 +192,7 @@ export async function getCharacterMatchHistory(characterId, { limit = 30, offset
     total,
     totalLoot,
     totalGold,
+    totalPoints,
   };
 }
 
