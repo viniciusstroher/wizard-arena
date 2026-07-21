@@ -51,4 +51,5 @@ Para PvP real: abra duas abas/navegadores, entre com nomes diferentes e dê Read
 - Ao subir de nível: escolha 1 de 3 magias (rogue-like). Máx. 4 magias.
 - Uma das 3 opções pode ser upgrade de magia já escolhida.
 - Nível 4+: pode aparecer um **ultimate** (autocast; cooldown via `PLAYER_ULTIMATE_COOLDOWN`).
+- **Equipamento:** na tela Personagem → Inventário. A **Túnica de Pano** reduz o cooldown das magias em 1% (enviado ao servidor ao entrar no lobby).
 - XP: matar monstro / matar jogador (maior) / sobreviver ao round (menor que kill de jogador).

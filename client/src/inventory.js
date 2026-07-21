@@ -4,13 +4,14 @@ export const BAG_COLS = 12;
 export const BAG_ROWS = 12;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
-/** v3: anéis substituídos por túnica com bônus de cooldown. */
-export const STARTER_KIT_VERSION = 3;
+/** v4: um slot de anel (ring1) + túnica no lugar do segundo anel. */
+export const STARTER_KIT_VERSION = 4;
 
 /** Slots de equipamento. */
 export const EQUIP_SLOTS = [
   { key: 'hat', label: 'Chapéu', accepts: 'hat' },
   { key: 'necklace', label: 'Colar', accepts: 'necklace' },
+  { key: 'ring1', label: 'Anel', accepts: 'ring' },
   { key: 'tunic', label: 'Túnica', accepts: 'tunic' },
   { key: 'cape', label: 'Capa', accepts: 'cape' },
   { key: 'boots', label: 'Botas', accepts: 'boots' },
@@ -47,6 +48,12 @@ export const ITEM_DEFS = {
     set: 'conjunto_de_pano',
     bonus: { cooldownReduction: 0.01 },
   },
+  plastic_ring: {
+    id: 'plastic_ring',
+    name: 'Anel de Plástico',
+    slot: 'ring',
+    color: 0x7ec8e3,
+  },
   brass_necklace: {
     id: 'brass_necklace',
     name: 'Colar de Latão',
@@ -65,6 +72,7 @@ export const ITEM_DEFS = {
 const STARTER_EQUIP_PLAN = [
   { key: 'hat', id: 'cloth_hat' },
   { key: 'cape', id: 'cloth_cape' },
+  { key: 'ring1', id: 'plastic_ring' },
   { key: 'tunic', id: 'cloth_tunic' },
   { key: 'necklace', id: 'brass_necklace' },
   { key: 'boots', id: 'holey_boots' },
@@ -129,7 +137,8 @@ export function itemTooltipLines(item) {
 function normalizeItem(raw) {
   if (!raw || typeof raw !== 'object') return null;
   let id = String(raw.id || '').trim();
-  if (id === 'plastic_ring_1' || id === 'plastic_ring_2') id = 'cloth_tunic';
+  if (id === 'plastic_ring_1') id = 'plastic_ring';
+  if (id === 'plastic_ring_2') id = 'cloth_tunic';
   const def = ITEM_DEFS[id];
   if (def) {
     return {
@@ -247,23 +256,14 @@ export function defaultInventory() {
   });
 }
 
-function migrateLegacyRings(rawEquipment, inv) {
+function migrateLegacyRing2ToTunic(rawEquipment, inv) {
   if (!rawEquipment || typeof rawEquipment !== 'object') return;
-  const hadRing =
-    rawEquipment.ring1 != null ||
-    rawEquipment.ring2 != null;
-  if (!hadRing) return;
+  if (rawEquipment.ring2 == null) return;
 
   if (!inv.equipment.tunic) {
-    inv.equipment.tunic = createItem('cloth_tunic');
-  }
-
-  for (const key of ['ring1', 'ring2']) {
-    const item = normalizeItem(rawEquipment[key]);
-    if (!item || item.id === 'cloth_tunic') continue;
-    const idx = firstEmptyBagIndex(inv.bag);
-    if (idx < 0) continue;
-    inv.bag[idx] = item;
+    const ring2 = normalizeItem(rawEquipment.ring2);
+    inv.equipment.tunic =
+      ring2?.slot === 'tunic' ? ring2 : createItem('cloth_tunic');
   }
 }
 
@@ -292,7 +292,7 @@ export function normalizeInventory(raw) {
     starterKit: Math.max(0, Math.floor(Number(raw.starterKit) || 0)),
   };
 
-  migrateLegacyRings(raw.equipment, inv);
+  migrateLegacyRing2ToTunic(raw.equipment, inv);
 
   if (inv.starterKit < STARTER_KIT_VERSION) {
     return grantStarterKit(inv);

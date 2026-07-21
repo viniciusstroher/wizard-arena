@@ -61,6 +61,22 @@ function drawCape(ctx, color) {
   ctx.fill();
 }
 
+function drawRing(ctx, color) {
+  ctx.lineWidth = 5;
+  stroke(ctx, color);
+  ctx.beginPath();
+  ctx.arc(24, 24, 12, 0, Math.PI * 2);
+  ctx.stroke();
+  fill(ctx, color, 0.85);
+  ctx.beginPath();
+  ctx.arc(24, 12, 4, 0, Math.PI * 2);
+  ctx.fill();
+  fill(ctx, 0xffffff, 0.35);
+  ctx.beginPath();
+  ctx.arc(22, 11, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawTunic(ctx, color) {
   fill(ctx, color);
   // corpo
@@ -128,6 +144,7 @@ function drawBoots(ctx, color) {
 const DRAWER_BY_SLOT = {
   hat: drawHat,
   cape: drawCape,
+  ring: drawRing,
   tunic: drawTunic,
   necklace: drawNecklace,
   boots: drawBoots,
