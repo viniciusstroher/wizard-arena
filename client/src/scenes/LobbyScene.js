@@ -197,29 +197,9 @@ export class LobbyScene extends Phaser.Scene {
     this.readyBtn = this.makeButton(panelX, btnStartY, 'Pronto', 0x2ecc71, () => this.toggleReady(), btnW);
     this.setButtonEnabled(this.readyBtn, false);
 
-    const halfW = (btnW - 12) / 2;
-    this.botsBtn = this.makeButton(
-      panelX - halfW / 2 - 6,
-      btnStartY + step,
-      '+ Bot',
-      0xff8c42,
-      () => this.addBot(),
-      halfW
-    );
-    this.removeBotsBtn = this.makeButton(
-      panelX + halfW / 2 + 6,
-      btnStartY + step,
-      '− Bot',
-      0xc0392b,
-      () => this.removeBot(),
-      halfW
-    );
-    this.setButtonEnabled(this.botsBtn, false);
-    this.setButtonEnabled(this.removeBotsBtn, false);
-
     this.adminBtn = this.makeButton(
       panelX,
-      btnStartY + step * 2,
+      btnStartY + step,
       'Opções da Partida',
       0x8e44ad,
       () => this.openAdminModal(),
@@ -229,27 +209,21 @@ export class LobbyScene extends Phaser.Scene {
 
     this.leaveBtn = this.makeButton(
       panelX,
-      btnStartY + step * 3,
+      btnStartY + step * 2,
       'Sair',
       0xc0392b,
       () => this.leaveToMatchmaking(),
       btnW
     );
 
-    for (const btn of [
-      this.readyBtn,
-      this.botsBtn,
-      this.removeBotsBtn,
-      this.adminBtn,
-      this.leaveBtn,
-    ]) {
+    for (const btn of [this.readyBtn, this.adminBtn, this.leaveBtn]) {
       btn.setDepth(uiDepth);
     }
 
     this.adminModal = this.add.container(0, 0).setDepth(400).setVisible(false);
 
     this.hint = this.add
-      .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos/bots', {
+      .text(panelX, height - 36, '1 jogador ready já inicia · ou chame amigos', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '13px',
         color: '#7a6e96',
@@ -502,9 +476,7 @@ export class LobbyScene extends Phaser.Scene {
     this.socket.on('joined', () => {
       this.joined = true;
       this.setButtonEnabled(this.readyBtn, true);
-      this.setButtonEnabled(this.botsBtn, true);
       this.setButtonEnabled(this.adminBtn, true);
-      this.refreshRemoveBotsBtn();
       this.messageBoard?.setChatEnabled(true);
       this.statusText.setText('Marque Pronto quando estiver preparado. Se todos estiverem prontos, a partida será iniciada automaticamente.');
     });
@@ -582,22 +554,6 @@ export class LobbyScene extends Phaser.Scene {
     this.readyBtn.bg.setFillStyle(this.ready ? 0xe67e22 : 0x2ecc71);
   }
 
-  addBot() {
-    if (!this.joined) return;
-    this.socket.emit('add_bots', { count: 1 });
-  }
-
-  removeBot() {
-    if (!this.joined) return;
-    this.socket.emit('remove_bots', { count: 1 });
-  }
-
-  refreshRemoveBotsBtn() {
-    if (!this.removeBotsBtn) return;
-    const botCount = this.lobby?.players?.filter((p) => p.isBot).length || 0;
-    this.setButtonEnabled(this.removeBotsBtn, this.joined && botCount > 0);
-  }
-
   refreshLobby() {
     if (!this.lobby) return;
     const lines = this.lobby.players.map((p) => {
@@ -612,7 +568,6 @@ export class LobbyScene extends Phaser.Scene {
         : 'Nenhum jogador ainda';
       this.playersListEl.style.overflowY = n > 4 ? 'auto' : 'hidden';
     }
-    this.refreshRemoveBotsBtn();
     const readyCount = this.lobby.players.filter((p) => p.ready).length;
     const host =
       this.lobby.players.find((p) => !p.isBot) || this.lobby.players[0];
