@@ -1068,6 +1068,18 @@ export class Match {
     if (leftLobbyBrowser) this.onLobbyListChange?.();
   }
 
+  /** Após intermissão: prepara a arena e inicia o próximo round/boss sem contagem. */
+  beginRoundAfterIntermission() {
+    this.afterLevelUp = null;
+    this.prepareRound();
+    if (this.pendingBossFight || this.needsBossFightAfterRound(this.round)) {
+      this.pendingBossFight = true;
+      this.startBossFight();
+      return;
+    }
+    this.startRound();
+  }
+
   /** Sorteia (1x) se a boss fight deve ocorrer após o round, segundo BOSS_FIGHT_CHANCE. */
   rollBossAppear(round) {
     if (this.bossAppearRolls.has(round)) return this.bossAppearRolls.get(round) === true;
@@ -1578,25 +1590,22 @@ export class Match {
     this.pushEvent({ type: 'lever_spawn', x, y, radius });
   }
 
-  /** Expande a arena segura em uma fração do quanto ela fecha por fase. */
+  /** Expande a arena segura e retoma o fechamento a partir do raio atual. */
   expandArenaFromLever(playerId = null) {
     const amount = CONFIG.ARENA_SHRINK_AMOUNT * CONFIG.LEVER_EXPAND_RATIO;
     if (!(amount > 0)) return 0;
     const before = this.arenaRadius;
+    const wasShrinking = this.shrinkActive;
 
-    // Se a zona está fechando, interrompe na hora no raio atual e só cresce.
+    // Se a zona está fechando, congela no raio atual (a fase não conta como concluída).
     if (this.shrinkActive) {
       this.shrinkActive = false;
       this.shrinkFrom = this.arenaRadius;
       this.shrinkTo = this.arenaRadius;
       this.shrinkElapsed = 0;
-      this.nextShrinkAt = Math.max(
-        this.nextShrinkAt,
-        this.roundTime + CONFIG.ARENA_SHRINK_INTERVAL
-      );
     }
 
-    this.arenaRadius = Math.min(CONFIG.ARENA_START_RADIUS, this.arenaRadius + amount);
+    this.arenaRadius += amount;
     const gained = this.arenaRadius - before;
     if (gained > 0) {
       this.pushEvent({
@@ -1606,7 +1615,32 @@ export class Match {
         amount: +gained.toFixed(2),
       });
     }
+
+    if (wasShrinking && this.shrinksDone < CONFIG.ARENA_SHRINK_TIMES) {
+      this.resumeArenaShrinkFromCurrent();
+    }
+
     return gained;
+  }
+
+  /** Inicia (ou reinicia) o fechamento gradual a partir do raio atual. */
+  resumeArenaShrinkFromCurrent() {
+    this.shrinkFrom = this.arenaRadius;
+    this.shrinkTo = Math.max(
+      CONFIG.ARENA_MIN_RADIUS,
+      this.arenaRadius - CONFIG.ARENA_SHRINK_AMOUNT
+    );
+    this.shrinkElapsed = 0;
+    this.pushEvent({ type: 'arena_shrink', radius: this.shrinkTo });
+    if (CONFIG.ARENA_SHRINK_DURATION <= 0) {
+      this.arenaRadius = this.shrinkTo;
+      this.shrinkActive = false;
+      this.shrinksDone += 1;
+      this.cullTreesOutsideArena();
+      this.cullRocksOutsideArena();
+    } else {
+      this.shrinkActive = true;
+    }
   }
 
   activateLever(lever, player) {
@@ -4386,12 +4420,7 @@ export class Match {
       this.ensureSpellChoicesForPending();
       this.resolveLevelUpTimeouts();
       if (this.intermissionTimer <= 0) {
-        if (this.pendingBossFight || this.needsBossFightAfterRound(this.round)) {
-          this.pendingBossFight = true;
-          this.startCountdown();
-        } else {
-          this.startCountdown();
-        }
+        this.beginRoundAfterIntermission();
       } else {
         this.broadcastState();
       }

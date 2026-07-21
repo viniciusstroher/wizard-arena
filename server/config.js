@@ -578,10 +578,10 @@ export const CONFIG = {
   /** Raio de coleta (somado ao PLAYER_RADIUS). */
   LEVER_RADIUS: envNumber('LEVER_RADIUS', 22),
   /**
-   * Fração do ARENA_SHRINK_AMOUNT restaurada ao ativar a alavanca.
-   * Ex.: 0.5 = a arena cresce metade do quanto fecha por fase.
+   * Multiplicador do ARENA_SHRINK_AMOUNT restaurado ao ativar a alavanca.
+   * Ex.: 2 = a arena cresce o dobro do quanto fecha por fase.
    */
-  LEVER_EXPAND_RATIO: envNumber('LEVER_EXPAND_RATIO', 0.5),
+  LEVER_EXPAND_RATIO: envNumber('LEVER_EXPAND_RATIO', 2),
 
   /**
    * Vozes aleatórias (Kiko / Seu Madruga): intervalo min/max entre
