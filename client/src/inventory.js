@@ -66,6 +66,27 @@ export const ITEM_DEFS = {
     slot: 'boots',
     color: 0x8b6914,
   },
+  // Minérios (não equipáveis)
+  copper_ore:    { id: 'copper_ore',    name: 'Minério de Cobre',     slot: 'ore', color: 0xe87438 },
+  iron_ore:      { id: 'iron_ore',      name: 'Minério de Ferro',     slot: 'ore', color: 0x8c7a6b },
+  silver_ore:    { id: 'silver_ore',    name: 'Minério de Prata',     slot: 'ore', color: 0xc0c8d4 },
+  gold_ore:      { id: 'gold_ore',      name: 'Minério de Ouro',      slot: 'ore', color: 0xe8c048 },
+  diamond_ore:   { id: 'diamond_ore',   name: 'Minério de Diamante',  slot: 'ore', color: 0x64d8e8 },
+  emerald_ore:   { id: 'emerald_ore',   name: 'Minério de Esmeralda', slot: 'ore', color: 0x40c860 },
+  ruby_ore:      { id: 'ruby_ore',      name: 'Minério de Rubi',      slot: 'ore', color: 0xe04050 },
+  sapphire_ore:  { id: 'sapphire_ore',  name: 'Minério de Safira',    slot: 'ore', color: 0x3068e8 },
+  quartz_ore:    { id: 'quartz_ore',    name: 'Minério de Quartzo',   slot: 'ore', color: 0xe8d0e0 },
+  obsidian_ore:  { id: 'obsidian_ore',  name: 'Minério de Obsidiana', slot: 'ore', color: 0x301828 },
+  mythril_ore:   { id: 'mythril_ore',   name: 'Minério de Mitril',    slot: 'ore', color: 0x60c0d8 },
+  orichalcum_ore:{ id: 'orichalcum_ore',name: 'Minério de Oricalco',  slot: 'ore', color: 0xe8a030 },
+  moonstone_ore: { id: 'moonstone_ore', name: 'Minério Lunar',        slot: 'ore', color: 0xa0b8ff },
+  sunstone_ore:  { id: 'sunstone_ore',  name: 'Minério Solar',        slot: 'ore', color: 0xffcc50 },
+  shadow_ore:    { id: 'shadow_ore',    name: 'Minério Sombrio',      slot: 'ore', color: 0x482868 },
+  crystal_ore:   { id: 'crystal_ore',   name: 'Minério Cristalino',   slot: 'ore', color: 0xb0ffd8 },
+  coral_ore:     { id: 'coral_ore',     name: 'Minério de Coral',     slot: 'ore', color: 0xe87080 },
+  amber_ore:     { id: 'amber_ore',     name: 'Minério de Âmbar',     slot: 'ore', color: 0xf0a040 },
+  jade_ore:      { id: 'jade_ore',      name: 'Minério de Jade',      slot: 'ore', color: 0x40a870 },
+  onyx_ore:      { id: 'onyx_ore',      name: 'Minério de Ônix',      slot: 'ore', color: 0x202028 },
 };
 
 /** Ordem de equipamento do kit inicial. */
@@ -81,9 +102,9 @@ const STARTER_EQUIP_PLAN = [
 const STARTER_ITEM_IDS = STARTER_EQUIP_PLAN.map((p) => p.id);
 
 const EQUIP_KEYS = EQUIP_SLOTS.map((s) => s.key);
-const ACCEPTS = new Set(EQUIP_SLOTS.map((s) => s.accepts));
+const ACCEPTS = new Set([...EQUIP_SLOTS.map((s) => s.accepts), 'ore']);
 const SLOT_LABEL_BY_ACCEPTS = Object.fromEntries(
-  EQUIP_SLOTS.map((s) => [s.accepts, s.label])
+  [...EQUIP_SLOTS.map((s) => [s.accepts, s.label]), ['ore', 'Minério']]
 );
 
 function emptyEquipment() {

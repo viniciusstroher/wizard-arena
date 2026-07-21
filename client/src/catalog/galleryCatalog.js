@@ -14,6 +14,7 @@ import {
   FLOOR_META,
   floorDescription,
 } from './statusEffects.js';
+import { ITEM_DEFS } from '../inventory.js';
 
 /** Grupos temáticos da galeria de terrenos. */
 const FLOOR_GROUP_OF = {
@@ -446,4 +447,19 @@ export function getFloorEntries() {
 
 export function floorDisplayName(id) {
   return FLOOR_META[id]?.name || id;
+}
+
+/** Catálogo de minérios para a galeria. */
+export function getOreEntries() {
+  const ores = [];
+  for (const def of Object.values(ITEM_DEFS)) {
+    if (def.slot !== 'ore') continue;
+    ores.push({
+      id: def.id,
+      name: def.name,
+      color: def.color,
+      textureKey: `ore_${def.id.replace('_ore', '')}`,
+    });
+  }
+  return ores.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
 }

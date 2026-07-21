@@ -141,6 +141,48 @@ function drawBoots(ctx, color) {
   ctx.fillRect(16, 12, 3, 14);
 }
 
+function drawOre(ctx, color) {
+  // Rocha base
+  fill(ctx, 0x554433);
+  ctx.beginPath();
+  ctx.moveTo(14, 38);
+  ctx.quadraticCurveTo(12, 30, 16, 28);
+  ctx.quadraticCurveTo(10, 22, 18, 18);
+  ctx.quadraticCurveTo(14, 12, 24, 12);
+  ctx.quadraticCurveTo(30, 8, 34, 16);
+  ctx.quadraticCurveTo(40, 14, 36, 24);
+  ctx.quadraticCurveTo(42, 28, 34, 32);
+  ctx.quadraticCurveTo(38, 38, 30, 38);
+  ctx.closePath();
+  ctx.fill();
+  // Brilho mineral
+  fill(ctx, color, 0.9);
+  ctx.beginPath();
+  ctx.moveTo(20, 14);
+  ctx.lineTo(28, 14);
+  ctx.lineTo(30, 20);
+  ctx.lineTo(24, 24);
+  ctx.lineTo(18, 20);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(24, 24);
+  ctx.lineTo(30, 20);
+  ctx.lineTo(32, 28);
+  ctx.lineTo(28, 30);
+  ctx.lineTo(22, 28);
+  ctx.closePath();
+  ctx.fill();
+  fill(ctx, 0xffffff, 0.25);
+  ctx.beginPath();
+  ctx.moveTo(22, 16);
+  ctx.lineTo(26, 16);
+  ctx.lineTo(27, 18);
+  ctx.lineTo(22, 18);
+  ctx.closePath();
+  ctx.fill();
+}
+
 const DRAWER_BY_SLOT = {
   hat: drawHat,
   cape: drawCape,
@@ -148,6 +190,7 @@ const DRAWER_BY_SLOT = {
   tunic: drawTunic,
   necklace: drawNecklace,
   boots: drawBoots,
+  ore: drawOre,
 };
 
 export function itemIconKey(itemId) {

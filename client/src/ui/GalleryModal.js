@@ -4,6 +4,7 @@ import {
   getMonsterEntries,
   getSpellEntries,
   getFloorEntries,
+  getOreEntries,
 } from '../catalog/galleryCatalog.js';
 import { spellElementIconKey } from '../catalog/spellElements.js';
 import {
@@ -73,6 +74,7 @@ export class GalleryModal {
     this.selectedMonsterId = null;
     this.selectedSpellId = null;
     this.selectedFloorId = null;
+    this.selectedOreId = null;
     this._previewedTab = null;
     this._previewedId = null;
 
@@ -100,6 +102,7 @@ export class GalleryModal {
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
+    this.ores = getOreEntries();
     this.layout = null;
   }
 
@@ -158,6 +161,7 @@ export class GalleryModal {
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
+    this.ores = getOreEntries();
     this._applyDeepLinkState(options);
 
     const { width, height } = this.scene.scale;
@@ -195,6 +199,7 @@ export class GalleryModal {
     const tabs = [
       { id: 'monsters', label: `Monstros (${this.monsters.length})` },
       { id: 'spells', label: `Magias (${this.spells.length})` },
+      { id: 'ores', label: `Minérios (${this.ores.length})` },
       { id: 'floors', label: `Terrenos (${this.floors.length})` },
     ];
     let tabX = L.cx - 220;
@@ -326,6 +331,7 @@ export class GalleryModal {
     this.monsters = getMonsterEntries();
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
+    this.ores = getOreEntries();
     this._applyDeepLinkState(options);
     if (!this.open) {
       this.show({ ...options, syncUrl: options.syncUrl });
@@ -336,8 +342,10 @@ export class GalleryModal {
   }
 
   _applyDeepLinkState(options = {}) {
-    if (options.tab === 'monsters' || options.tab === 'spells' || options.tab === 'floors') {
+    if (options.tab === 'monsters' || options.tab === 'spells' || options.tab === 'floors' || options.tab === 'ores') {
       this.tab = options.tab;
+    } else if (options.oreId) {
+      this.tab = 'ores';
     } else if (options.spellId) {
       this.tab = 'spells';
     } else if (options.monsterId) {
@@ -352,6 +360,15 @@ export class GalleryModal {
         this.tab = 'monsters';
         this.monsterTier = monster.tier;
         this.selectedMonsterId = monster.id;
+        this.searchQuery = '';
+      }
+    }
+
+    if (options.oreId) {
+      const ore = this.ores.find((o) => o.id === options.oreId);
+      if (ore) {
+        this.tab = 'ores';
+        this.selectedOreId = ore.id;
         this.searchQuery = '';
       }
     }
@@ -381,22 +398,25 @@ export class GalleryModal {
     const spellId = this.tab === 'spells' ? this.selectedSpellId : null;
     const monsterId = this.tab === 'monsters' ? this.selectedMonsterId : null;
     const floorId = this.tab === 'floors' ? this.selectedFloorId : null;
-    syncGalleryUrl({ tab: this.tab, spellId, monsterId, floorId });
+    const oreId = this.tab === 'ores' ? this.selectedOreId : null;
+    syncGalleryUrl({ tab: this.tab, spellId, monsterId, floorId, oreId });
   }
 
   async _copyCurrentLink() {
     const spellId = this.tab === 'spells' ? this.selectedSpellId : null;
     const monsterId = this.tab === 'monsters' ? this.selectedMonsterId : null;
     const floorId = this.tab === 'floors' ? this.selectedFloorId : null;
+    const oreId = this.tab === 'ores' ? this.selectedOreId : null;
     if (
       (this.tab === 'spells' && !spellId) ||
       (this.tab === 'monsters' && !monsterId) ||
-      (this.tab === 'floors' && !floorId)
+      (this.tab === 'floors' && !floorId) ||
+      (this.tab === 'ores' && !oreId)
     ) {
       this._setCopyFeedback('Selecione um item');
       return;
     }
-    const url = galleryShareUrl({ tab: this.tab, spellId, monsterId, floorId });
+    const url = galleryShareUrl({ tab: this.tab, spellId, monsterId, floorId, oreId });
     const ok = await this._writeClipboard(url);
     this._setCopyFeedback(ok ? 'Link copiado!' : 'Falha ao copiar');
   }
@@ -517,6 +537,30 @@ export class GalleryModal {
   }
 
   _selectDefaultForCurrentView() {
+    if (this.tab === 'ores') {
+      const filtered = this._filteredOres();
+      const keep = filtered.find((o) => o.id === this.selectedOreId);
+      if (keep) {
+        const samePreview = this._previewedTab === 'ores' && this._previewedId === keep.id;
+        if (samePreview) this._highlightListSelection();
+        else this._selectOre(keep.id, { syncUrl: false });
+        return;
+      }
+      const first = filtered[0];
+      if (first) {
+        this._selectOre(first.id);
+        return;
+      }
+      this.selectedOreId = null;
+      this._previewedId = null;
+      this._previewedTab = null;
+      this._clearPreview();
+      if (this.infoTitle) this.infoTitle.setText('');
+      this._setInfoElement(null);
+      if (this.infoBody) this.infoBody.setText('Nenhum minério encontrado.');
+      return;
+    }
+
     if (this.tab === 'monsters') {
       const filtered = this._filteredMonsters();
       const keep = filtered.find((m) => m.id === this.selectedMonsterId);
@@ -625,15 +669,27 @@ export class GalleryModal {
     });
   }
 
+  _filteredOres() {
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.ores.filter((o) => {
+      if (!q) return true;
+      const name = (o.name || '').toLowerCase();
+      const id = (o.id || '').toLowerCase();
+      return name.includes(q) || id.includes(q);
+    });
+  }
+
   _filterSections() {
     if (this.tab === 'monsters') return TIER_SECTIONS;
     if (this.tab === 'floors') return FLOOR_SECTIONS;
+    if (this.tab === 'ores') return [{ id: 'all', label: 'Todos', color: '#e8c84a' }];
     return SPELL_SECTIONS;
   }
 
   _activeFilterId() {
     if (this.tab === 'monsters') return this.monsterTier;
     if (this.tab === 'floors') return this.floorGroup;
+    if (this.tab === 'ores') return 'all';
     return this.spellCategory;
   }
 
@@ -653,7 +709,9 @@ export class GalleryModal {
         ? 'Procurar monstro...'
         : this.tab === 'floors'
           ? 'Procurar terreno...'
-          : 'Procurar magia...';
+          : this.tab === 'ores'
+            ? 'Procurar minério...'
+            : 'Procurar magia...';
 
     const root = document.createElement('div');
     root.style.cssText = [
@@ -694,6 +752,7 @@ export class GalleryModal {
         e.stopPropagation();
         if (this.tab === 'monsters') this._setMonsterTier(section.id);
         else if (this.tab === 'floors') this._setFloorGroup(section.id);
+        else if (this.tab === 'ores') { /* single category — noop */ }
         else this._setSpellCategory(section.id);
       });
       this.tierTabEls.push(btn);
@@ -765,7 +824,9 @@ export class GalleryModal {
         ? this.monsters.filter((m) => m.tier === section.id).length
         : this.tab === 'floors'
           ? this.floors.filter((f) => f.group === section.id).length
-          : this.spells.filter((s) => s.category === section.id).length;
+          : this.tab === 'ores'
+            ? this.ores.length
+            : this.spells.filter((s) => s.category === section.id).length;
     return `${section.label} (${count})`;
   }
 
@@ -803,6 +864,7 @@ export class GalleryModal {
   _selectedIdForTab(tab) {
     if (tab === 'monsters') return this.selectedMonsterId;
     if (tab === 'floors') return this.selectedFloorId;
+    if (tab === 'ores') return this.selectedOreId;
     return this.selectedSpellId;
   }
 
@@ -825,6 +887,24 @@ export class GalleryModal {
       }
       for (const entry of group) {
         scroll.appendChild(this._makeListRow(entry, 'monsters'));
+      }
+      return;
+    }
+
+    if (this.tab === 'ores') {
+      const group = this._filteredOres();
+      if (!group.length) {
+        const empty = document.createElement('div');
+        empty.style.cssText =
+          'padding: 16px 12px; color: #7a6e96; font-size: 12px; text-align: center;';
+        empty.textContent = this.searchQuery.trim()
+          ? 'Nenhum minério corresponde à procura.'
+          : 'Nenhum minério disponível.';
+        scroll.appendChild(empty);
+        return;
+      }
+      for (const entry of group) {
+        scroll.appendChild(this._makeListRow(entry, 'ores'));
       }
       return;
     }
@@ -905,6 +985,10 @@ export class GalleryModal {
 
     if (tab === 'spells' && entry.elementLabel) {
       nameWrap.appendChild(this._elementBadgeEl(entry.elementCss, entry.elementLabel, true));
+    }
+    if (tab === 'ores' && entry.color != null) {
+      const colorCss = `#${(entry.color >>> 0).toString(16).padStart(6, '0')}`;
+      nameWrap.appendChild(this._elementBadgeEl(colorCss, '', true));
     }
 
     const name = document.createElement('span');
@@ -1047,6 +1131,7 @@ export class GalleryModal {
     row.addEventListener('click', () => {
       if (tab === 'monsters') this._selectMonster(entry.id);
       else if (tab === 'floors') this._selectFloor(entry.id);
+      else if (tab === 'ores') this._selectOre(entry.id);
       else this._selectSpell(entry.id);
     });
     return row;
@@ -1245,6 +1330,49 @@ export class GalleryModal {
     this._previewedId = id;
     this._playFloorPreview(entry);
     if (syncUrl) this._syncUrl();
+  }
+
+  _selectOre(id, { syncUrl = true } = {}) {
+    const entry = this.ores.find((o) => o.id === id);
+    if (!entry) return;
+    this.selectedOreId = id;
+    this._highlightListSelection();
+
+    const details = [
+      'Minério',
+      'Item de coleta (não equipável)',
+    ];
+
+    if (this.infoTitle) this.infoTitle.setText(entry.name);
+    this._setInfoElement(null);
+    if (this.infoBody) this.infoBody.setText(details.join('\n'));
+    this._previewedTab = 'ores';
+    this._previewedId = id;
+    this._playOrePreview(entry);
+    if (syncUrl) this._syncUrl();
+  }
+
+  _playOrePreview(entry) {
+    this._clearPreview();
+    if (!this.previewRoot || !entry) return;
+
+    const texKey = entry.textureKey || 'ore_copper';
+    const hasTex = this.scene.textures.exists(texKey);
+
+    if (hasTex) {
+      const sprite = this.scene.add
+        .image(0, 0, texKey)
+        .setOrigin(0.5)
+        .setScale(4)
+        .setDepth(1);
+      this.previewRoot.add(sprite);
+      this.previewSprites.push(sprite);
+    } else {
+      const color = Number.isFinite(entry.color) ? entry.color >>> 0 : 0xffffff;
+      const circle = this.scene.add.circle(0, 0, 48, color, 1);
+      this.previewRoot.add(circle);
+      this.previewSprites.push(circle);
+    }
   }
 
   _playFloorPreview(entry) {
