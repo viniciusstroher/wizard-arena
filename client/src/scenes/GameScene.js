@@ -105,6 +105,11 @@ export class GameScene extends Phaser.Scene {
     this.floorTransition = null;
     /** Notificações de loot coletado (fila com fade). */
     this.lootNotifications = [];
+    /** Painel fixo de loot acima da barra de magias (canto inferior esquerdo). */
+    this.lootBox = null;
+    this.lootBoxTitle = null;
+    this.lootBoxLines = [];
+    this.lootBoxEntries = [];
   }
 
   create() {
@@ -210,6 +215,11 @@ export class GameScene extends Phaser.Scene {
         n.textObj?.destroy();
       }
       this.lootNotifications = [];
+      this.lootBox?.destroy();
+      this.lootBoxTitle?.destroy();
+      for (const line of this.lootBoxLines) line.destroy();
+      this.lootBoxLines = [];
+      this.lootBoxEntries = [];
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
@@ -626,9 +636,50 @@ export class GameScene extends Phaser.Scene {
       this.spellSlots.push(slot);
     }
 
+    this.createLootBox();
+
     this.createScoreboard(width);
 
     this.levelUpLayer = this.add.container(0, 0).setDepth(300).setScrollFactor(0).setVisible(false);
+  }
+
+  createLootBox() {
+    const BOX_W = 280;
+    const BOX_H = 88;
+    const BOX_X = 16;
+    const slotTop = (this.scale.height - 36) - 68 - 30;
+    const BOX_Y = slotTop - BOX_H - 10;
+    const depth = 100;
+
+    this.lootBox = this.add
+      .rectangle(BOX_X, BOX_Y, BOX_W, BOX_H, 0x0e0a1a, 0.82)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x6b5cff, 0.45)
+      .setScrollFactor(0)
+      .setDepth(depth);
+
+    this.lootBoxTitle = this.add
+      .text(BOX_X + 10, BOX_Y + 5, 'Loot Coletado', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#a99bc8',
+      })
+      .setScrollFactor(0)
+      .setDepth(depth + 1);
+
+    const MAX_LINES = 5;
+    const LINE_H = 14;
+    const linesTop = BOX_Y + 22;
+    for (let i = 0; i < MAX_LINES; i++) {
+      const line = this.add
+        .text(BOX_X + 10, linesTop + i * LINE_H, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '11px',
+        })
+        .setScrollFactor(0)
+        .setDepth(depth + 1);
+      this.lootBoxLines.push(line);
+    }
   }
 
   createScoreboard(width) {
@@ -934,6 +985,11 @@ export class GameScene extends Phaser.Scene {
             color: item.color,
             addedAt: this.time.now,
             textObj: null,
+          });
+          this.lootBoxEntries.push({
+            name: item.name,
+            color: item.color,
+            addedAt: this.time.now,
           });
         }
         if (inventoryFull) break;
@@ -1797,6 +1853,7 @@ export class GameScene extends Phaser.Scene {
     this.updateSpellCastLabels();
     this.updateHud();
     this.updateLootNotifications();
+    this.updateLootBox();
     this.updateLevelUpUi();
     this.handleBanners();
   }
@@ -6256,6 +6313,29 @@ export class GameScene extends Phaser.Scene {
 
     // Remove entradas com textos já destruídos
     this.lootNotifications = this.lootNotifications.filter(e => !e.destroyed);
+  }
+
+  updateLootBox() {
+    if (!this.lootBox || !this.lootBoxLines.length) return;
+    const now = this.time.now;
+    const TTL = 5000;
+    const MAX_VISIBLE = this.lootBoxLines.length;
+
+    this.lootBoxEntries = this.lootBoxEntries.filter(e => now - e.addedAt < TTL);
+
+    const recent = this.lootBoxEntries.slice(-MAX_VISIBLE);
+
+    for (let i = 0; i < this.lootBoxLines.length; i++) {
+      const entry = recent[i];
+      const line = this.lootBoxLines[i];
+      if (entry) {
+        line.setText(entry.name);
+        line.setColor('#' + (entry.color >>> 0).toString(16).padStart(6, '0'));
+        line.setVisible(true);
+      } else {
+        line.setVisible(false);
+      }
+    }
   }
 
   showBossFightAlert() {
