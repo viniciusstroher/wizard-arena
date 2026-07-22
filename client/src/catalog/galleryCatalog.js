@@ -14,7 +14,7 @@ import {
   FLOOR_META,
   floorDescription,
 } from './statusEffects.js';
-import { ITEM_DEFS, CATEGORY_LABELS } from '../inventory.js';
+import { ITEM_DEFS, CATEGORY_LABELS, SLOT_LABEL_BY_ACCEPTS, SET_LABELS, BONUS_LABELS } from '../inventory.js';
 
 /** Grupos temáticos da galeria de terrenos. */
 const FLOOR_GROUP_OF = {
@@ -451,17 +451,36 @@ export function floorDisplayName(id) {
 
 /** Catálogo de itens para a galeria. */
 export function getItemEntries() {
+  const BONUS_KEYS = [
+    'cooldownReduction', 'damageBonus', 'healBonus', 'shieldBonus',
+    'speedBonus', 'rangeBonus', 'radiusBonus', 'slowResist',
+    'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus',
+  ];
   const items = [];
   for (const def of Object.values(ITEM_DEFS)) {
+    const bonusLabels = [];
+    if (def.bonus) {
+      for (const key of BONUS_KEYS) {
+        const val = def.bonus[key];
+        if (!Number.isFinite(val) || val === 0) continue;
+        const label = BONUS_LABELS[key] || key;
+        const pct = Math.round(val * 100);
+        bonusLabels.push(`${label}: +${pct}%`);
+      }
+    }
     items.push({
       id: def.id,
       name: def.name,
       category: def.category,
       categoryLabel: CATEGORY_LABELS[def.category] || def.category,
       slot: def.slot,
+      slotLabel: SLOT_LABEL_BY_ACCEPTS[def.slot] || def.slot,
       color: def.color,
+      level: def.level || 1,
       set: def.set || null,
+      setLabel: def.set ? (SET_LABELS[def.set] || def.set) : null,
       bonus: def.bonus || null,
+      bonusLabels,
     });
   }
   return items.sort((a, b) => a.name.localeCompare(b.name, 'pt'));

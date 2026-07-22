@@ -1,173 +1,241 @@
 /**
- * Catálogo de items gerados — 60 itens por slot (360 equipamentos).
- * Nomes e temas inspirados em D&D, Tibia e WoW.
- * Bônus são determinísticos (baseados em índices, não Math.random).
+ * Catálogo de equipamentos — 60 itens por slot (360 total).
+ * Baseado nos itens originais: Chapéu de Pano, Capa de Pano, Anel de Plástico...
+ * Cada tier tem 1 item de conjunto + 5 variações temáticas (D&D, Tibia, WoW).
  *
- * Exporta buildGeneratedItems() que retorna entries [id, def] para mesclar em ITEM_DEFS.
+ * Estrutura: { id, name, slot, color, level, set?, bonus? }
+ *   bonus — { damageBonus, healBonus, shieldBonus, speedBonus,
+ *              rangeBonus, radiusBonus, slowResist, poisonResist,
+ *              burnResist, maxHpBonus, xpBonus, cooldownReduction }
  */
 
-const SLOTS = ['hat','cape','ring','tunic','necklace','boots'];
+const SLOTS = ['hat', 'cape', 'ring', 'tunic', 'necklace', 'boots'];
 
-// 10 tiers com cores e níveis
+// 10 tiers — cores realistas baseadas nos materiais
+
+const FEMININE_WORDS = new Set([
+  'Diadema', 'Tiara', 'Coifa', 'Mitra', 'Loriga', 'Murça', 'Clâmide', 'Sobrecapa',
+  'Pelerine', 'Aliança', 'Argola', 'Banda', 'Aliança Mística', 'Túnica', 'Veste',
+  'Vestimenta', 'Armadura Arcana', 'Cota Arcana', 'Casula', 'Sotaina', 'Botas',
+  'Sandálias', 'Grevas', 'Botinas', 'Sapatilhas', 'Alpercatas', 'Galochas',
+  'Capa', 'Sobre-capa', 'Mantle', 'Véu', 'Pálio',
+]);
+
+function isFeminine(name) {
+  if (FEMININE_WORDS.has(name)) return true;
+  const lastChar = name[name.length - 1];
+  if (lastChar === 'a' || lastChar === 'ã') return true;
+  if (lastChar === 's' && name.length > 1) {
+    const prev = name[name.length - 2];
+    if (prev === 'a' || prev === 'ã') return true;
+  }
+  return false;
+}
+
 const TIERS = [
-  { key:'t1',  lv:1,  n:'Pano',     mat:'cloth',     set:'conjunto_de_pano',    c:0xc4b59a },
-  { key:'t2',  lv:5,  n:'Couro',     mat:'leather',    set:'conjunto_de_couro',   c:0x9b7a4b },
-  { key:'t3',  lv:10, n:'Bronze',    mat:'bronze',     set:'conjunto_de_bronze',  c:0xcd7f32 },
-  { key:'t4',  lv:15, n:'Ferro',     mat:'iron',       set:'conjunto_de_ferro',   c:0x7c6e62 },
-  { key:'t5',  lv:20, n:'Prata',     mat:'silver',     set:'conjunto_de_prata',   c:0xb0b8c4 },
-  { key:'t6',  lv:30, n:'Ouro',      mat:'gold',       set:'conjunto_de_ouro',    c:0xd8b038 },
-  { key:'t7',  lv:40, n:'Cristal',   mat:'crystal',    set:'conjunto_de_cristal', c:0x80e0b0 },
-  { key:'t8',  lv:50, n:'Safira',    mat:'sapphire',   set:'conjunto_de_safira',  c:0x2058d0 },
-  { key:'t9',  lv:65, n:'Mitril',    mat:'mythril',    set:'conjunto_de_mitril',  c:0x48a8c0 },
-  { key:'t10', lv:80, n:'Divino',    mat:'divine',     set:'conjunto_divino',     c:0xefc820 },
+  { key: 't1',  lv: 1,  mat: 'Pano',     set: 'conjunto_de_pano',    title: 'do Aprendiz',      c: 0xc4b59a, adj: false },
+  { key: 't2',  lv: 5,  mat: 'Couro',    set: 'conjunto_de_couro',   title: 'do Viajante',      c: 0x9b7a4b, adj: false },
+  { key: 't3',  lv: 10, mat: 'Bronze',   set: 'conjunto_de_bronze',  title: 'do Guardião',      c: 0xcd7f32, adj: false },
+  { key: 't4',  lv: 15, mat: 'Ferro',    set: 'conjunto_de_ferro',   title: 'do Baluarte',      c: 0x7c6e62, adj: false },
+  { key: 't5',  lv: 20, mat: 'Prata',    set: 'conjunto_de_prata',   title: 'do Sábio',         c: 0xb0b8c4, adj: false },
+  { key: 't6',  lv: 30, mat: 'Ouro',     set: 'conjunto_de_ouro',    title: 'do Arquimago',     c: 0xd8b038, adj: false },
+  { key: 't7',  lv: 40, mat: 'Cristal',  set: 'conjunto_de_cristal', title: 'do Vidente',       c: 0x80e0b0, adj: false },
+  { key: 't8',  lv: 50, mat: 'Safira',   set: 'conjunto_de_safira',  title: 'do Ilusionista',   c: 0x2058d0, adj: false },
+  { key: 't9',  lv: 65, mat: 'Mitril',   set: 'conjunto_de_mitril',  title: 'do Arconte',       c: 0x48a8c0, adj: false },
+  { key: 't10', lv: 80, mat: 'Divino',   set: 'conjunto_divino',     title: 'do Transcendente', c: 0xefc820, adj: true  },
 ];
 
-// Nomes por slot em português
-const S = {
-  hat:      ['Chapéu','Coroa','Tiara','Capuz','Elmo','Mitra','Diadema','Coifa','Gorro','Toucado'],
-  cape:     ['Capa','Manto','Sobre-capa','Mantle','Pelerine','Loriga','Murça','Clâmide','Pálio','Véu'],
-  ring:     ['Anel','Selo','Banda','Aliança','Argola','Aro','Elo','Anel de Sinete','Círculo','Grilhão'],
-  necklace: ['Colar','Amuleto','Pingente','Talismã','Gargantilha','Medalhão','Colar de Contas','Escapulário','Relicário','Rosário'],
-  tunic:    ['Túnica','Veste','Robe','Sobretúnica','Armadura Arcana','Cota Arcana','Vestimenta','Hábito','Casula','Sotaina'],
-  boots:    ['Botas','Sapatos','Sandálias','Grevas','Calçados','Pisantes','Botinas','Sapatilhas','Alpercatas','Galochas'],
+/**
+ * Nomes base por slot: 3 grupos de prestígio (simples / médio / nobre).
+ * O tier define qual grupo usar: T1-3 = simples, T4-6 = médio, T7-10 = nobre.
+ */
+const BASE_NAMES = {
+  hat: {
+    set:      ['Chapéu',         'Coroa',        'Diadema'],
+    setMid:   ['Chapéu',         'Mitra',        'Diadema'],
+    alt:      ['Capuz', 'Tiara', 'Elmo', 'Coifa', 'Gorro', 'Toucado', 'Mitra', 'Chapéu de Pico', 'Capelo', 'Cocar'],
+  },
+  cape: {
+    set:      ['Capa',           'Manto',        'Manto Arcano'],
+    setMid:   ['Capa',           'Manto',        'Manto Arcano'],
+    alt:      ['Sobrecapa', 'Pelerine', 'Loriga', 'Clâmide', 'Mantle', 'Véu', 'Pálio', 'Murça', 'Manto de Seda', 'Manto Sombrio'],
+  },
+  ring: {
+    set:      ['Anel',           'Selo',         'Aliança'],
+    setMid:   ['Anel',           'Anel de Sinete','Aliança Mística'],
+    alt:      ['Banda', 'Aro', 'Elo', 'Argola', 'Círculo', 'Anel de Sinete', 'Anel de Poder', 'Grilhão', 'Selo Arcano', 'Anel de Luz'],
+  },
+  tunic: {
+    set:      ['Túnica',         'Veste',        'Robe'],
+    setMid:   ['Túnica',         'Armadura Arcana','Robe Arcano'],
+    alt:      ['Vestimenta', 'Sobretúnica', 'Hábito', 'Cota Arcana', 'Casula', 'Sotaina', 'Manto de Batalha', 'Veste Arcana', 'Túnica Rúnica', 'Robe Sagrado'],
+  },
+  necklace: {
+    set:      ['Colar',          'Amuleto',      'Talismã'],
+    setMid:   ['Colar',          'Pingente',     'Medalhão'],
+    alt:      ['Gargantilha', 'Pingente', 'Medalhão', 'Talismã', 'Amuleto', 'Escapulário', 'Relicário', 'Rosário', 'Colar de Contas', 'Colar de Runas'],
+  },
+  boots: {
+    set:      ['Botas',          'Sapatos',      'Grevas'],
+    setMid:   ['Botas',          'Pisantes',     'Grevas'],
+    alt:      ['Sandálias', 'Calçados', 'Pisantes', 'Botinas', 'Sapatilhas', 'Alpercatas', 'Galochas', 'Botas de Viagem', 'Botas de Salto', 'Botas de Camurça'],
+  },
 };
 
-// Sufixos temáticos — D&D, Tibia, WoW + originais
-const SUFFIX_DND     = ['Arcano','das Chamas','do Gelo','dos Raios','Sombrio','da Luz','da Terra','do Vento','da Água','do Caos'];
-const SUFFIX_TIBIA   = ['do Druida','do Mago','do Paladino','do Cavaleiro','do Caçador','do Alquimista','do Necromante','do Xamã'];
-const SUFFIX_WOW     = ['do Portal','de Dalaran','de Quel\'Thalas','de Ventobravo','da Horda','da Aliança','do Trovão','de Luar Lívido','do Templo Negro','de Corvinal'];
-const SUFFIX_SET     = ['do Aprendiz','do Viajante','do Guardião','do Baluarte','do Sábio','do Arquimago','do Vidente','do Ilusionista','do Arconte','do Transcendente'];
+function prestigeGroup(tierIdx) {
+  if (tierIdx < 3) return 0;      // simples
+  if (tierIdx < 6) return 1;      // médio
+  return 2;                        // nobre
+}
 
-// FNV-1a determinístico — seed baseado em índice do item
+// Temas por índice (0 = set, 1-2 = D&D, 3-4 = Tibia, 5 = WoW)
+const THEMES = [
+  // D&D — elementos e escolas
+  { sufix: 'Arcano',           sufixLong: 'do Fogo Arcano' },
+  { sufix: 'das Chamas',       sufixLong: 'do Gelo Eterno' },
+  { sufix: 'dos Raios',        sufixLong: 'da Tempestade' },
+  { sufix: 'Sombrio',          sufixLong: 'das Sombras' },
+  { sufix: 'da Luz',           sufixLong: 'da Luz Sagrada' },
+  { sufix: 'da Terra',         sufixLong: 'da Terra Firme' },
+  { sufix: 'do Vento',         sufixLong: 'do Vento Cortante' },
+  { sufix: 'da Água',          sufixLong: 'das Profundezas' },
+  { sufix: 'do Caos',          sufixLong: 'do Caos Primordial' },
+  { sufix: 'do Vazio',         sufixLong: 'do Vazio Estelar' },
+  // Tibia — classes e vocações
+  { sufix: 'do Druida',        sufixLong: 'do Sábio Druida' },
+  { sufix: 'do Mago',          sufixLong: 'do Arquimago' },
+  { sufix: 'do Paladino',      sufixLong: 'do Paladino Sagrado' },
+  { sufix: 'do Cavaleiro',     sufixLong: 'do Cavaleiro Andante' },
+  { sufix: 'do Caçador',       sufixLong: 'do Caçador Sombrio' },
+  { sufix: 'do Alquimista',    sufixLong: 'do Alquimista Arcano' },
+  { sufix: 'do Necromante',    sufixLong: 'do Necromante das Sombras' },
+  { sufix: 'do Xamã',          sufixLong: 'do Xamã Espiritual' },
+  // WoW — locais lendários
+  { sufix: 'do Portal',        sufixLong: 'de Dalaran' },
+  { sufix: 'de Ventobravo',    sufixLong: 'do Templo Negro' },
+  { sufix: 'da Horda',         sufixLong: 'da Aliança' },
+  { sufix: 'de Corvinal',      sufixLong: 'de Luar Lívido' },
+  { sufix: 'do Trovão',        sufixLong: 'do Trono de Gelo' },
+  { sufix: 'de Quel\'Thalas',  sufixLong: 'do Sol Poente' },
+];
+
+// FNV hash determinístico para bônus
 function fhash(h) {
   h ^= 2747636419;
   h = Math.imul(h, 2654435761) >>> 0;
   h ^= h >>> 16;
   h = Math.imul(h, 2246822519) >>> 0;
   h ^= h >>> 13;
-  return (h >>> 0) % 1000 / 1000; // 0..0.999
+  return (h >>> 0) % 1000 / 1000;
 }
 
-/** Valor de bônus entre 60% e 140% do base (determinístico). */
+/** Valor de bônus: base +- 30% determinístico */
 function bval(seed, base) {
   const r = fhash(seed);
   return +((base + (r - 0.5) * base * 0.6)).toFixed(3);
 }
 
-/** Pools de bônus por slot (o que faz sentido tematicamente). */
+/** Pools temáticos por slot */
 const POOLS = {
-  hat:      ['damageBonus','xpBonus','rangeBonus'],
-  cape:     ['speedBonus','rangeBonus','slowResist'],
-  ring:     ['damageBonus','radiusBonus','cooldownReduction'],
-  tunic:    ['maxHpBonus','shieldBonus','poisonResist','burnResist'],
-  necklace: ['healBonus','shieldBonus','cooldownReduction'],
-  boots:    ['speedBonus','slowResist','maxHpBonus'],
+  hat:      ['damageBonus', 'xpBonus', 'rangeBonus'],
+  cape:     ['speedBonus', 'rangeBonus', 'slowResist'],
+  ring:     ['damageBonus', 'radiusBonus', 'cooldownReduction'],
+  tunic:    ['maxHpBonus', 'shieldBonus', 'poisonResist', 'burnResist'],
+  necklace: ['healBonus', 'shieldBonus', 'cooldownReduction'],
+  boots:    ['speedBonus', 'slowResist', 'maxHpBonus'],
 };
 
-const POOL_WEIGHTS = {
-  hat:      { damageBonus:3, xpBonus:3, rangeBonus:2 },
-  cape:     { speedBonus:3, rangeBonus:2, slowResist:3 },
-  ring:     { damageBonus:4, radiusBonus:2, cooldownReduction:3 },
-  tunic:    { maxHpBonus:3, shieldBonus:3, poisonResist:2, burnResist:2 },
-  necklace: { healBonus:3, shieldBonus:3, cooldownReduction:3 },
-  boots:    { speedBonus:4, slowResist:3, maxHpBonus:2 },
-};
-
-function weightedPick(pool, weights, seed) {
-  const total = Object.values(weights).reduce((a,b)=>a+b,0);
-  const keys = Object.keys(weights);
-  let r = fhash(seed);
-  let acc = 0;
-  for (const k of keys) {
-    acc += weights[k] / total;
-    if (r <= acc) return k;
-  }
-  return keys[keys.length-1];
-}
-
-/** Escolhe 1-3 bônus determinísticos para um item. */
-function mkBonus(slot, idx, tierBase, countSeed) {
+/** Gera bônus para um item (1-3 stats determinísticos) */
+function mkBonus(slot, seed, baseVal, count) {
   const pool = POOLS[slot];
-  const weights = POOL_WEIGHTS[slot];
-  const numBonuses = (idx < 2) ? 1 : (idx < 4) ? 2 : 3;
   const bonus = {};
   const used = new Set();
-  for (let b = 0; b < numBonuses; b++) {
-    let key;
-    let attempts = 0;
-    do {
-      key = weightedPick(pool, weights, countSeed * 100 + b * 37 + idx * 13);
-      attempts++;
-    } while (used.has(key) && attempts < 20);
-    if (used.has(key)) break;
+  for (let b = 0; b < count && b < pool.length; b++) {
+    const pickIdx = Math.floor(fhash(seed * 73 + b * 41) * pool.length) % pool.length;
+    const key = pool[pickIdx];
+    if (used.has(key)) continue;
     used.add(key);
-    const v = bval(countSeed * 1000 + b * 23, tierBase);
+    const v = bval(seed * 1000 + b * 23, baseVal);
     if (v > 0) bonus[key] = v;
   }
   return Object.keys(bonus).length ? bonus : null;
 }
 
-/** Retorna sufixo temático baseado no índice do item dentro da tier. */
-function itemSuffix(idx, tierIdx) {
-  if (idx === 0) return SUFFIX_SET[tierIdx];                           // set item
-  if (idx === 1) return SUFFIX_DND[tierIdx % SUFFIX_DND.length];       // D&D
-  if (idx === 2) return SUFFIX_TIBIA[tierIdx % SUFFIX_TIBIA.length];   // Tibia
-  if (idx === 3) return SUFFIX_WOW[tierIdx % SUFFIX_WOW.length];       // WoW
-  if (idx === 4) return SUFFIX_DND[(tierIdx + 3) % SUFFIX_DND.length]; // D&D 2
-  return SUFFIX_TIBIA[(tierIdx + 2) % SUFFIX_TIBIA.length];            // Tibia 2
+/** Retorna o sufixo para itens não-set baseado no tema */
+function getSuffix(themeIdx, long) {
+  const t = THEMES[themeIdx % THEMES.length];
+  return long ? t.sufixLong : t.sufix;
 }
 
-/** Gera todos os 360 itens e retorna como array de [id, def]. */
+/** Gera todos os 360 itens */
 export function buildGeneratedItems() {
   const items = [];
 
   for (let ti = 0; ti < TIERS.length; ti++) {
     const tier = TIERS[ti];
-    // Base de bônus cresce com o tier (itens melhores em tiers altos)
-    const bonusBase = 0.008 + tier.lv * 0.0016;
+    const pg = prestigeGroup(ti);
+    const baseBonus = 0.01 + tier.lv * 0.0015;
+    const altNameOffset = ti * 3;
 
     for (const slot of SLOTS) {
-      const names = S[slot];
-      const pool = POOLS[slot];
+      const slotDef = BASE_NAMES[slot];
+      const setName = ti < 5 ? slotDef.set[pg] : slotDef.setMid[pg];
+      const altNames = slotDef.alt;
 
       for (let i = 0; i < 6; i++) {
-        // ID: tier_key + slot + index (ex: t1_hat_0, t2_cape_3)
         const itemId = `${tier.key}_${slot}_${i}`;
         const globalIdx = ti * 100 + SLOTS.indexOf(slot) * 10 + i + 1;
 
-        // Nome com variação
-        const baseName = names[(ti + i) % names.length];
-        const suffix = itemSuffix(i, ti);
-        const fullName = `${tier.n} ${baseName} ${suffix}`;
+        // --- Nome ---
+        let name;
+        let setTag = null;
+        if (i === 0) {
+          // Item de conjunto
+          if (tier.adj) {
+            name = `${setName} ${tier.mat === 'Divino' && isFeminine(setName) ? 'Divina' : tier.mat} ${tier.title}`;
+          } else {
+            const prep = tier.mat.endsWith('a') ? 'da ' : 'de ';
+            name = `${setName} ${prep}${tier.mat} ${tier.title}`;
+          }
+          setTag = tier.set;
+        } else {
+          const altIdx = (altNameOffset + i) % altNames.length;
+          const baseItemName = altNames[altIdx];
+          const themeIdx = ti * 3 + i;
+          const suffix = getSuffix(themeIdx, i >= 3);
+          if (tier.adj) {
+            const adjForm = tier.mat === 'Divino' && isFeminine(baseItemName) ? 'Divina' : tier.mat;
+            name = `${baseItemName} ${adjForm} ${suffix}`;
+          } else {
+            const prep = tier.mat.endsWith('a') ? 'da ' : 'de ';
+            name = `${baseItemName} ${prep}${tier.mat} ${suffix}`;
+          }
+        }
 
-        // Cor com variação determinística por índice
-        const colorVar = (fhash(globalIdx * 7) - 0.5) * 0x1a1a1a;
+        // --- Cor ---
+        const colorVar = (fhash(globalIdx * 7) - 0.5) * 0x222222;
         const color = (tier.c + Math.round(colorVar)) >>> 0;
 
-        // Bônus determinísticos
-        const bonus = mkBonus(slot, i, bonusBase, globalIdx);
-
-        // Set apenas para índice 0 (1 item set por slot por tier)
-        const set = i === 0 ? tier.set : null;
+        // --- Bônus ---
+        const numBonuses = i < 2 ? 1 : i < 4 ? 2 : 3;
+        const bonus = mkBonus(slot, globalIdx, baseBonus, numBonuses);
 
         const def = {
           id: itemId,
-          name: fullName,
+          name,
           category: 'equipment',
           slot,
           color,
           level: tier.lv,
-          bonus: bonus || undefined,
         };
-        if (set) def.set = set;
+        if (setTag) def.set = setTag;
+        if (bonus) def.bonus = bonus;
 
         items.push([itemId, def]);
       }
     }
   }
 
-  // Verificação: deve ter 360 itens
-  // 10 tiers × 6 slots × 6 itens per slot per tier = 360
   return items;
 }
 

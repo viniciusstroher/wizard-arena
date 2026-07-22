@@ -16,6 +16,7 @@ import {
 import { GallerySpellFx } from './gallerySpellFx.js';
 import { ensureCharacter } from '../character.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
+import { ensureItemIconTextures, itemIconKey } from '../itemIcons.js';
 
 const TIER_SECTIONS = [
   { id: 'normal', label: 'Normais', color: '#9a8bb8' },
@@ -164,6 +165,7 @@ export class GalleryModal {
     this.spells = getSpellEntries();
     this.floors = getFloorEntries();
     this.items = getItemEntries();
+    ensureItemIconTextures(this.scene);
     this._applyDeepLinkState(options);
 
     const { width, height } = this.scene.scale;
@@ -991,9 +993,23 @@ export class GalleryModal {
     if (tab === 'spells' && entry.elementLabel) {
       nameWrap.appendChild(this._elementBadgeEl(entry.elementCss, entry.elementLabel, true));
     }
-    if (tab === 'items' && entry.color != null) {
-      const colorCss = `#${(entry.color >>> 0).toString(16).padStart(6, '0')}`;
-      nameWrap.appendChild(this._elementBadgeEl(colorCss, '', true));
+    if (tab === 'items' && entry.slotLabel) {
+      const iconKey = itemIconKey(entry.id);
+      if (this.scene.textures.exists(iconKey)) {
+        try {
+          const canvas = this.scene.textures.get(iconKey).getSourceImage();
+          if (canvas && typeof canvas.toDataURL === 'function') {
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL();
+            img.style.cssText = 'width:20px;height:20px;border-radius:3px;flex-shrink:0;image-rendering:pixelated';
+            nameWrap.appendChild(img);
+          }
+        } catch { /* fallback to color dot below */ }
+      }
+      if (!nameWrap.querySelector('img')) {
+        const colorCss = `#${(entry.color >>> 0).toString(16).padStart(6, '0')}`;
+        nameWrap.appendChild(this._elementBadgeEl(colorCss, '', true));
+      }
     }
 
     const name = document.createElement('span');
@@ -1023,7 +1039,7 @@ export class GalleryModal {
       atkLabel.textContent = entry.attackLabel;
       badge.appendChild(atkLabel);
     } else if (tab === 'items') {
-      badge.textContent = entry.categoryLabel;
+      badge.textContent = entry.slotLabel || entry.categoryLabel;
     } else {
       badge.textContent = entry.typeLabel;
     }
@@ -1048,7 +1064,7 @@ export class GalleryModal {
 
     if (tab === 'items' && entry.set) {
       const setLine = document.createElement('div');
-      setLine.textContent = entry.set;
+      setLine.textContent = entry.setLabel || entry.set;
       setLine.style.cssText = [
         'font-size: 10px',
         'color: #7a6e96',
@@ -1374,9 +1390,14 @@ export class GalleryModal {
     this._highlightListSelection();
 
     const isEquipable = entry.category === 'equipment';
-    const details = [
-      `${entry.categoryLabel}${isEquipable ? ' (equipável)' : ' (não equipável)'}`,
-    ];
+    const details = [`${entry.categoryLabel}${isEquipable ? ' · ' + (entry.slotLabel || '') : ''}`];
+    if (entry.level && entry.level > 1) details.push(`Nível requerido: ${entry.level}`);
+    if (entry.setLabel) details.push(`Conjunto: ${entry.setLabel}`);
+    if (entry.bonusLabels && entry.bonusLabels.length) {
+      details.push('');
+      details.push('Bônus:');
+      for (const bl of entry.bonusLabels) details.push(`  ${bl}`);
+    }
 
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
     this._setInfoElement(null);
@@ -1391,14 +1412,58 @@ export class GalleryModal {
     this._clearPreview();
     if (!this.previewRoot || !entry) return;
 
-    const color = Number.isFinite(entry.color) ? entry.color >>> 0 : 0xffffff;
-    const circle = this.scene.add.circle(0, 0, 48, color, 1);
-    this.previewRoot.add(circle);
-    this.previewSprites.push(circle);
+    const iconKey = itemIconKey(entry.id);
+    if (this.scene.textures.exists(iconKey)) {
+      const img = this.scene.add.image(0, -30, iconKey).setDisplaySize(64, 64);
+      this.previewRoot.add(img);
+      this.previewSprites.push(img);
+    } else {
+      const color = Number.isFinite(entry.color) ? entry.color >>> 0 : 0xffffff;
+      const circle = this.scene.add.circle(0, -30, 42, color, 1);
+      this.previewRoot.add(circle);
+      this.previewSprites.push(circle);
+    }
 
+    // Level badge
+    if (entry.level && entry.level > 1) {
+      const lvText = this.scene.add
+        .text(36, -62, `Lv ${entry.level}`, {
+          fontFamily: FONT,
+          fontSize: '11px',
+          color: '#e8b84a',
+          backgroundColor: '#1a1430cc',
+          padding: { x: 5, y: 2 },
+        })
+        .setOrigin(0, 0);
+      this.previewRoot.add(lvText);
+      this.previewSprites.push(lvText);
+    }
+
+    const lines = [];
+    lines.push(`Tipo: ${entry.slotLabel || entry.categoryLabel}`);
+    if (entry.setLabel) lines.push(`Conjunto: ${entry.setLabel}`);
+    if (entry.bonusLabels && entry.bonusLabels.length) {
+      lines.push('');
+      lines.push('Bônus:');
+      for (const bl of entry.bonusLabels) lines.push(`  ${bl}`);
+    }
+
+    const info = this.scene.add
+      .text(0, 80, lines.join('\n'), {
+        fontFamily: FONT,
+        fontSize: '11px',
+        color: '#c4b5e0',
+        lineSpacing: 3,
+        align: 'center',
+      })
+      .setOrigin(0.5, 0);
+    this.previewRoot.add(info);
+    this.previewSprites.push(info);
+
+    // Label abaixo
     const label = this.scene.add
-      .text(0, 62, entry.categoryLabel, {
-        fontFamily: 'Trebuchet MS, sans-serif',
+      .text(0, 42, entry.categoryLabel, {
+        fontFamily: FONT,
         fontSize: '12px',
         color: '#9a8bb8',
       })
