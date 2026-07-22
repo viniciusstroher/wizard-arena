@@ -6250,20 +6250,7 @@ export class GameScene extends Phaser.Scene {
       const targetY = baseY + i * ROW_H;
       const text = visible[i].textObj;
       if (text && Math.abs(text.y - targetY) > 1) {
-        this.tweens.killTweensOf(text);
-        this.tweens.add({
-          targets: text,
-          y: targetY,
-          duration: 250,
-          ease: 'Power1',
-        });
-        if (text.alpha < 1) {
-          this.tweens.add({
-            targets: text,
-            alpha: 1,
-            duration: 200,
-          });
-        }
+        text.y = targetY;
       }
     }
 
