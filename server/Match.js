@@ -972,20 +972,16 @@ export class Match {
     }
     this.monsterSpawnTimer = 1;
     this.xpPassiveTimer = 0;
-    if (CONFIG.MONSTER_PERSIST_ROUNDS) {
-      this.monsters = this.monsters.filter((m) => m.alive);
-      for (const m of this.monsters) {
-        m.vx = 0;
-        m.vy = 0;
-        m.attackCd = 0;
-        m.novaCd = 0;
-        m.stunTimer = 0;
-        m.knockbackTimer = 0;
-        m.knockbackDx = 0;
-        m.knockbackDy = 0;
-      }
-    } else {
-      this.monsters = [];
+    this.monsters = this.monsters.filter((m) => m.alive);
+    for (const m of this.monsters) {
+      m.vx = 0;
+      m.vy = 0;
+      m.attackCd = 0;
+      m.novaCd = 0;
+      m.stunTimer = 0;
+      m.knockbackTimer = 0;
+      m.knockbackDx = 0;
+      m.knockbackDy = 0;
     }
     this.projectiles = [];
     this.aoes = [];
@@ -1006,7 +1002,7 @@ export class Match {
     this.events = [];
     this.winnerId = null;
     this.generateRocks();
-    if (CONFIG.MONSTER_PERSIST_ROUNDS && this.monsters.length) {
+    if (this.monsters.length) {
       for (const m of this.monsters) {
         this.clampMonsterToArena(m);
       }
@@ -1164,9 +1160,6 @@ export class Match {
     this.scheduleNextCooldownMist();
     this.scheduleNextGale();
     this.scheduleNextLever();
-    if (!CONFIG.MONSTER_PERSIST_ROUNDS) {
-      this.monsters = [];
-    }
     const boss = this.spawnBoss();
     if (!boss) {
       console.error('[match] spawnBoss falhou — nenhum boss disponível', {
