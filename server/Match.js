@@ -2252,13 +2252,17 @@ export class Match {
     });
   }
 
-  /** Mob morto: saco de loot OU moeda (nunca os dois). */
+  /** Mob morto: saco de loot OU moeda (nunca os dois). Se não dropar item, cai moeda. */
   spawnMonsterDrop(bones, monsterType) {
     if (Math.random() < CONFIG.MONSTER_COIN_DROP_CHANCE) {
       this.spawnCoinOnBones(bones);
     } else {
       const items = rollOneMonsterDrop(monsterType);
-      this.spawnLootBagOnBones(bones, items);
+      if (items && items.length) {
+        this.spawnLootBagOnBones(bones, items);
+      } else {
+        this.spawnCoinOnBones(bones);
+      }
     }
   }
 

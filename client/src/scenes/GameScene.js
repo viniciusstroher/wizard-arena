@@ -968,8 +968,7 @@ export class GameScene extends Phaser.Scene {
       for (const { itemId, qty } of items) {
         for (let i = 0; i < qty; i++) {
           const item = createItem(itemId);
-          if (!item) continue;
-          // Check if bag has ANY free slot before attempting
+          if (!item) { console.warn('[GameScene] createItem null:', itemId); continue; }
           if (firstEmptyBagIndex(inventory.bag) < 0) {
             inventoryFull = true;
             break;
@@ -6319,10 +6318,13 @@ export class GameScene extends Phaser.Scene {
   updateLootBox() {
     if (!this.lootBox || !this.lootBoxLines.length) return;
     const now = this.time.now;
-    const TTL = 5000;
+    const TTL = 8000;
     const MAX_VISIBLE = this.lootBoxLines.length;
 
     this.lootBoxEntries = this.lootBoxEntries.filter(e => now - e.addedAt < TTL);
+
+    const total = this.lootBoxEntries.length;
+    this.lootBoxTitle.setText(total > 0 ? `Loot Coletado (${total})` : 'Loot Coletado');
 
     const recent = this.lootBoxEntries.slice(-MAX_VISIBLE);
 
