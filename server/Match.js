@@ -249,6 +249,7 @@ export class Match {
     /** Após level-up no fim do round: null | { type: 'intermission' } | { type: 'endMatch', winner } */
     this.afterLevelUp = null;
     this.events = [];
+    this._evSeq = 0;
     /** Log persistente da partida (não limpa a cada tick). */
     this.eventLog = [];
     this.chatLog = [];
@@ -2286,7 +2287,7 @@ export class Match {
           x: bag.x,
           y: bag.y,
           items: bag.items || undefined,
-          _at: this.matchTime,
+          _at: ++this._evSeq,
         });
         taken = true;
         break;

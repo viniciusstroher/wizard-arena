@@ -947,7 +947,9 @@ export class GameScene extends Phaser.Scene {
       if (inventoryFull) {
         this.showFloatingMessage('Inventário cheio!', 0xff6b6b);
       }
-    } catch { /* silencioso */ }
+    } catch (e) {
+      console.error('[GameScene] handleLootItems error:', e);
+    }
   }
 
   showFloatingMessage(text, color) {
@@ -6255,6 +6257,13 @@ export class GameScene extends Phaser.Scene {
           duration: 250,
           ease: 'Power1',
         });
+        if (text.alpha < 1) {
+          this.tweens.add({
+            targets: text,
+            alpha: 1,
+            duration: 200,
+          });
+        }
       }
     }
 
