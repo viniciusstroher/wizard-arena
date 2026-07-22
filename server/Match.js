@@ -1013,12 +1013,14 @@ export class Match {
   }
 
   /** Posiciona e reseta os jogadores nos spawns do round. */
-  placePlayersForRound() {
+  placePlayersForRound({ reposition = true } = {}) {
     const list = [...this.players.values()];
     list.forEach((p, i) => {
-      const angle = (i / list.length) * Math.PI * 2 - Math.PI / 2;
-      p.x = CONFIG.ARENA_CENTER_X + Math.cos(angle) * 140;
-      p.y = CONFIG.ARENA_CENTER_Y + Math.sin(angle) * 140;
+      if (reposition) {
+        const angle = (i / list.length) * Math.PI * 2 - Math.PI / 2;
+        p.x = CONFIG.ARENA_CENTER_X + Math.cos(angle) * 140;
+        p.y = CONFIG.ARENA_CENTER_Y + Math.sin(angle) * 140;
+      }
       const hpBonus = p.bonuses?.maxHpBonus || 0;
       p.maxHp = Math.round(CONFIG.PLAYER_MAX_HP * (1 + hpBonus));
       p.hp = p.maxHp;
@@ -1058,15 +1060,16 @@ export class Match {
     });
   }
 
-  /** Prepara arena limpa + spawns visíveis antes da contagem. */
+  /** Prepara arena limpa + reseta stats dos jogadores (sem reposicionar). */
   prepareRound() {
     this.clearArena();
-    this.placePlayersForRound();
+    this.placePlayersForRound({ reposition: false });
   }
 
   startCountdown() {
     this.afterLevelUp = null;
     this.prepareRound();
+    this.placePlayersForRound();
     const leftLobbyBrowser = this.phase === 'lobby';
     this.phase = 'countdown';
     this.countdown = 3;
@@ -1133,7 +1136,6 @@ export class Match {
     this.roundTime = 0;
     this.bossRound = false;
     this.pendingBossFight = false;
-    this.placePlayersForRound();
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
@@ -1149,7 +1151,6 @@ export class Match {
     this.phase = 'playing';
     this.roundTime = 0;
     this.bossRound = true;
-    this.placePlayersForRound();
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
