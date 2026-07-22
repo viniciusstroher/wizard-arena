@@ -2276,6 +2276,7 @@ export class Match {
           x: bag.x,
           y: bag.y,
           items: bag.items || undefined,
+          _at: this.matchTime,
         });
         taken = true;
         break;

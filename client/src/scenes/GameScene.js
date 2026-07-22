@@ -187,9 +187,6 @@ export class GameScene extends Phaser.Scene {
         );
         this.bannerText.setAlpha(1);
       }
-      if (ev.type === 'loot_pickup' && ev.items && ev.playerId === this.playerId) {
-        this.handleLootItems(ev.items);
-      }
     });
 
     this.events.on('shutdown', () => {
@@ -1630,6 +1627,15 @@ export class GameScene extends Phaser.Scene {
       if (ev.type === 'round_win') {
         roundEnded = true;
       }
+      if (ev.type === 'loot_pickup' && ev.items && ev.playerId === this.playerId && !this._processedLootAt?.has(ev._at)) {
+        if (!this._processedLootAt) this._processedLootAt = new Set();
+        this._processedLootAt.add(ev._at);
+        this.handleLootItems(ev.items);
+      }
+    }
+    // Limpa set de loot processado ao fim do round para nao crescer infinito
+    if (state.phase === 'countdown' && prevPhase !== 'countdown') {
+      this._processedLootAt?.clear();
     }
     // Som do fim do round: no evento round_win.
     if (roundEnded) {
