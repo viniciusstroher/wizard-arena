@@ -41,8 +41,12 @@ import { elementLabel } from '../catalog/elements.js';
 import {
   levelFromPoints,
   levelColor,
-  rankLabel,
+  rankTitle,
 } from '../characterLevel.js';
+import {
+  ensureRankIconTextures,
+  rankIconKeyForLevel,
+} from '../rankIcons.js';
 
 function formatDate(value) {
   try {
@@ -189,29 +193,31 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   buildLevelDisplay(centerX, y, depth) {
-    const badgeR = 18;
+    ensureRankIconTextures(this);
 
-    this.levelBadgeBg = this.add
-      .circle(centerX - 58, y, badgeR, 0x2a2250, 1)
-      .setStrokeStyle(2, 0x6b5cff, 0.9)
+    this.levelIcon = this.add
+      .image(centerX - 58, y, rankIconKeyForLevel(1))
+      .setDisplaySize(36, 36)
       .setDepth(depth);
-    this.trackInfo(this.levelBadgeBg);
+    this.trackInfo(this.levelIcon);
 
     this.levelBadgeText = this.add
       .text(centerX - 58, y, '1', {
         fontFamily: 'Georgia, serif',
-        fontSize: '18px',
+        fontSize: '16px',
         color: '#f4e8ff',
         fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3,
       })
       .setOrigin(0.5)
       .setDepth(depth + 1);
     this.trackInfo(this.levelBadgeText);
 
     this.levelRankText = this.add
-      .text(centerX - 32, y - 6, 'Aprendiz', {
+      .text(centerX - 32, y - 8, 'Aprendiz Arcano', {
         fontFamily: 'Trebuchet MS, sans-serif',
-        fontSize: '13px',
+        fontSize: '12px',
         color: '#c4b5e0',
       })
       .setOrigin(0, 0.5)
@@ -219,7 +225,7 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInfo(this.levelRankText);
 
     this.levelPtsText = this.add
-      .text(centerX - 32, y + 7, 'PTS 0 / 50', {
+      .text(centerX - 32, y + 6, 'PTS 0 / 50', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '10px',
         color: '#7a6e96',
@@ -229,14 +235,14 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInfo(this.levelPtsText);
 
     this.levelBarBg = this.add
-      .rectangle(centerX + 62, y, 120, 8, 0x161228, 0.9)
+      .rectangle(centerX + 62, y + 10, 120, 7, 0x161228, 0.9)
       .setStrokeStyle(1, 0x4a3d78, 0.8)
       .setDepth(depth)
       .setOrigin(0.5, 0.5);
     this.trackInfo(this.levelBarBg);
 
     this.levelBarFill = this.add
-      .rectangle(centerX + 2, y, 0, 6, 0x6b5cff, 1)
+      .rectangle(centerX + 2, y + 10, 0, 5, 0x6b5cff, 1)
       .setDepth(depth + 1)
       .setOrigin(0, 0.5);
     this.trackInfo(this.levelBarFill);
@@ -247,15 +253,16 @@ export class CharacterScene extends Phaser.Scene {
   refreshLevelDisplay() {
     const info = levelFromPoints(this.totalPoints);
     const color = levelColor(info.level);
+    const iconKey = rankIconKeyForLevel(info.level);
 
     if (this.levelBadgeText) {
       this.levelBadgeText.setText(String(info.level));
     }
-    if (this.levelBadgeBg) {
-      this.levelBadgeBg.setStrokeStyle(2, color, 0.95);
+    if (this.levelIcon) {
+      this.levelIcon.setTexture(iconKey).setTint(color);
     }
     if (this.levelRankText) {
-      this.levelRankText.setText(rankLabel(info.level));
+      this.levelRankText.setText(rankTitle(info.level));
     }
     if (this.levelPtsText) {
       const ptsIntoLevel = Math.max(0, this.totalPoints - info.currentPts);
@@ -263,7 +270,7 @@ export class CharacterScene extends Phaser.Scene {
     }
     if (this.levelBarFill && this.levelBarBg) {
       const barW = 116;
-      this.levelBarFill.setSize(barW * info.progress, 6);
+      this.levelBarFill.setSize(barW * info.progress, 5);
       this.levelBarFill.setFillStyle(color, 1);
     }
   }
