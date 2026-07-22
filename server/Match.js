@@ -962,13 +962,13 @@ export class Match {
 
   /** Limpa entidades/efeitos e regenera o chão da arena para o próximo round. */
   clearArena() {
-    this.arenaRadius = CONFIG.ARENA_START_RADIUS;
-    this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
-    this.shrinksDone = 0;
-    this.shrinkActive = false;
-    this.shrinkFrom = CONFIG.ARENA_START_RADIUS;
-    this.shrinkTo = CONFIG.ARENA_START_RADIUS;
-    this.shrinkElapsed = 0;
+    if (this.shrinkActive) {
+      this.arenaRadius = this.shrinkTo;
+      this.shrinkActive = false;
+      this.shrinkFrom = this.arenaRadius;
+      this.shrinkTo = this.arenaRadius;
+      this.shrinkElapsed = 0;
+    }
     this.monsterSpawnTimer = 1;
     this.xpPassiveTimer = 0;
     if (CONFIG.MONSTER_PERSIST_ROUNDS) {
@@ -1068,6 +1068,13 @@ export class Match {
 
   startCountdown() {
     this.afterLevelUp = null;
+    this.arenaRadius = CONFIG.ARENA_START_RADIUS;
+    this.nextShrinkAt = CONFIG.ARENA_SHRINK_INTERVAL;
+    this.shrinksDone = 0;
+    this.shrinkActive = false;
+    this.shrinkFrom = CONFIG.ARENA_START_RADIUS;
+    this.shrinkTo = CONFIG.ARENA_START_RADIUS;
+    this.shrinkElapsed = 0;
     this.prepareRound();
     this.placePlayersForRound();
     const leftLobbyBrowser = this.phase === 'lobby';
