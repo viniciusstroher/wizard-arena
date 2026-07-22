@@ -675,6 +675,7 @@ export class GameScene extends Phaser.Scene {
         .text(BOX_X + 10, linesTop + i * LINE_H, '', {
           fontFamily: 'Trebuchet MS, sans-serif',
           fontSize: '11px',
+          color: '#a99bc8',
         })
         .setScrollFactor(0)
         .setDepth(depth + 1);

@@ -1219,6 +1219,7 @@ export class Match {
   }
 
   scheduleNextLever() {
+    if (!CONFIG.LEVER_ENABLED) { this.leverTimer = Infinity; return; }
     const min = CONFIG.LEVER_EVENT_MIN_INTERVAL;
     const max = Math.max(min, CONFIG.LEVER_EVENT_MAX_INTERVAL);
     this.leverTimer = min + Math.random() * (max - min);
@@ -1576,6 +1577,7 @@ export class Match {
   }
 
   spawnLeverEvent() {
+    if (!CONFIG.LEVER_ENABLED) return;
     const radius = CONFIG.LEVER_RADIUS;
     const { x, y } = this.pickMeteorPoint(radius);
     const appearMax = Math.max(0.05, CONFIG.LEVER_APPEAR_TIME);
@@ -1667,6 +1669,7 @@ export class Match {
   }
 
   tickLevers(dt) {
+    if (!CONFIG.LEVER_ENABLED) { this.levers = []; return; }
     this.leverTimer -= dt;
     if (this.leverTimer <= 0) {
       // Alavanca é independente do cooldown global (meteoro/cura/névoa/vento),
@@ -4546,6 +4549,7 @@ export class Match {
     }
 
     // Arena shrink gradual (intervalo / duração / quantidade via .env)
+    if (CONFIG.ARENA_SHRINK_ENABLED) {
     if (this.shrinkActive) {
       this.shrinkElapsed += dt;
       const t = Math.min(1, this.shrinkElapsed / CONFIG.ARENA_SHRINK_DURATION);
@@ -4580,6 +4584,7 @@ export class Match {
       } else {
         this.shrinkActive = true;
       }
+    }
     }
 
     // Spawns (desligado no round de boss — só o boss do início)

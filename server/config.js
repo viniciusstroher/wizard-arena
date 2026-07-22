@@ -385,6 +385,9 @@ export const CONFIG = {
   ARENA_CENTER_Y: 360,
   ARENA_START_RADIUS,
   ARENA_MIN_RADIUS,
+  /** Se false, desabilita completamente o encolhimento da arena. */
+  ARENA_SHRINK_ENABLED: envBool('ARENA_SHRINK_ENABLED', false),
+
   /** Intervalo em segundos entre o início de cada encolhimento da arena. */
   ARENA_SHRINK_INTERVAL: envInt('ARENA_SHRINK_INTERVAL', 10),
   /** Duração em segundos do fechamento gradual de cada encolhimento (0 = instantâneo). */
@@ -569,6 +572,9 @@ export const CONFIG = {
   GALE_SPEED_MUL: envNumber('GALE_SPEED_MUL', 1.5),
   /** Multiplicador de inércia dentro da ventania (0.75 = −25%). */
   GALE_INERTIA_MUL: envNumber('GALE_INERTIA_MUL', 0.75),
+
+  /** Se false, desabilita completamente o evento de alavanca. */
+  LEVER_ENABLED: envBool('LEVER_ENABLED', false),
 
   /** Intervalo mínimo/máximo entre alavancas aleatórias (segundos). */
   LEVER_EVENT_MIN_INTERVAL: envNumber('LEVER_EVENT_MIN_INTERVAL', 10),
