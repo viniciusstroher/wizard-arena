@@ -1018,9 +1018,7 @@ export class Match {
         p.x = CONFIG.ARENA_CENTER_X + Math.cos(angle) * 140;
         p.y = CONFIG.ARENA_CENTER_Y + Math.sin(angle) * 140;
       }
-      const hpBonus = p.bonuses?.maxHpBonus || 0;
-      p.maxHp = Math.round(CONFIG.PLAYER_MAX_HP * (1 + hpBonus));
-      p.hp = Math.min(p.maxHp, Math.max(p.hp, 1));
+      p.hp = p.maxHp;
       p.alive = true;
       p.shield = 0;
       p.maxShield = 0;
