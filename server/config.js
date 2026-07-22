@@ -346,8 +346,8 @@ export const CONFIG = {
   LOOT_BAG_RADIUS: 14,
   /** Segundos até o saco poder ser coletado (fica visível no corpo). */
   LOOT_BAG_PICKUP_DELAY: Math.max(0, envNumber('LOOT_BAG_PICKUP_DELAY', 0.8)),
-  /** Chance (0–1) do mob dropar moeda em vez do saco de loot. */
-  MONSTER_COIN_DROP_CHANCE: Math.min(1, Math.max(0, envNumber('MONSTER_COIN_DROP_CHANCE', 0.45))),
+  /** Chance (0–1) do mob dropar moeda em vez do saco de loot. 0 = sempre tenta loot primeiro. */
+  MONSTER_COIN_DROP_CHANCE: Math.min(1, Math.max(0, envNumber('MONSTER_COIN_DROP_CHANCE', 0))),
   /** Gold concedido ao coletar uma moeda. */
   COIN_VALUE: Math.max(1, envInt('COIN_VALUE', 1, 1)),
   /** Raio de coleta da moeda no chão. */

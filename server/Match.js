@@ -3,7 +3,7 @@ import { BotController } from './Bot.js';
 import { createMonsterTypeDefs } from './monsterTypes.js';
 import { applyElementResistance } from './monsterResistances.js';
 import { spellElementId } from './spellElements.js';
-import { rollOneMonsterDrop } from './itemDrops.js';
+import { rollMonsterDrops } from './itemDrops.js';
 import {
   applySpellChoice,
   createSpellInstance,
@@ -2252,12 +2252,12 @@ export class Match {
     });
   }
 
-  /** Mob morto: saco de loot OU moeda (nunca os dois). Se não dropar item, cai moeda. */
+  /** Mob morto: saco de loot OU moeda. Dropa múltiplos itens (cada um sorteado independente). */
   spawnMonsterDrop(bones, monsterType) {
     if (Math.random() < CONFIG.MONSTER_COIN_DROP_CHANCE) {
       this.spawnCoinOnBones(bones);
     } else {
-      const items = rollOneMonsterDrop(monsterType);
+      const items = rollMonsterDrops(monsterType);
       if (items && items.length) {
         this.spawnLootBagOnBones(bones, items);
       } else {
