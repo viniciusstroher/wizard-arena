@@ -38,6 +38,11 @@ import {
 } from '../wizardSkin.js';
 import { SkinPickerModal } from '../ui/SkinPickerModal.js';
 import { elementLabel } from '../catalog/elements.js';
+import {
+  levelFromPoints,
+  levelColor,
+  rankLabel,
+} from '../characterLevel.js';
 
 function formatDate(value) {
   try {
@@ -72,6 +77,7 @@ export class CharacterScene extends Phaser.Scene {
   create() {
     this.character = ensureCharacter();
     this.inventory = normalizeInventory(this.character.inventory);
+    this.totalPoints = 0;
     this.selectedColor = this.character.color >>> 0;
     this.selectedSkin = normalizeSkinId(this.character.skin);
     this.errorText = null;
@@ -182,6 +188,86 @@ export class CharacterScene extends Phaser.Scene {
     }
   }
 
+  buildLevelDisplay(centerX, y, depth) {
+    const badgeR = 18;
+
+    this.levelBadgeBg = this.add
+      .circle(centerX - 58, y, badgeR, 0x2a2250, 1)
+      .setStrokeStyle(2, 0x6b5cff, 0.9)
+      .setDepth(depth);
+    this.trackInfo(this.levelBadgeBg);
+
+    this.levelBadgeText = this.add
+      .text(centerX - 58, y, '1', {
+        fontFamily: 'Georgia, serif',
+        fontSize: '18px',
+        color: '#f4e8ff',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(depth + 1);
+    this.trackInfo(this.levelBadgeText);
+
+    this.levelRankText = this.add
+      .text(centerX - 32, y - 6, 'Aprendiz', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#c4b5e0',
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(depth);
+    this.trackInfo(this.levelRankText);
+
+    this.levelPtsText = this.add
+      .text(centerX - 32, y + 7, 'PTS 0 / 50', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '10px',
+        color: '#7a6e96',
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(depth);
+    this.trackInfo(this.levelPtsText);
+
+    this.levelBarBg = this.add
+      .rectangle(centerX + 62, y, 120, 8, 0x161228, 0.9)
+      .setStrokeStyle(1, 0x4a3d78, 0.8)
+      .setDepth(depth)
+      .setOrigin(0.5, 0.5);
+    this.trackInfo(this.levelBarBg);
+
+    this.levelBarFill = this.add
+      .rectangle(centerX + 2, y, 0, 6, 0x6b5cff, 1)
+      .setDepth(depth + 1)
+      .setOrigin(0, 0.5);
+    this.trackInfo(this.levelBarFill);
+
+    this.refreshLevelDisplay();
+  }
+
+  refreshLevelDisplay() {
+    const info = levelFromPoints(this.totalPoints);
+    const color = levelColor(info.level);
+
+    if (this.levelBadgeText) {
+      this.levelBadgeText.setText(String(info.level));
+    }
+    if (this.levelBadgeBg) {
+      this.levelBadgeBg.setStrokeStyle(2, color, 0.95);
+    }
+    if (this.levelRankText) {
+      this.levelRankText.setText(rankLabel(info.level));
+    }
+    if (this.levelPtsText) {
+      const ptsIntoLevel = Math.max(0, this.totalPoints - info.currentPts);
+      this.levelPtsText.setText(`PTS ${ptsIntoLevel} / ${info.nextPts - info.currentPts}`);
+    }
+    if (this.levelBarFill && this.levelBarBg) {
+      const barW = 116;
+      this.levelBarFill.setSize(barW * info.progress, 6);
+      this.levelBarFill.setFillStyle(color, 1);
+    }
+  }
+
   buildInfoTab(depth) {
     const { width, height } = this.scale;
     const editorX = width * 0.32;
@@ -202,6 +288,8 @@ export class CharacterScene extends Phaser.Scene {
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
+
+    this.buildLevelDisplay(editorX, height / 2 - 161, depth);
 
     const skinLabel = this.add
       .text(editorX, height / 2 - 135, 'Classe / skin', {
@@ -876,6 +964,11 @@ export class CharacterScene extends Phaser.Scene {
       this.historyLootText?.setText(`Loot: ${totalLoot}`);
       this.historyPointsText?.setText(`Pontos: ${totalPoints}`);
       this.historyGoldText?.setText(`Gold: ${totalGold}`);
+
+      if (totalPoints !== this.totalPoints) {
+        this.totalPoints = totalPoints;
+        this.refreshLevelDisplay();
+      }
 
       // Mantém inventário alinhado ao total acumulado nas partidas
       if (
