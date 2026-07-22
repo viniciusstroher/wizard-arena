@@ -11,6 +11,8 @@
  * Monstros de tiers mais altos dropam itens de níveis mais altos.
  */
 
+import { CONFIG } from './config.js';
+
 const DROP_TABLE = {
   // ========== TIER 1 — Monstros fracos (imp, slime, goblin, etc.) ==========
   // Dropam itens de nível 1–5 (tiers t1 e t2)
@@ -422,9 +424,10 @@ const DROP_TABLE = {
 export function rollMonsterDrops(monsterType) {
   const drops = DROP_TABLE[monsterType];
   if (!drops) return null;
+  const mul = CONFIG.MONSTER_DROP_MULTIPLIER || 1;
   const results = [];
   for (const [itemId, chance, qtyMin, qtyMax] of drops) {
-    if (Math.random() < chance) {
+    if (Math.random() < Math.min(1, chance * mul)) {
       const qty = qtyMin === qtyMax ? qtyMin : qtyMin + Math.floor(Math.random() * (qtyMax - qtyMin + 1));
       results.push({ itemId, qty });
     }
