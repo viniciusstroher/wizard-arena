@@ -1133,6 +1133,7 @@ export class Match {
     this.roundTime = 0;
     this.bossRound = false;
     this.pendingBossFight = false;
+    this.placePlayersForRound();
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
@@ -1148,6 +1149,7 @@ export class Match {
     this.phase = 'playing';
     this.roundTime = 0;
     this.bossRound = true;
+    this.placePlayersForRound();
     this.scheduleNextMeteor();
     this.scheduleNextMassHeal();
     this.scheduleNextCooldownMist();
