@@ -417,7 +417,7 @@ const DROP_TABLE = {
 
 /**
  * Retorna os itens que o monstro dropa (array de { itemId, qty })
- * baseado na tabela de drops + chance.
+ * baseado na tabela de drops + chance. Todos os itens são sorteados.
  */
 export function rollMonsterDrops(monsterType) {
   const drops = DROP_TABLE[monsterType];
@@ -430,6 +430,25 @@ export function rollMonsterDrops(monsterType) {
     }
   }
   return results.length > 0 ? results : null;
+}
+
+/**
+ * Sorteia 1 item do monstro (escolhe aleatoriamente entre os drops,
+ * ponderado pela chance de cada um).
+ */
+export function rollOneMonsterDrop(monsterType) {
+  const drops = DROP_TABLE[monsterType];
+  if (!drops) return null;
+  // Constrói lista ponderada: cada item aparece [chance*1000] vezes
+  const pool = [];
+  for (const [itemId, chance, qtyMin, qtyMax] of drops) {
+    const weight = Math.max(1, Math.round(chance * 1000));
+    for (let w = 0; w < weight; w++) pool.push({ itemId, qtyMin, qtyMax });
+  }
+  if (!pool.length) return null;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const qty = pick.qtyMin === pick.qtyMax ? pick.qtyMin : pick.qtyMin + Math.floor(Math.random() * (pick.qtyMax - pick.qtyMin + 1));
+  return [{ itemId: pick.itemId, qty }];
 }
 
 /**

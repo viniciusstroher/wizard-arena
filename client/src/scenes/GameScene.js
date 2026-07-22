@@ -18,7 +18,7 @@ import {
 import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { ensureCharacter, saveCharacter } from '../character.js';
-import { addItemToBag, createItem, normalizeInventory } from '../inventory.js';
+import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex } from '../inventory.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
@@ -186,6 +186,9 @@ export class GameScene extends Phaser.Scene {
             : `Round ${labelRound}\nComeçando`
         );
         this.bannerText.setAlpha(1);
+      }
+      if (ev.type === 'loot_pickup' && ev.items && ev.playerId === this.playerId) {
+        this.handleLootItems(ev.items);
       }
     });
 
@@ -898,6 +901,65 @@ export class GameScene extends Phaser.Scene {
 
   createMatchEndUi() {
     this.matchEndModal = this.add.container(0, 0).setDepth(450).setScrollFactor(0).setVisible(false);
+  }
+
+  handleLootItems(items) {
+    try {
+      const character = ensureCharacter();
+      let inventory = normalizeInventory(character.inventory);
+      let addedAny = false;
+      let inventoryFull = false;
+
+      for (const { itemId, qty } of items) {
+        for (let i = 0; i < qty; i++) {
+          const item = createItem(itemId);
+          if (!item) continue;
+          // Check if bag has ANY free slot before attempting
+          if (firstEmptyBagIndex(inventory.bag) < 0) {
+            inventoryFull = true;
+            break;
+          }
+          const result = addItemToBag(inventory, item);
+          if (!result.ok) {
+            inventoryFull = true;
+            break;
+          }
+          inventory = result.inventory;
+          addedAny = true;
+        }
+        if (inventoryFull) break;
+      }
+
+      if (addedAny) {
+        character.inventory = inventory;
+        saveCharacter(character);
+      }
+
+      if (inventoryFull) {
+        this.showFloatingMessage('Inventário cheio!', 0xff6b6b);
+      }
+    } catch { /* silencioso */ }
+  }
+
+  showFloatingMessage(text, color) {
+    const me = this.state?.players?.find((p) => p.id === this.playerId);
+    if (!me) return;
+    const msg = this.add.text(me.x, me.y - 40, text, {
+      fontFamily: 'Trebuchet MS, sans-serif',
+      fontSize: '14px',
+      color: '#' + (color >>> 0).toString(16).padStart(6, '0'),
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(200);
+
+    this.tweens.add({
+      targets: msg,
+      y: me.y - 80,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => msg.destroy(),
+    });
   }
 
   collectMatchItems(state) {

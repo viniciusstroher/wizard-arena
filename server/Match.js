@@ -3,7 +3,7 @@ import { BotController } from './Bot.js';
 import { createMonsterTypeDefs } from './monsterTypes.js';
 import { applyElementResistance } from './monsterResistances.js';
 import { spellElementId } from './spellElements.js';
-import { rollMonsterDrops } from './itemDrops.js';
+import { rollOneMonsterDrop } from './itemDrops.js';
 import {
   applySpellChoice,
   createSpellInstance,
@@ -2243,7 +2243,7 @@ export class Match {
     if (Math.random() < CONFIG.MONSTER_COIN_DROP_CHANCE) {
       this.spawnCoinOnBones(bones);
     } else {
-      const items = rollMonsterDrops(monsterType);
+      const items = rollOneMonsterDrop(monsterType);
       this.spawnLootBagOnBones(bones, items);
     }
   }
