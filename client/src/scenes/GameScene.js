@@ -103,6 +103,8 @@ export class GameScene extends Phaser.Scene {
     /** Tipo de chão já exibido (para crossfade entre rounds). */
     this.displayedFloorType = null;
     this.floorTransition = null;
+    /** Notificações de loot coletado (fila com fade). */
+    this.lootNotifications = [];
   }
 
   create() {
@@ -204,6 +206,10 @@ export class GameScene extends Phaser.Scene {
       this.conjureEmbers = null;
       for (const s of this.arenaIronSprites) s.destroy();
       this.arenaIronSprites = [];
+      for (const n of this.lootNotifications) {
+        n.textObj?.destroy();
+      }
+      this.lootNotifications = [];
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
@@ -923,6 +929,12 @@ export class GameScene extends Phaser.Scene {
           }
           inventory = result.inventory;
           addedAny = true;
+          this.lootNotifications.push({
+            name: item.name,
+            color: item.color,
+            addedAt: this.time.now,
+            textObj: null,
+          });
         }
         if (inventoryFull) break;
       }
@@ -1782,6 +1794,7 @@ export class GameScene extends Phaser.Scene {
     this.updateFloorTransition();
     this.updateSpellCastLabels();
     this.updateHud();
+    this.updateLootNotifications();
     this.updateLevelUpUi();
     this.handleBanners();
   }
@@ -6166,6 +6179,87 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateScoreboard();
+  }
+
+  updateLootNotifications() {
+    if (!this.lootNotifications.length) return;
+    const now = this.time.now;
+    const TTL = 4000;
+    const FADE_DURATION = 600;
+    const MAX_VISIBLE = 5;
+    const ROW_H = 15;
+    const PANEL_X = 12;
+    const PANEL_Y = 12;
+
+    const panelH = this.hudPanel.height || 96;
+    const baseY = PANEL_Y + panelH + 6;
+
+    // Cria textos para novos itens ainda sem textObj
+    for (const entry of this.lootNotifications) {
+      if (entry.textObj) continue;
+      const alive = this.lootNotifications.filter(e => e.textObj && !e.fading && !e.destroyed).length;
+      const initialY = baseY + alive * ROW_H;
+
+      entry.textObj = this.add.text(PANEL_X + 6, initialY, entry.name, {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '11px',
+        color: '#' + (entry.color >>> 0).toString(16).padStart(6, '0'),
+        stroke: '#000000',
+        strokeThickness: 2,
+      })
+        .setScrollFactor(0)
+        .setDepth(105)
+        .setAlpha(0);
+
+      this.tweens.add({
+        targets: entry.textObj,
+        alpha: 1,
+        duration: 200,
+      });
+    }
+
+    // Marca fading para itens que expiraram (TTL) ou excedem MAX_VISIBLE
+    const alive = this.lootNotifications.filter(e => e.textObj && !e.fading && !e.destroyed);
+    const fifo = alive.slice(0, Math.max(0, alive.length - MAX_VISIBLE));
+    for (const entry of alive) {
+      if (entry.fading) continue;
+      const age = now - entry.addedAt;
+      const expired = age >= TTL;
+      const overflow = fifo.includes(entry);
+      if (!expired && !overflow) continue;
+
+      entry.fading = true;
+      this.tweens.add({
+        targets: entry.textObj,
+        alpha: 0,
+        y: entry.textObj.y - 20,
+        duration: FADE_DURATION,
+        onComplete: () => {
+          entry.textObj.destroy();
+          entry.textObj = null;
+          entry.destroyed = true;
+        },
+      });
+    }
+
+    // Reposiciona itens visíveis não-fading (empilha no canto esquerdo)
+    const visible = alive.filter(e => !e.fading).slice(-MAX_VISIBLE);
+    for (let i = 0; i < visible.length; i++) {
+      const targetY = baseY + i * ROW_H;
+      const text = visible[i].textObj;
+      if (text && Math.abs(text.y - targetY) > 1) {
+        this.tweens.killTweensOf(text);
+        this.tweens.add({
+          targets: text,
+          y: targetY,
+          duration: 250,
+          ease: 'Power1',
+        });
+      }
+    }
+
+    // Remove entradas com textos já destruídos
+    this.lootNotifications = this.lootNotifications.filter(e => !e.destroyed);
   }
 
   showBossFightAlert() {
