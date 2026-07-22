@@ -991,6 +991,7 @@ export class GameScene extends Phaser.Scene {
             color: item.color,
             addedAt: this.time.now,
           });
+          this.showFloatingMessage(item.name, item.color);
         }
         if (inventoryFull) break;
       }
