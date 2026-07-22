@@ -1024,7 +1024,7 @@ export class Match {
       }
       const hpBonus = p.bonuses?.maxHpBonus || 0;
       p.maxHp = Math.round(CONFIG.PLAYER_MAX_HP * (1 + hpBonus));
-      p.hp = p.maxHp;
+      p.hp = Math.min(p.maxHp, Math.max(p.hp, 1));
       p.alive = true;
       p.shield = 0;
       p.maxShield = 0;
