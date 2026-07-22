@@ -1164,7 +1164,9 @@ export class Match {
     this.scheduleNextCooldownMist();
     this.scheduleNextGale();
     this.scheduleNextLever();
-    this.monsters = [];
+    if (!CONFIG.MONSTER_PERSIST_ROUNDS) {
+      this.monsters = [];
+    }
     const boss = this.spawnBoss();
     if (!boss) {
       console.error('[match] spawnBoss falhou — nenhum boss disponível', {

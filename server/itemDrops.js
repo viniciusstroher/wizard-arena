@@ -421,9 +421,21 @@ const DROP_TABLE = {
  * Retorna os itens que o monstro dropa (array de { itemId, qty })
  * baseado na tabela de drops + chance. Todos os itens são sorteados.
  */
+function resolveDropType(monsterType) {
+  if (DROP_TABLE[monsterType]) return monsterType;
+  const parts = monsterType.split('_');
+  while (parts.length > 1) {
+    parts.pop();
+    const base = parts.join('_');
+    if (DROP_TABLE[base]) return base;
+  }
+  return null;
+}
+
 export function rollMonsterDrops(monsterType) {
-  const drops = DROP_TABLE[monsterType];
-  if (!drops) return null;
+  const baseType = resolveDropType(monsterType);
+  if (!baseType) return null;
+  const drops = DROP_TABLE[baseType];
   const mul = CONFIG.MONSTER_DROP_MULTIPLIER || 1;
   const results = [];
   for (const [itemId, chance, qtyMin, qtyMax] of drops) {
@@ -440,8 +452,9 @@ export function rollMonsterDrops(monsterType) {
  * ponderado pela chance de cada um).
  */
 export function rollOneMonsterDrop(monsterType) {
-  const drops = DROP_TABLE[monsterType];
-  if (!drops) return null;
+  const baseType = resolveDropType(monsterType);
+  if (!baseType) return null;
+  const drops = DROP_TABLE[baseType];
   // Constrói lista ponderada: cada item aparece [chance*1000] vezes
   const pool = [];
   for (const [itemId, chance, qtyMin, qtyMax] of drops) {
@@ -458,7 +471,7 @@ export function rollOneMonsterDrop(monsterType) {
  * Verifica se o monstro tem drops definidos.
  */
 export function hasMonsterDrops(monsterType) {
-  return !!DROP_TABLE[monsterType];
+  return !!resolveDropType(monsterType);
 }
 
 export { DROP_TABLE };
