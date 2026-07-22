@@ -3,6 +3,7 @@ import { BotController } from './Bot.js';
 import { createMonsterTypeDefs } from './monsterTypes.js';
 import { applyElementResistance } from './monsterResistances.js';
 import { spellElementId } from './spellElements.js';
+import { rollMonsterDrops } from './itemDrops.js';
 import {
   applySpellChoice,
   createSpellInstance,
@@ -737,6 +738,9 @@ export class Match {
       !isBot && appearance.characterId && isValidCharacterId(appearance.characterId)
         ? appearance.characterId
         : null;
+    const bonuses = isBot ? {} : (appearance.bonuses || {});
+    const maxHpBonus = Number(bonuses.maxHpBonus) || 0;
+    const hp = Math.round(CONFIG.PLAYER_MAX_HP * (1 + Math.min(0.60, maxHpBonus)));
     return {
       id,
       entityId: eid(),
@@ -748,8 +752,8 @@ export class Match {
       y: CONFIG.ARENA_CENTER_Y + Math.sin(angle) * 120,
       vx: 0,
       vy: 0,
-      hp: CONFIG.PLAYER_MAX_HP,
-      maxHp: CONFIG.PLAYER_MAX_HP,
+      hp,
+      maxHp: hp,
       alive: true,
       level: 1,
       xp: 0,
@@ -824,10 +828,22 @@ export class Match {
       skin: wizard.skin || 'classic',
       zoneDmgAcc: 0,
       score: 0,
-      cooldownReduction: Math.min(
-        0.95,
-        Math.max(0, Number(appearance.cooldownReduction) || 0)
-      ),
+      collectedItems: [],
+      bonuses: {
+        cooldownReduction: Math.min(0.95, Math.max(0, Number(bonuses.cooldownReduction) || 0)),
+        damageBonus: Math.min(0.75, Math.max(0, Number(bonuses.damageBonus) || 0)),
+        healBonus: Math.min(0.75, Math.max(0, Number(bonuses.healBonus) || 0)),
+        shieldBonus: Math.min(0.75, Math.max(0, Number(bonuses.shieldBonus) || 0)),
+        speedBonus: Math.min(0.50, Math.max(0, Number(bonuses.speedBonus) || 0)),
+        rangeBonus: Math.min(0.50, Math.max(0, Number(bonuses.rangeBonus) || 0)),
+        radiusBonus: Math.min(0.50, Math.max(0, Number(bonuses.radiusBonus) || 0)),
+        slowResist: Math.min(0.80, Math.max(0, Number(bonuses.slowResist) || 0)),
+        poisonResist: Math.min(0.80, Math.max(0, Number(bonuses.poisonResist) || 0)),
+        burnResist: Math.min(0.80, Math.max(0, Number(bonuses.burnResist) || 0)),
+        maxHpBonus: Math.min(0.60, Math.max(0, Number(bonuses.maxHpBonus) || 0)),
+        xpBonus: Math.min(0.50, Math.max(0, Number(bonuses.xpBonus) || 0)),
+      },
+      cooldownReduction: Math.min(0.95, Math.max(0, Number(bonuses.cooldownReduction) || 0)),
     };
   }
 
@@ -863,7 +879,7 @@ export class Match {
       color: opts.color,
       skin: opts.skin,
       characterId,
-      cooldownReduction: opts.cooldownReduction,
+      bonuses: opts.bonuses || {},
     });
     this.players.set(socket.id, player);
     socket.join(this.id);
@@ -1003,6 +1019,8 @@ export class Match {
       const angle = (i / list.length) * Math.PI * 2 - Math.PI / 2;
       p.x = CONFIG.ARENA_CENTER_X + Math.cos(angle) * 140;
       p.y = CONFIG.ARENA_CENTER_Y + Math.sin(angle) * 140;
+      const hpBonus = p.bonuses?.maxHpBonus || 0;
+      p.maxHp = Math.round(CONFIG.PLAYER_MAX_HP * (1 + hpBonus));
       p.hp = p.maxHp;
       p.alive = true;
       p.shield = 0;
@@ -1821,7 +1839,8 @@ export class Match {
     }
 
     const levelBonus = Math.max(0, (player.level || 1) - 1) * (CONFIG.PLAYER_SHIELD_PER_LEVEL || 0);
-    const shield = Math.max(1, Math.round((stats.shield || 0) + levelBonus));
+    const shieldBonus = player.bonuses?.shieldBonus || 0;
+    const shield = Math.max(1, Math.round(((stats.shield || 0) + levelBonus) * (1 + shieldBonus)));
     player.shield = shield;
     player.maxShield = shield;
     player.shieldTimer = stats.duration;
@@ -1864,7 +1883,8 @@ export class Match {
     }
 
     const levelBonus = Math.max(0, (player.level || 1) - 1) * (CONFIG.PLAYER_HEAL_PER_LEVEL || 0);
-    const heal = Math.max(1, Math.round((stats.heal || 0) + levelBonus));
+    const healBonus = player.bonuses?.healBonus || 0;
+    const heal = Math.max(1, Math.round(((stats.heal || 0) + levelBonus) * (1 + healBonus)));
     player.hp = Math.min(player.maxHp, player.hp + heal);
     player.mendCooldown = stats.cooldown;
     this.clearInnateRequest(player, 'mend');
@@ -2081,7 +2101,9 @@ export class Match {
 
   grantXp(player, amount, reason) {
     if (!player.alive && reason !== 'round') return;
-    player.xp += amount;
+    const xpBonus = (player.bonuses?.xpBonus || 0);
+    const boosted = Math.max(1, Math.round(amount * (1 + xpBonus)));
+    player.xp += boosted;
     let leveled = false;
     // xp é progresso no nível atual; xpToNext é o custo do próximo nível
     while (player.xp >= player.xpToNext) {
@@ -2190,8 +2212,8 @@ export class Match {
     };
   }
 
-  /** Saco em cima do crânio do esqueleto. */
-  spawnLootBagOnBones(bones) {
+  /** Saco em cima do crânio do esqueleto com itens opcionais. */
+  spawnLootBagOnBones(bones, items) {
     const { x, y } = this.dropPosOnBones(bones);
     this.lootBags.push({
       entityId: eid(),
@@ -2199,6 +2221,7 @@ export class Match {
       y,
       radius: CONFIG.LOOT_BAG_RADIUS,
       readyAt: this.matchTime + CONFIG.LOOT_BAG_PICKUP_DELAY,
+      items: items || null,
     });
   }
 
@@ -2216,11 +2239,12 @@ export class Match {
   }
 
   /** Mob morto: saco de loot OU moeda (nunca os dois). */
-  spawnMonsterDrop(bones) {
+  spawnMonsterDrop(bones, monsterType) {
     if (Math.random() < CONFIG.MONSTER_COIN_DROP_CHANCE) {
       this.spawnCoinOnBones(bones);
     } else {
-      this.spawnLootBagOnBones(bones);
+      const items = rollMonsterDrops(monsterType);
+      this.spawnLootBagOnBones(bones, items);
     }
   }
 
@@ -2239,12 +2263,19 @@ export class Match {
         if (!p.alive) continue;
         if (dist(p, bag) > pickupR) continue;
         p.loot = (p.loot || 0) + 1;
+        if (bag.items) {
+          if (!p.collectedItems) p.collectedItems = [];
+          for (const { itemId, qty } of bag.items) {
+            p.collectedItems.push({ itemId, qty });
+          }
+        }
         this.pushEvent({
           type: 'loot_pickup',
           playerId: p.id,
           loot: p.loot,
           x: bag.x,
           y: bag.y,
+          items: bag.items || undefined,
         });
         taken = true;
         break;
@@ -2294,6 +2325,13 @@ export class Match {
     const options = opts && typeof opts === 'object' ? opts : null;
     let crit = false;
     let dmg = amount;
+
+    // Dano bônus de equipamento do jogador
+    if (sourcePlayerId) {
+      const source = this.players.get(sourcePlayerId);
+      const dmgBonus = source?.bonuses?.damageBonus || 0;
+      if (dmgBonus > 0) dmg = Math.round(dmg * (1 + dmgBonus));
+    }
 
     // Resistência elemental (só monstros) — D&D/Tibia/WoW %.
     if (!isPlayer && target.resistances) {
@@ -2416,7 +2454,7 @@ export class Match {
     const wasBoss = !!target.isBoss;
     const mobMaxHp = target.maxHp || 0;
     const bones = this.spawnBones(mx, my);
-    this.spawnMonsterDrop(bones);
+    this.spawnMonsterDrop(bones, target.type);
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
@@ -2567,6 +2605,7 @@ export class Match {
           monsterKills: p.monsterKills || 0,
           loot: p.loot || 0,
           gold: p.gold || 0,
+          collectedItems: p.collectedItems || [],
           damageDealt: Math.round(p.damageDealt || 0),
           damageTaken: Math.round(p.damageTaken || 0),
           elementDamage: this.serializePlayerElementDamage(p),
@@ -3057,7 +3096,10 @@ export class Match {
     const amount = Math.max(0, Math.min(0.85, Number(slow) || 0));
     const dur = Math.max(0.1, Number(duration) || 2);
     if (amount <= 0) return;
-    target.slow = Math.max(target.slow || 0, amount);
+    const slowResist = target.bonuses?.slowResist || 0;
+    const resisted = amount * (1 - slowResist);
+    if (resisted <= 0) return;
+    target.slow = Math.max(target.slow || 0, resisted);
     target.slowTimer = Math.max(target.slowTimer || 0, dur);
   }
 
@@ -3099,8 +3141,10 @@ export class Match {
   applyPoison(target, ownerId, damage, tick, duration) {
     if (!target?.alive) return;
     if (this.isPlayerEntity(target) && !this.playerCanHarmPlayers(ownerId)) return;
+    const poisonResist = (target.bonuses?.poisonResist || 0);
     const wasPoisoned = (target.poisonTimer || 0) > 0;
-    const dmg = Math.max(0, Math.round(Number(damage) || 0));
+    const dmg = Math.max(0, Math.round((Number(damage) || 0) * (1 - poisonResist)));
+    if (dmg <= 0 && !wasPoisoned) return;
     target.poisonTimer = Math.max(0.05, Number(duration) || 5);
     target.poisonDamage = dmg;
     target.poisonTick = Math.max(0.05, Number(tick) || 1);
@@ -3144,8 +3188,10 @@ export class Match {
   applyBurn(target, ownerId, damage, tick, duration) {
     if (!target?.alive) return;
     if (this.isPlayerEntity(target) && !this.playerCanHarmPlayers(ownerId)) return;
+    const burnResist = (target.bonuses?.burnResist || 0);
     const wasBurning = (target.burnTimer || 0) > 0;
-    const dmg = Math.max(0, Math.round(Number(damage) || 0));
+    const dmg = Math.max(0, Math.round((Number(damage) || 0) * (1 - burnResist)));
+    if (dmg <= 0 && !wasBurning) return;
     target.burnTimer = Math.max(0.05, Number(duration) || 10);
     target.burnDamage = dmg;
     target.burnTick = Math.max(0.05, Number(tick) || 1);
@@ -4060,6 +4106,12 @@ export class Match {
       return;
     }
 
+    const rangeBonus = (player.bonuses?.rangeBonus || 0);
+    const radiusBonus = (player.bonuses?.radiusBonus || 0);
+    const boostedRange = stats.range ? stats.range * (1 + rangeBonus) : stats.range;
+    const boostedRadius = stats.radius ? Math.round(stats.radius * (1 + radiusBonus)) : stats.radius;
+    const boostedLife = stats.speed ? boostedRange / stats.speed : 0;
+
     const castX = player.x;
     const castY = player.y;
     const aimDx = player.input.aimX - player.x;
@@ -4093,8 +4145,8 @@ export class Match {
           vx: dirX * stats.speed,
           vy: dirY * stats.speed,
           damage: stats.damage,
-          radius: stats.radius,
-          life: stats.range / stats.speed,
+          radius: boostedRadius || stats.radius,
+          life: boostedLife || (stats.range / stats.speed),
           slow: stats.slow || 0,
           slowDuration: stats.slowDuration || 0,
           poisonDamage: stats.poisonDamage || 0,
@@ -4109,7 +4161,7 @@ export class Match {
         const n = Math.max(1, Math.round(Number(stats.rocketCount) || 3));
         const spreadDeg = Number(stats.spreadAngle) || 28;
         const half = (n - 1) / 2;
-        const life = stats.range / stats.speed;
+        const life = boostedLife || (stats.range / stats.speed);
         for (let i = 0; i < n; i++) {
           const a = ((i - half) * spreadDeg * Math.PI) / 180;
           const c = Math.cos(a);
@@ -4127,7 +4179,7 @@ export class Match {
             vx: dx * stats.speed,
             vy: dy * stats.speed,
             damage: stats.damage,
-            radius: stats.radius,
+            radius: boostedRadius || stats.radius,
             life,
             color: stats.color,
           });
@@ -4135,7 +4187,8 @@ export class Match {
         break;
       }
       case 'arc_lightning': {
-        const target = this.findNearestHostile(player, stats.range);
+        const range = boostedRange || stats.range;
+        const target = this.findNearestHostile(player, range);
         if (target) {
           this.damageHostile(target, stats.damage, player.id, { spellId: 'arc_lightning' });
           this.effects.push({
@@ -4163,12 +4216,13 @@ export class Match {
         return;
       case 'poison_cloud': {
         const groundLife = Math.max(0.5, Number(stats.duration) || 4);
+        const radiusPoison = boostedRadius || stats.radius || 90;
         this.aoes.push({
           entityId: eid(),
           ownerId: player.id,
           x: player.x + dirX * 80,
           y: player.y + dirY * 80,
-          radius: stats.radius || 90,
+          radius: radiusPoison,
           damage: Math.max(1, Math.round(Number(stats.damage) || 3)),
           tick: Math.max(0.05, Number(stats.tick) || 1),
           poisonDuration: Math.max(0.5, Number(stats.poisonDuration) || 5),
@@ -4181,7 +4235,7 @@ export class Match {
           type: 'poison_burst',
           x: player.x + dirX * 80,
           y: player.y + dirY * 80,
-          radius: stats.radius,
+          radius: radiusPoison,
           life: 0.45,
           maxLife: 0.45,
           color: stats.color,
@@ -4197,12 +4251,12 @@ export class Match {
         player.input.castSlot = -1;
         return;
       case 'apocalypse':
-        this.applyNova(player, stats.radius, stats.damage, player.id, { spellId: 'apocalypse' });
+        this.applyNova(player, boostedRadius || stats.radius, stats.damage, player.id, { spellId: 'apocalypse' });
         this.effects.push({
           type: 'apocalypse',
           x: player.x,
           y: player.y,
-          radius: stats.radius,
+          radius: boostedRadius || stats.radius,
           life: 1.7,
           maxLife: 1.7,
           color: stats.color,
@@ -4210,13 +4264,14 @@ export class Match {
         });
         break;
       case 'time_freeze':
+        const freezeR = boostedRadius || stats.radius;
         for (const other of this.players.values()) {
           if (other.id === player.id || !other.alive) continue;
-          if (dist(player, other) <= stats.radius) other.stunTimer = stats.duration;
+          if (dist(player, other) <= freezeR) other.stunTimer = stats.duration;
         }
         for (const m of this.monsters) {
           if (!m.alive) continue;
-          if (dist(player, m) <= stats.radius) m.stunTimer = stats.duration;
+          if (dist(player, m) <= freezeR) m.stunTimer = stats.duration;
         }
         this.effects.push({
           type: 'freeze',
@@ -4231,12 +4286,13 @@ export class Match {
         });
         break;
       case 'storm_call': {
-        const hostiles = this.listHostiles(player).filter((h) => dist(player, h) <= stats.range);
+        const stormRange = boostedRange || stats.range;
+        const hostiles = this.listHostiles(player).filter((h) => dist(player, h) <= stormRange);
         this.effects.push({
           type: 'storm',
           x: player.x,
           y: player.y,
-          radius: stats.range,
+          radius: stormRange,
           life: 0.85,
           maxLife: 0.85,
           color: stats.color,
@@ -4607,7 +4663,8 @@ export class Match {
         const inertiaMul =
           (CONFIG.FLOOR_INERTIA_MUL && CONFIG.FLOOR_INERTIA_MUL[this.floorType]) || 1;
         const gale = this.galeBuffFor(p);
-        const speed = CONFIG.PLAYER_SPEED * floorMul * (1 - p.slow) * gale.speedMul;
+        const spdBonus = (p.bonuses?.speedBonus || 0);
+        const speed = CONFIG.PLAYER_SPEED * floorMul * (1 - p.slow) * gale.speedMul * (1 + spdBonus);
         applyInertia(
           p,
           mx * speed,
@@ -4895,8 +4952,12 @@ export class Match {
               this.damageEntity(p, proj.damage, proj.ownerId, true, true);
               this.applyProjectileKnockback(p, proj);
               if (proj.slow) {
-                p.slow = Math.max(p.slow, proj.slow);
-                p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
+                const slowResist = p.bonuses?.slowResist || 0;
+                const resistedSlow = proj.slow * (1 - slowResist);
+                if (resistedSlow > 0) {
+                  p.slow = Math.max(p.slow, resistedSlow);
+                  p.slowTimer = Math.max(p.slowTimer, proj.slowDuration);
+                }
               }
               if (proj.poisonDamage) {
                 this.applyPoison(
@@ -5109,6 +5170,7 @@ export class Match {
       monsterKills: p.monsterKills || 0,
       loot: p.loot || 0,
       gold: p.gold || 0,
+      collectedItems: p.collectedItems || [],
       score: p.score,
       damageDealt: Math.round(p.damageDealt || 0),
       damageTaken: Math.round(p.damageTaken || 0),
@@ -5233,6 +5295,7 @@ export class Match {
         x: b.x,
         y: b.y,
         radius: b.radius,
+        items: b.items || null,
       })),
       coins: this.coins.map((c) => ({
         entityId: c.entityId,

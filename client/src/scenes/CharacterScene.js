@@ -16,6 +16,7 @@ import {
   itemTooltipLines,
   normalizeInventory,
   unequipToBag,
+  canEquipItem,
 } from '../inventory.js';
 import { ensureItemIconTextures, itemIconKey } from '../itemIcons.js';
 import { navigate } from '../router.js';
@@ -82,6 +83,7 @@ export class CharacterScene extends Phaser.Scene {
     this.character = ensureCharacter();
     this.inventory = normalizeInventory(this.character.inventory);
     this.totalPoints = 0;
+    this.characterLevel = 1;
     this.selectedColor = this.character.color >>> 0;
     this.selectedSkin = normalizeSkinId(this.character.skin);
     this.errorText = null;
@@ -252,6 +254,7 @@ export class CharacterScene extends Phaser.Scene {
 
   refreshLevelDisplay() {
     const info = levelFromPoints(this.totalPoints);
+    this.characterLevel = info.level;
     const color = levelColor(info.level);
     const iconKey = rankIconKeyForLevel(info.level);
 
@@ -499,7 +502,7 @@ export class CharacterScene extends Phaser.Scene {
 
   showItemTooltip(item, x, y) {
     if (!this.itemTooltip || !item) return;
-    const lines = itemTooltipLines(item);
+    const lines = itemTooltipLines(item, this.characterLevel);
     const { bg, text } = this.itemTooltip;
     text.setText(lines.join('\n')).setVisible(true);
 
@@ -726,7 +729,7 @@ export class CharacterScene extends Phaser.Scene {
       this.time.delayedCall(1800, () => this.resetInvHint());
       return;
     }
-    const result = equipFromBag(this.inventory, index);
+    const result = equipFromBag(this.inventory, index, this.characterLevel);
     if (!result.ok) {
       this.invHintText?.setText(result.error).setColor('#ff6b6b');
       this.time.delayedCall(1800, () => this.resetInvHint());

@@ -17,6 +17,8 @@ import {
 } from '../catalog/statusEffects.js';
 import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
+import { ensureCharacter, saveCharacter } from '../character.js';
+import { addItemToBag, createItem, normalizeInventory } from '../inventory.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
@@ -898,10 +900,39 @@ export class GameScene extends Phaser.Scene {
     this.matchEndModal = this.add.container(0, 0).setDepth(450).setScrollFactor(0).setVisible(false);
   }
 
+  collectMatchItems(state) {
+    try {
+      const me = (state.players || []).find((p) => p.id === this.playerId);
+      if (!me || !me.collectedItems || !me.collectedItems.length) return;
+
+      const character = ensureCharacter();
+      let inventory = normalizeInventory(character.inventory);
+      let addedCount = 0;
+
+      for (const { itemId, qty } of me.collectedItems) {
+        for (let i = 0; i < qty; i++) {
+          const item = createItem(itemId);
+          if (!item) continue;
+          const result = addItemToBag(inventory, item);
+          if (!result.ok) break;
+          inventory = result.inventory;
+          addedCount++;
+        }
+      }
+
+      if (addedCount > 0) {
+        character.inventory = inventory;
+        saveCharacter(character);
+      }
+    } catch { /* Silencioso em caso de erro no inventário */ }
+  }
+
   showMatchEndOverlay(state) {
     if (this.matchEndOpen || this.leaving) return;
     this.matchEndOpen = true;
     this.closeDisconnectConfirm();
+
+    this.collectMatchItems(state);
 
     const { width, height } = this.scale;
     this.matchEndModal.removeAll(true);

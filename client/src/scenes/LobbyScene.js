@@ -337,7 +337,7 @@ export class LobbyScene extends Phaser.Scene {
       name: this.character.name,
       color: this.character.color,
       skin: this.character.skin,
-      cooldownReduction: bonuses.cooldownReduction,
+      ...bonuses,
     };
     if (this.joinPassword) payload.password = this.joinPassword;
     this.socket.emit('join_lobby', payload);

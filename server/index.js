@@ -197,18 +197,37 @@ function normalizeCharacterId(value) {
   return CHARACTER_ID_RE.test(id) ? id : null;
 }
 
+const BONUS_KEYS = [
+  'cooldownReduction', 'damageBonus', 'healBonus', 'shieldBonus',
+  'speedBonus', 'rangeBonus', 'radiusBonus', 'slowResist',
+  'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus',
+];
+
+function clampBonus(key, val) {
+  const n = Number(val);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const caps = {
+    cooldownReduction: 0.95, damageBonus: 0.75, healBonus: 0.75,
+    shieldBonus: 0.75, speedBonus: 0.50, rangeBonus: 0.50,
+    radiusBonus: 0.50, slowResist: 0.80, poisonResist: 0.80,
+    burnResist: 0.80, maxHpBonus: 0.60, xpBonus: 0.50,
+  };
+  return Math.min(caps[key] || 0.95, Math.max(0, n));
+}
+
 function appearanceFromPayload(payload = {}) {
   const color = Number(payload.color);
-  const cooldownReduction = Number(payload.cooldownReduction);
+  const bonuses = {};
+  for (const key of BONUS_KEYS) {
+    bonuses[key] = clampBonus(key, payload[key]);
+  }
   return {
     name: payload.name,
     color: Number.isFinite(color) ? color >>> 0 : undefined,
     skin: normalizeSkin(payload.skin),
     characterId: normalizeCharacterId(payload.characterId),
-    cooldownReduction:
-      Number.isFinite(cooldownReduction) && cooldownReduction > 0
-        ? Math.min(0.95, cooldownReduction)
-        : 0,
+    bonuses,
+    cooldownReduction: bonuses.cooldownReduction,
   };
 }
 
@@ -283,7 +302,7 @@ io.on('connection', (socket) => {
       color: appearance.color,
       skin: appearance.skin,
       characterId: appearance.characterId,
-      cooldownReduction: appearance.cooldownReduction,
+      bonuses: appearance.bonuses,
       skipPassword: true,
     });
     if (!result.ok) {
@@ -350,7 +369,7 @@ io.on('connection', (socket) => {
       color: appearance.color,
       skin: appearance.skin,
       characterId: appearance.characterId,
-      cooldownReduction: appearance.cooldownReduction,
+      bonuses: appearance.bonuses,
       password: payload.password,
     });
     if (!result.ok) {

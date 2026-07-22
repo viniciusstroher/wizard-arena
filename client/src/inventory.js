@@ -1,11 +1,13 @@
 /** Inventário do personagem: equipamento + grade 12×12 com agrupamento por item. */
 
+import { buildGeneratedItems } from './itemData.js';
+
 export const BAG_COLS = 12;
 export const BAG_ROWS = 12;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
-/** v5: bag com slots empilhados ({item, qty}) + categoria nos itens. */
-export const STARTER_KIT_VERSION = 5;
+/** v6: level requirement nos itens + novos tipos de bônus. */
+export const STARTER_KIT_VERSION = 6;
 
 /** Slots de equipamento. */
 export const EQUIP_SLOTS = [
@@ -19,6 +21,15 @@ export const EQUIP_SLOTS = [
 
 export const SET_LABELS = {
   conjunto_de_pano: 'Conjunto de Pano',
+  conjunto_de_couro: 'Conjunto de Couro',
+  conjunto_de_bronze: 'Conjunto de Bronze',
+  conjunto_de_ferro: 'Conjunto de Ferro',
+  conjunto_de_prata: 'Conjunto de Prata',
+  conjunto_de_ouro: 'Conjunto de Ouro',
+  conjunto_de_cristal: 'Conjunto de Cristal',
+  conjunto_de_safira: 'Conjunto de Safira',
+  conjunto_de_mitril: 'Conjunto de Mitril',
+  conjunto_divino: 'Conjunto Divino',
 };
 
 export const CATEGORY_LABELS = {
@@ -27,16 +38,32 @@ export const CATEGORY_LABELS = {
   other: 'Outro',
 };
 
+/** Rótulos dos bônus para tooltips. */
+export const BONUS_LABELS = {
+  cooldownReduction: 'Recarga das magias',
+  damageBonus: 'Dano mágico',
+  healBonus: 'Cura',
+  shieldBonus: 'Força do escudo',
+  speedBonus: 'Velocidade',
+  rangeBonus: 'Alcance das magias',
+  radiusBonus: 'Raio das magias',
+  slowResist: 'Resistência a lentidão',
+  poisonResist: 'Resistência a veneno',
+  burnResist: 'Resistência a queimadura',
+  maxHpBonus: 'Vida máxima',
+  xpBonus: 'Experiência',
+};
+
 /**
- * Itens.
+ * Itens base + 360 equipamentos gerados (60 por slot).
  *
  * Categorias:
  *   equipment — equipável (slot indica onde)
  *   ore       — minério (não equipável)
  *   other     — outros (não equipável)
  */
-export const ITEM_DEFS = {
-  // --- Equipamentos ---
+const BASE_ITEM_DEFS = {
+  // --- Equipamentos básicos (kit inicial) ---
   cloth_hat: {
     id: 'cloth_hat',
     name: 'Chapéu de Pano',
@@ -44,6 +71,7 @@ export const ITEM_DEFS = {
     slot: 'hat',
     color: 0xc4b59a,
     set: 'conjunto_de_pano',
+    level: 1,
   },
   cloth_cape: {
     id: 'cloth_cape',
@@ -52,6 +80,7 @@ export const ITEM_DEFS = {
     slot: 'cape',
     color: 0xb8a88a,
     set: 'conjunto_de_pano',
+    level: 1,
   },
   cloth_tunic: {
     id: 'cloth_tunic',
@@ -60,6 +89,7 @@ export const ITEM_DEFS = {
     slot: 'tunic',
     color: 0xa89878,
     set: 'conjunto_de_pano',
+    level: 1,
     bonus: { cooldownReduction: 0.01 },
   },
   plastic_ring: {
@@ -68,6 +98,7 @@ export const ITEM_DEFS = {
     category: 'equipment',
     slot: 'ring',
     color: 0x7ec8e3,
+    level: 1,
   },
   brass_necklace: {
     id: 'brass_necklace',
@@ -75,6 +106,7 @@ export const ITEM_DEFS = {
     category: 'equipment',
     slot: 'necklace',
     color: 0xc9a227,
+    level: 1,
   },
   holey_boots: {
     id: 'holey_boots',
@@ -82,6 +114,7 @@ export const ITEM_DEFS = {
     category: 'equipment',
     slot: 'boots',
     color: 0x8b6914,
+    level: 1,
   },
 
   // --- Minérios ---
@@ -113,6 +146,14 @@ export const ITEM_DEFS = {
   ancient_coin:  { id: 'ancient_coin',  name: 'Moeda Antiga',         category: 'other', slot: 'other', color: 0xc8a860 },
 };
 
+// Mescla itens base + 360 gerados
+const GENERATED = buildGeneratedItems();
+for (const [id, def] of GENERATED) {
+  BASE_ITEM_DEFS[id] = def;
+}
+
+export const ITEM_DEFS = BASE_ITEM_DEFS;
+
 /** Ordem de equipamento do kit inicial. */
 const STARTER_EQUIP_PLAN = [
   { key: 'hat', id: 'cloth_hat' },
@@ -135,6 +176,22 @@ export const SLOT_LABEL_BY_ACCEPTS = Object.fromEntries([
   ['other', 'Outro'],
 ]);
 
+/** Todas as chaves de bônus conhecidas. */
+const BONUS_KEYS = [
+  'cooldownReduction',
+  'damageBonus',
+  'healBonus',
+  'shieldBonus',
+  'speedBonus',
+  'rangeBonus',
+  'radiusBonus',
+  'slowResist',
+  'poisonResist',
+  'burnResist',
+  'maxHpBonus',
+  'xpBonus',
+];
+
 function emptyEquipment() {
   const eq = {};
   for (const key of EQUIP_KEYS) eq[key] = null;
@@ -148,8 +205,10 @@ function emptyBag() {
 function copyBonus(bonus) {
   if (!bonus || typeof bonus !== 'object') return null;
   const out = {};
-  if (Number.isFinite(bonus.cooldownReduction)) {
-    out.cooldownReduction = bonus.cooldownReduction;
+  for (const key of BONUS_KEYS) {
+    if (Number.isFinite(bonus[key]) && bonus[key] !== 0) {
+      out[key] = bonus[key];
+    }
   }
   return Object.keys(out).length ? out : null;
 }
@@ -164,6 +223,7 @@ export function createItem(defId) {
     slot: def.slot,
     color: def.color >>> 0,
     set: def.set || null,
+    level: def.level || 1,
     bonus: copyBonus(def.bonus),
   };
 }
@@ -172,18 +232,36 @@ export function isEquippable(item) {
   return item && EQUIP_ACCEPTS.has(item.slot);
 }
 
-export function itemTooltipLines(item) {
+/** Verifica se o personagem tem nível suficiente para equipar o item. */
+export function canEquipItem(item, characterLevel) {
+  if (!item || !item.level) return true;
+  if (characterLevel == null) return true; // sem info de nível, permite
+  return characterLevel >= item.level;
+}
+
+export function itemTooltipLines(item, characterLevel) {
   if (!item) return [];
   const lines = [item.name];
   const catLabel = CATEGORY_LABELS[item.category] || item.category;
   const slotLabel = SLOT_LABEL_BY_ACCEPTS[item.slot] || item.slot;
   lines.push(`Tipo: ${slotLabel} (${catLabel})`);
-  if (item.set && SET_LABELS[item.set]) {
-    lines.push(SET_LABELS[item.set]);
+  if (item.level && item.level > 1) {
+    const meetsReq = !characterLevel || characterLevel >= item.level;
+    const lvText = `Nível requerido: ${item.level}`;
+    lines.push(meetsReq ? lvText : `${lvText} (você é nível ${characterLevel})`);
   }
-  if (item.bonus?.cooldownReduction) {
-    const pct = Math.round(item.bonus.cooldownReduction * 100);
-    lines.push(`Cooldown das magias: -${pct}%`);
+  if (item.set && SET_LABELS[item.set]) {
+    lines.push(`Conjunto: ${SET_LABELS[item.set]}`);
+  }
+  if (item.bonus && Object.keys(item.bonus).length > 0) {
+    for (const key of BONUS_KEYS) {
+      const val = item.bonus[key];
+      if (!Number.isFinite(val) || val === 0) continue;
+      const label = BONUS_LABELS[key] || key;
+      const pct = Math.round(val * 100);
+      const sign = pct > 0 ? '+' : '';
+      lines.push(`${label}: ${sign}${pct}%`);
+    }
   } else {
     lines.push('Sem bônus');
   }
@@ -204,10 +282,11 @@ function normalizeItem(raw) {
       slot: def.slot,
       color: def.color >>> 0,
       set: def.set || null,
+      level: def.level || 1,
       bonus: copyBonus(def.bonus),
     };
   }
-  const name = String(raw.name || '').trim().slice(0, 24);
+  const name = String(raw.name || '').trim().slice(0, 32);
   const slot = String(raw.slot || '').trim();
   if (!id || !name || !ACCEPTS.has(slot)) return null;
   const color = Number(raw.color);
@@ -219,6 +298,7 @@ function normalizeItem(raw) {
     slot,
     color: Number.isFinite(color) ? color >>> 0 : 0x6b5cff,
     set: raw.set ? String(raw.set) : null,
+    level: Number.isFinite(raw.level) ? Math.max(1, Math.floor(raw.level)) : 1,
     bonus: copyBonus(raw.bonus),
   };
 }
@@ -380,15 +460,32 @@ function migrateLegacyRing2ToTunic(rawEquipment, inv) {
 /** Bônus agregados do equipamento (para enviar ao servidor). */
 export function equipmentBonusesFromInventory(inventory) {
   const inv = normalizeInventory(inventory);
-  let cooldownReduction = 0;
+  const bonuses = {};
+  for (const key of BONUS_KEYS) {
+    bonuses[key] = 0;
+  }
   for (const key of EQUIP_KEYS) {
     const item = inv.equipment[key];
-    const red = item?.bonus?.cooldownReduction;
-    if (Number.isFinite(red) && red > 0) cooldownReduction += red;
+    if (!item?.bonus) continue;
+    for (const bk of BONUS_KEYS) {
+      const val = item.bonus[bk];
+      if (Number.isFinite(val)) bonuses[bk] += val;
+    }
   }
-  return {
-    cooldownReduction: Math.min(0.95, Math.max(0, cooldownReduction)),
-  };
+  // Aplica limites máximos
+  bonuses.cooldownReduction = Math.min(0.95, Math.max(0, bonuses.cooldownReduction));
+  bonuses.damageBonus = Math.min(0.75, Math.max(0, bonuses.damageBonus));
+  bonuses.healBonus = Math.min(0.75, Math.max(0, bonuses.healBonus));
+  bonuses.shieldBonus = Math.min(0.75, Math.max(0, bonuses.shieldBonus));
+  bonuses.speedBonus = Math.min(0.50, Math.max(0, bonuses.speedBonus));
+  bonuses.rangeBonus = Math.min(0.50, Math.max(0, bonuses.rangeBonus));
+  bonuses.radiusBonus = Math.min(0.50, Math.max(0, bonuses.radiusBonus));
+  bonuses.slowResist = Math.min(0.80, Math.max(0, bonuses.slowResist));
+  bonuses.poisonResist = Math.min(0.80, Math.max(0, bonuses.poisonResist));
+  bonuses.burnResist = Math.min(0.80, Math.max(0, bonuses.burnResist));
+  bonuses.maxHpBonus = Math.min(0.60, Math.max(0, bonuses.maxHpBonus));
+  bonuses.xpBonus = Math.min(0.50, Math.max(0, bonuses.xpBonus));
+  return bonuses;
 }
 
 export function normalizeInventory(raw) {
@@ -426,13 +523,20 @@ export function firstEmptyBagIndex(bag) {
 }
 
 /** Equipa 1 unidade do item do saco no primeiro slot compatível livre. */
-export function equipFromBag(inventory, bagIndex) {
+export function equipFromBag(inventory, bagIndex, characterLevel) {
   const inv = normalizeInventory(inventory);
   const stack = inv.bag[bagIndex];
   if (!stack) return { ok: false, error: 'Slot vazio.', inventory: inv };
   const item = stack.item;
   if (!isEquippable(item)) {
     return { ok: false, error: 'Este item não pode ser equipado.', inventory: inv };
+  }
+  if (!canEquipItem(item, characterLevel)) {
+    return {
+      ok: false,
+      error: `Você precisa ser nível ${item.level} para equipar este item.`,
+      inventory: inv,
+    };
   }
   const slotKey = findEquipSlotForItem(inv.equipment, item);
   if (!slotKey) {

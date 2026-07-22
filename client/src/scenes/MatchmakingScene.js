@@ -308,7 +308,7 @@ export class MatchmakingScene extends Phaser.Scene {
       name: this.character.name,
       color: this.character.color,
       skin: this.character.skin,
-      cooldownReduction: bonuses.cooldownReduction,
+      ...bonuses,
       maxPlayers: this.maxPlayers,
       password: password || null,
       pvpEnabled,
