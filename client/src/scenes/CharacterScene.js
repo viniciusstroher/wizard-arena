@@ -92,6 +92,8 @@ export class CharacterScene extends Phaser.Scene {
     this.invNodes = [];
     this.equipSlotViews = {};
     this.bagSlotViews = [];
+    this.dragSource = null;
+    this.dragGhost = null;
 
     drawMenuBackground(this, { subtitle: 'Personagem' });
     createAmbientCreatures(this);
@@ -597,17 +599,20 @@ export class CharacterScene extends Phaser.Scene {
     const startY = topY + slotSize / 2;
 
     this.bagSlotViews = [];
+    this.bagSlotCoords = []; // { x, y } para hit-test do drop
     for (let i = 0; i < BAG_SIZE; i++) {
       const col = i % BAG_COLS;
       const row = Math.floor(i / BAG_COLS);
       const x = startX + col * (slotSize + gap);
       const y = startY + row * (slotSize + gap);
 
+      this.bagSlotCoords[i] = { x, y, w: slotSize, h: slotSize };
+
       const frame = this.add
         .rectangle(x, y, slotSize, slotSize, 0x12101c, 0.92)
         .setStrokeStyle(1, 0x3a2f66, 0.9)
         .setDepth(depth)
-        .setInteractive({ useHandCursor: true });
+        .setInteractive({ useHandCursor: true, draggable: true });
 
       const icon = this.add
         .image(x, y, itemIconKey('cloth_hat'))
@@ -627,20 +632,61 @@ export class CharacterScene extends Phaser.Scene {
         .setDepth(depth + 2)
         .setVisible(false);
 
-      frame.on('pointerup', () => this.onBagSlotClick(i));
-      frame.on('pointerover', (pointer) => {
-        const stack = this.inventory.bag[i];
+      const slotIdx = i;
+
+      frame.on('pointerdown', (pointer) => {
+        const stack = this.inventory.bag[slotIdx];
+        if (!stack || !stack.item) return;
+        if (this.activeTab !== TAB_INVENTORY) return;
+        // Inicia drag
+        this.dragSource = slotIdx;
+        this.dragGhost = this.add.image(pointer.x, pointer.y, itemIconKey(stack.item.id))
+          .setDisplaySize(32, 32)
+          .setDepth(100)
+          .setAlpha(0.85);
+        this.hideItemTooltip();
+      });
+
+      frame.on('pointerup', (pointer) => {
+        if (this.dragSource == null || this.activeTab !== TAB_INVENTORY) {
+          // Click normal (sem drag)
+          this.onBagSlotClick(slotIdx);
+          return;
+        }
+
+        // Drop: encontra slot alvo sob o pointer
+        const targetIdx = this.bagSlotAtPoint(pointer.x, pointer.y);
+        this.cleanupDrag();
+
+        if (targetIdx != null && targetIdx !== this.dragSource) {
+          this.swapBagSlots(this.dragSource, targetIdx);
+        } else if (targetIdx === this.dragSource) {
+          // Soltou no mesmo lugar — click normal
+          this.onBagSlotClick(slotIdx);
+        }
+        this.dragSource = null;
+      });
+
+      frame.on('pointermove', (pointer) => {
+        if (this.dragSource != null && this.dragGhost) {
+          this.dragGhost.setPosition(pointer.x, pointer.y);
+          return;
+        }
+        const stack = this.inventory.bag[slotIdx];
         const item = stack?.item || null;
-        frame.setStrokeStyle(1, item ? 0x8b7cff : 0x5a4e88, 1);
         if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
       });
-      frame.on('pointermove', (pointer) => {
-        const stack = this.inventory.bag[i];
+
+      frame.on('pointerover', (pointer) => {
+        if (this.dragSource != null) return;
+        frame.setStrokeStyle(1, 0x8b7cff, 1);
+        const stack = this.inventory.bag[slotIdx];
         const item = stack?.item || null;
         if (item) this.showItemTooltip(item, pointer.worldX, pointer.worldY);
       });
       frame.on('pointerout', () => {
-        this.refreshBagSlot(i);
+        if (this.dragSource != null) return;
+        this.refreshBagSlot(slotIdx);
         this.hideItemTooltip();
       });
 
@@ -649,6 +695,38 @@ export class CharacterScene extends Phaser.Scene {
     }
 
     this.refreshAllBagSlots();
+  }
+
+  /** Retorna o índice do slot do saco sob as coordenadas da tela, ou null. */
+  bagSlotAtPoint(px, py) {
+    for (let i = 0; i < this.bagSlotCoords.length; i++) {
+      const r = this.bagSlotCoords[i];
+      const halfW = r.w / 2 + 1;
+      const halfH = r.h / 2 + 1;
+      if (px >= r.x - halfW && px <= r.x + halfW && py >= r.y - halfH && py <= r.y + halfH) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  /** Destroi o ghost do drag e reseta estado. */
+  cleanupDrag() {
+    if (this.dragGhost) {
+      this.dragGhost.destroy();
+      this.dragGhost = null;
+    }
+  }
+
+  /** Troca dois slots do saco e persiste. */
+  swapBagSlots(a, b) {
+    const bag = this.inventory.bag;
+    const tmp = bag[a];
+    bag[a] = bag[b];
+    bag[b] = tmp;
+    this.persistInventory();
+    this.refreshBagSlot(a);
+    this.refreshBagSlot(b);
   }
 
   refreshEquipSlot(key) {
