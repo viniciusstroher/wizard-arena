@@ -773,9 +773,20 @@ export class CharacterScene extends Phaser.Scene {
     if (!view) return;
     const stack = this.inventory.bag[index];
     if (stack && stack.item) {
-      view.frame.setStrokeStyle(1, 0x6b5cff, 0.95);
-      view.frame.setFillStyle(0x1e1840, 0.95);
-      const keyTex = itemIconKey(stack.item.id);
+      const item = stack.item;
+      if (isEquippable(item)) {
+        if (canEquipItem(item, this.characterLevel)) {
+          view.frame.setStrokeStyle(2, 0x2ecc71, 1);
+          view.frame.setFillStyle(0x1a2a1a, 0.95);
+        } else {
+          view.frame.setStrokeStyle(2, 0xc0392b, 1);
+          view.frame.setFillStyle(0x2a1a1a, 0.95);
+        }
+      } else {
+        view.frame.setStrokeStyle(1, 0x6b5cff, 0.95);
+        view.frame.setFillStyle(0x1e1840, 0.95);
+      }
+      const keyTex = itemIconKey(item.id);
       if (this.textures.exists(keyTex)) {
         view.icon.setTexture(keyTex).setDisplaySize(26, 26).setVisible(true);
       } else {
