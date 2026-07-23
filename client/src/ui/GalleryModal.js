@@ -2176,6 +2176,9 @@ export class GalleryModal {
             fallbackColor: monster.color,
             label: this._capitalize(monster.name),
             sub: `${Math.round(d.chance * 100)}%`,
+            tierLabel: monster.tierLabel,
+            attackLabel: monster.attackLabel,
+            spellNames: monster.spellNames || [],
           };
         })
         .filter(Boolean);
@@ -2235,6 +2238,11 @@ export class GalleryModal {
 
       const tooltipLines = [row.label];
       if (row.sub) tooltipLines.push(`Chance: ${row.sub}`);
+      if (row.tierLabel) tooltipLines.push(`Tier: ${row.tierLabel}`);
+      if (row.attackLabel) tooltipLines.push(`Ataque: ${row.attackLabel}`);
+      if (row.spellNames && row.spellNames.length) {
+        tooltipLines.push(`Magias: ${row.spellNames.join(', ')}`);
+      }
       if (row.slotLabel) tooltipLines.push(`Tipo: ${row.categoryLabel} — ${row.slotLabel}`);
       if (row.level && row.level > 1) tooltipLines.push(`Nv. ${row.level}`);
       if (row.setLabel) tooltipLines.push(`Conjunto: ${row.setLabel}`);
