@@ -500,20 +500,33 @@ export class CharacterScene extends Phaser.Scene {
       .setDepth(depth + 1)
       .setVisible(false);
 
-    this.itemTooltip = { bg, text };
+    const warnText = this.add
+      .text(0, 0, 'Nível insuficiente para equipar', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        color: '#ff6b6b',
+        fontStyle: 'bold',
+      })
+      .setDepth(depth + 1)
+      .setVisible(false);
+
+    this.itemTooltip = { bg, text, warnText };
     // Tooltip fica acima das abas; não entra em invNodes para não sumir no hover
   }
 
   showItemTooltip(item, x, y) {
     if (!this.itemTooltip || !item) return;
     const lines = itemTooltipLines(item, this.characterLevel);
-    const { bg, text } = this.itemTooltip;
+    const { bg, text, warnText } = this.itemTooltip;
     text.setText(lines.join('\n')).setVisible(true);
+
+    const showWarn = isEquippable(item) && !canEquipItem(item, this.characterLevel);
+    warnText.setVisible(showWarn);
 
     const padX = 12;
     const padY = 10;
-    const w = Math.max(160, text.width + padX * 2);
-    const h = text.height + padY * 2;
+    const w = Math.max(160, text.width + padX * 2, showWarn ? warnText.width + padX * 2 : 0);
+    const h = text.height + padY * 2 + (showWarn ? warnText.height + 4 : 0);
     bg.setSize(w, h).setVisible(true);
 
     const { width, height } = this.scale;
@@ -526,12 +539,16 @@ export class CharacterScene extends Phaser.Scene {
 
     bg.setPosition(tx, ty);
     text.setPosition(tx + padX, ty + padY);
+    if (showWarn) {
+      warnText.setPosition(tx + padX, ty + padY + text.height + 4);
+    }
   }
 
   hideItemTooltip() {
     if (!this.itemTooltip) return;
     this.itemTooltip.bg.setVisible(false);
     this.itemTooltip.text.setVisible(false);
+    this.itemTooltip.warnText.setVisible(false);
   }
 
   buildEquipmentSlots(centerX, topY, depth) {
