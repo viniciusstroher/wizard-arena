@@ -185,8 +185,7 @@ export class GameScene extends Phaser.Scene {
     this.socket.off('lobby_state');
     this.socket.off('joined');
     this.socket.on('game_state', (state) => this.onState(state));
-    this.socket.on('play_again_created', (data) => {
-      navigate(`/matchmaking/${data.matchId}`, { replace: true });
+    this.socket.on('play_again_created', () => {
       this.scene.start('Game', { playerId: this.socket.id });
     });
     this.socket.on('game_event', (ev) => {
@@ -1668,6 +1667,12 @@ export class GameScene extends Phaser.Scene {
     const prevPhase = this.state?.phase;
     const prevBossRound = !!this.state?.bossRound;
     this.state = state;
+    if (state.matchId) {
+      const url = `/matchmaking/${state.matchId}`;
+      if (window.location.pathname !== url) {
+        window.history.replaceState(null, '', url);
+      }
+    }
     if (prevBossRound !== !!state.bossRound || prevPhase !== state.phase) {
       this.syncBattleMusic();
     }
