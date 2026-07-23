@@ -18,7 +18,7 @@ import {
 import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { ensureCharacter, saveCharacter } from '../character.js';
-import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex } from '../inventory.js';
+import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS } from '../inventory.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
@@ -644,7 +644,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   createLootBox() {
-    const BOX_W = 280;
+    const BOX_W = 340;
     const BOX_H = 88;
     const BOX_X = 16;
     const slotTop = (this.scale.height - 36) - 68 - 30;
@@ -989,6 +989,8 @@ export class GameScene extends Phaser.Scene {
           this.lootBoxEntries.push({
             name: item.name,
             color: item.color,
+            level: item.level,
+            slot: item.slot,
             addedAt: this.time.now,
           });
           this.showFloatingMessage(item.name, item.color);
@@ -6333,7 +6335,9 @@ export class GameScene extends Phaser.Scene {
       const entry = recent[i];
       const line = this.lootBoxLines[i];
       if (entry) {
-        line.setText(entry.name);
+        const slotLabel = SLOT_LABEL_BY_ACCEPTS[entry.slot] || '';
+        const prefix = slotLabel ? `Lv${entry.level} · ${slotLabel} · ` : `Lv${entry.level} · `;
+        line.setText(prefix + entry.name);
         line.setColor('#' + (entry.color >>> 0).toString(16).padStart(6, '0'));
         line.setVisible(true);
       } else {
