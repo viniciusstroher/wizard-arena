@@ -543,6 +543,15 @@ export function findEquipSlotForItem(equipment, item) {
   return null;
 }
 
+/** Encontra o slot compatível para o item (ocupado ou vazio). */
+export function findSlotForItemType(item) {
+  if (!item) return null;
+  for (const { key, accepts } of EQUIP_SLOTS) {
+    if (accepts === item.slot) return key;
+  }
+  return null;
+}
+
 export function firstEmptyBagIndex(bag) {
   for (let i = 0; i < bag.length; i++) {
     if (!bag[i]) return i;
@@ -596,7 +605,7 @@ export function swapFromBag(inventory, bagIndex, characterLevel) {
     };
   }
 
-  const slotKey = findEquipSlotForItem(inv.equipment, item);
+  const slotKey = findSlotForItemType(item);
   if (!slotKey) {
     return { ok: false, error: 'Nenhum slot compatível.', inventory: inv };
   }
