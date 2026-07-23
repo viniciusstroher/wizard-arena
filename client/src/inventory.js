@@ -507,6 +507,34 @@ export function normalizeInventory(raw) {
   return inv;
 }
 
+/**
+ * Analisa o saco e retorna dicas visuais para cada slot de equipamento vazio.
+ * Retorna um objeto { slotKey: 'equippable' | 'low_level' } apenas para slots
+ * vazios onde existem itens compatíveis no saco.
+ *   'equippable' — há item compatível e o personagem tem nível suficiente.
+ *   'low_level'  — há item compatível mas o personagem não tem nível suficiente.
+ */
+export function getBagEquipHints(bag, equipment, characterLevel) {
+  const hints = {};
+
+  for (const { key, accepts } of EQUIP_SLOTS) {
+    if (equipment[key]) continue;
+
+    const candidates = [];
+    for (const stack of bag) {
+      if (stack?.item?.slot === accepts) {
+        candidates.push(stack.item);
+      }
+    }
+    if (candidates.length === 0) continue;
+
+    const hasEquippable = candidates.some((item) => canEquipItem(item, characterLevel));
+    hints[key] = hasEquippable ? 'equippable' : 'low_level';
+  }
+
+  return hints;
+}
+
 export function findEquipSlotForItem(equipment, item) {
   if (!item) return null;
   for (const { key, accepts } of EQUIP_SLOTS) {

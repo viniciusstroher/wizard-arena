@@ -12,6 +12,7 @@ import {
   BAG_SIZE,
   EQUIP_SLOTS,
   equipFromBag,
+  getBagEquipHints,
   isEquippable,
   itemTooltipLines,
   normalizeInventory,
@@ -92,6 +93,7 @@ export class CharacterScene extends Phaser.Scene {
     this.invNodes = [];
     this.equipSlotViews = {};
     this.bagSlotViews = [];
+    this.equipHints = {};
     this.dragSource = null;
     this.dragGhost = null;
 
@@ -742,12 +744,27 @@ export class CharacterScene extends Phaser.Scene {
         view.icon.setVisible(false);
       }
     } else {
-      view.frame.setStrokeStyle(2, 0x4a3d78, 0.95);
+      const hint = this.equipHints[key];
+      if (hint === 'equippable') {
+        view.frame.setStrokeStyle(3, 0x2ecc71, 1);
+        view.frame.setFillStyle(0x1a2a1a, 0.95);
+      } else if (hint === 'low_level') {
+        view.frame.setStrokeStyle(3, 0xc0392b, 1);
+        view.frame.setFillStyle(0x2a1a1a, 0.95);
+      } else {
+        view.frame.setStrokeStyle(2, 0x4a3d78, 0.95);
+        view.frame.setFillStyle(0x161228, 0.95);
+      }
       view.icon.setVisible(false);
     }
   }
 
   refreshAllEquipSlots() {
+    this.equipHints = getBagEquipHints(
+      this.inventory.bag,
+      this.inventory.equipment,
+      this.characterLevel,
+    );
     for (const { key } of EQUIP_SLOTS) this.refreshEquipSlot(key);
   }
 
