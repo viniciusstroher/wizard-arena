@@ -183,7 +183,7 @@ export class GameScene extends Phaser.Scene {
     this.socket.off('play_again_created');
     this.socket.on('game_state', (state) => this.onState(state));
     this.socket.on('play_again_created', () => {
-      this.scene.restart({ playerId: this.socket.id });
+      this.scene.start('Game', { playerId: this.socket.id });
     });
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
