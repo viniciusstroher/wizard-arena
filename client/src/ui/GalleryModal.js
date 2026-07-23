@@ -265,6 +265,7 @@ export class GalleryModal {
       'gap: 4px',
       'font-family: Trebuchet MS, sans-serif',
       'user-select: none',
+      'overflow: visible',
     ].join(';');
     this.dropsDom = this.scene.add
       .dom(L.previewX, L.infoTop + 28, dropsRoot)
@@ -2200,6 +2201,38 @@ export class GalleryModal {
 
     for (const row of rows) {
       const cell = document.createElement('div');
+      cell.style.cssText = [
+        'display: flex',
+        'flex-direction: column',
+        'align-items: center',
+        'gap: 1px',
+        'width: 30px',
+        'cursor: help',
+        'position: relative',
+      ].join(';');
+
+      const tooltip = document.createElement('div');
+      tooltip.style.cssText = [
+        'display: none',
+        'position: absolute',
+        'bottom: 100%',
+        'left: 50%',
+        'transform: translateX(-50%)',
+        'background: #1a1030',
+        'border: 1px solid #6b5cff',
+        'border-radius: 6px',
+        'padding: 6px 10px',
+        'font-size: 11px',
+        'color: #e8dfff',
+        'white-space: nowrap',
+        'z-index: 99999',
+        'pointer-events: none',
+        'text-align: center',
+        'line-height: 1.4',
+        'margin-bottom: 4px',
+      ].join(';');
+      cell.appendChild(tooltip);
+
       const tooltipLines = [row.label];
       if (row.sub) tooltipLines.push(`Chance: ${row.sub}`);
       if (row.slotLabel) tooltipLines.push(`Tipo: ${row.categoryLabel} — ${row.slotLabel}`);
@@ -2208,15 +2241,12 @@ export class GalleryModal {
       if (row.bonusLines && row.bonusLines.length) {
         for (const b of row.bonusLines) tooltipLines.push(b);
       }
+      const tooltipHtml = tooltipLines.join('<br>');
+      tooltip.innerHTML = tooltipHtml;
       cell.title = tooltipLines.join('\n');
-      cell.style.cssText = [
-        'display: flex',
-        'flex-direction: column',
-        'align-items: center',
-        'gap: 1px',
-        'width: 30px',
-        'cursor: help',
-      ].join(';');
+
+      cell.addEventListener('mouseenter', () => { tooltip.style.display = 'block'; });
+      cell.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
       const url = this._textureDataUrl(row.iconKey);
       if (url) {
@@ -2225,6 +2255,7 @@ export class GalleryModal {
         img.width = 22;
         img.height = 22;
         img.alt = '';
+        img.title = tooltipLines.join('\n');
         img.style.cssText = 'border-radius: 4px; image-rendering: pixelated; display: block;';
         cell.appendChild(img);
       } else {
