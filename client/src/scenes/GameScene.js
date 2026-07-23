@@ -175,10 +175,11 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ESC', this.onEscapeKey, this);
     this.input.keyboard.on('keydown-ENTER', this.onDisconnectEnterKey, this);
 
-    this.input.on('wheel', (_pointer, _gos, _dx, dy) => {
+    this._wheelHandler = (_pointer, _gos, _dx, dy) => {
       if (this.onMatchEndKillWheel(dy)) return;
       this.onSpellSlotWheel(dy);
-    });
+    };
+    this.input.on('wheel', this._wheelHandler);
 
     this.socket.off('game_state');
     this.socket.off('game_event');
@@ -240,6 +241,7 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard.off('keydown', this.onDashKeyDown, this);
       this.input.keyboard.off('keydown-ESC', this.onEscapeKey, this);
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
+      this.input.off('wheel', this._wheelHandler);
       this.socket.off('game_state');
       this.socket.off('game_event');
       this.socket.off('play_again_created');
