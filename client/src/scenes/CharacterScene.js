@@ -605,6 +605,18 @@ export class CharacterScene extends Phaser.Scene {
         .setDepth(depth + 3)
         .setVisible(false);
 
+      const multishotText = this.add
+        .text(x + slotSize / 2 - 4, y + slotSize / 2 - 2, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '10px',
+          color: '#ffd35c',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(1, 0.5)
+        .setDepth(depth + 3)
+        .setVisible(false);
+
       const label = this.add
         .text(x, y + slotSize / 2 + 12, slot.label, {
           fontFamily: 'Trebuchet MS, sans-serif',
@@ -629,8 +641,8 @@ export class CharacterScene extends Phaser.Scene {
         this.hideItemTooltip();
       });
 
-      this.equipSlotViews[slot.key] = { frame, icon, levelText, label, accepts: slot.accepts };
-      this.trackInv(frame, icon, levelText, label);
+      this.equipSlotViews[slot.key] = { frame, icon, levelText, multishotText, label, accepts: slot.accepts };
+      this.trackInv(frame, icon, levelText, multishotText, label);
     });
 
     this.refreshAllEquipSlots();
@@ -686,6 +698,18 @@ export class CharacterScene extends Phaser.Scene {
           strokeThickness: 2,
         })
         .setOrigin(0, 0.5)
+        .setDepth(depth + 2)
+        .setVisible(false);
+
+      const multishotText = this.add
+        .text(x + 12, y - 9, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '9px',
+          color: '#ffd35c',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(1, 0.5)
         .setDepth(depth + 2)
         .setVisible(false);
 
@@ -747,8 +771,8 @@ export class CharacterScene extends Phaser.Scene {
         this.hideItemTooltip();
       });
 
-      this.bagSlotViews.push({ frame, icon, qtyText, levelText });
-      this.trackInv(frame, icon, qtyText, levelText);
+      this.bagSlotViews.push({ frame, icon, qtyText, levelText, multishotText });
+      this.trackInv(frame, icon, qtyText, levelText, multishotText);
     }
 
     this.refreshAllBagSlots();
@@ -803,6 +827,12 @@ export class CharacterScene extends Phaser.Scene {
       } else if (view.levelText) {
         view.levelText.setVisible(false);
       }
+      const msCount = Math.floor(item.bonus?.multishot || 0);
+      if (msCount >= 2 && view.multishotText) {
+        view.multishotText.setText(`x${msCount}`).setVisible(true);
+      } else if (view.multishotText) {
+        view.multishotText.setVisible(false);
+      }
     } else {
       const hint = this.equipHints[key];
       if (hint === 'equippable') {
@@ -817,6 +847,7 @@ export class CharacterScene extends Phaser.Scene {
       }
       view.icon.setVisible(false);
       if (view.levelText) view.levelText.setVisible(false);
+      if (view.multishotText) view.multishotText.setVisible(false);
     }
   }
 
@@ -863,12 +894,19 @@ export class CharacterScene extends Phaser.Scene {
       } else if (view.levelText) {
         view.levelText.setVisible(false);
       }
+      const msCount = Math.floor(item.bonus?.multishot || 0);
+      if (msCount >= 2 && view.multishotText) {
+        view.multishotText.setText(`x${msCount}`).setVisible(true);
+      } else if (view.multishotText) {
+        view.multishotText.setVisible(false);
+      }
     } else {
       view.frame.setStrokeStyle(1, 0x3a2f66, 0.9);
       view.frame.setFillStyle(0x12101c, 0.92);
       view.icon.setVisible(false);
       if (view.qtyText) view.qtyText.setVisible(false);
       if (view.levelText) view.levelText.setVisible(false);
+      if (view.multishotText) view.multishotText.setVisible(false);
     }
   }
 
