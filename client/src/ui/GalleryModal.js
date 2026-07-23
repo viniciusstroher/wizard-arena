@@ -1503,30 +1503,8 @@ export class GalleryModal {
       this.previewSprites.push(msText);
     }
 
-    const lines = [];
-    lines.push(`Tipo: ${entry.slotLabel || entry.categoryLabel}`);
-    if (entry.setLabel) lines.push(`Conjunto: ${entry.setLabel}`);
-    if (entry.bonusLabels && entry.bonusLabels.length) {
-      lines.push('');
-      lines.push('Bônus:');
-      for (const bl of entry.bonusLabels) lines.push(`  ${bl}`);
-    }
-
-    const info = this.scene.add
-      .text(0, 80, lines.join('\n'), {
-        fontFamily: FONT,
-        fontSize: '11px',
-        color: '#c4b5e0',
-        lineSpacing: 3,
-        align: 'center',
-      })
-      .setOrigin(0.5, 0);
-    this.previewRoot.add(info);
-    this.previewSprites.push(info);
-
-    // Label abaixo
     const label = this.scene.add
-      .text(0, 42, entry.categoryLabel, {
+      .text(0, 76, entry.categoryLabel, {
         fontFamily: FONT,
         fontSize: '12px',
         color: '#9a8bb8',
