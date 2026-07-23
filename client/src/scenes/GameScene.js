@@ -185,7 +185,8 @@ export class GameScene extends Phaser.Scene {
     this.socket.off('lobby_state');
     this.socket.off('joined');
     this.socket.on('game_state', (state) => this.onState(state));
-    this.socket.on('play_again_created', () => {
+    this.socket.on('play_again_created', (data) => {
+      navigate(`/matchmaking/${data.matchId}`, { replace: true });
       this.scene.start('Game', { playerId: this.socket.id });
     });
     this.socket.on('game_event', (ev) => {
