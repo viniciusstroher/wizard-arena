@@ -58,6 +58,7 @@ export class GameScene extends Phaser.Scene {
     this.leaving = false;
     this.matchEndOpen = false;
     this.matchEndDim = null;
+    this.matchEndBtns = [];
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
     this.moveDust = null;
@@ -184,9 +185,13 @@ export class GameScene extends Phaser.Scene {
     this.socket.off('play_again_created');
     this.socket.off('lobby_state');
     this.socket.off('joined');
+    this.socket.off('error_msg');
     this.socket.on('game_state', (state) => this.onState(state));
     this.socket.on('play_again_created', () => {
       this.scene.start('Game', { playerId: this.socket.id });
+    });
+    this.socket.on('error_msg', () => {
+      this.leaving = false;
     });
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
@@ -209,6 +214,9 @@ export class GameScene extends Phaser.Scene {
       this.clearMatchEndKillScroll();
       this.matchEndDim?.destroy();
       this.matchEndDim = null;
+      for (const c of this.matchEndBtns) c?.destroy();
+      this.matchEndBtns = [];
+      this.matchEndModal?.removeAll(true);
       this.arenaFireWall?.destroy();
       this.arenaFireEmbers?.destroy();
       this.conjureFx?.destroy();
@@ -237,6 +245,7 @@ export class GameScene extends Phaser.Scene {
       this.socket.off('play_again_created');
       this.socket.off('lobby_state');
       this.socket.off('joined');
+      this.socket.off('error_msg');
     });
 
     // Garante snapshot da arena/spawns mesmo se o state inicial chegou antes da cena
@@ -1369,33 +1378,40 @@ export class GameScene extends Phaser.Scene {
     }
 
     const btnY = height / 2 + panelH / 2 - 42;
-    const againBg = this.add.rectangle(width / 2 - 110, btnY, 180, 44, 0x2ecc71, 1).setStrokeStyle(1, 0xffffff, 0.2);
+    const btnDepth = 451;
+
+    const againContainer = this.add.container(width / 2 - 110, btnY).setDepth(btnDepth).setScrollFactor(0);
+    const againBg = this.add.rectangle(0, 0, 180, 44, 0x2ecc71, 1).setStrokeStyle(1, 0xffffff, 0.2);
     const againLabel = this.add
-      .text(width / 2 - 110, btnY, 'Jogar Outra', {
+      .text(0, 0, 'Jogar Outra', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '16px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
+    againContainer.add([againBg, againLabel]);
     againBg.setInteractive({ useHandCursor: true });
     againBg.on('pointerover', () => againBg.setScale(1.04));
     againBg.on('pointerout', () => againBg.setScale(1));
     againBg.on('pointerup', () => this.playAgainFromMatchEnd());
 
-    const lobbyBg = this.add.rectangle(width / 2 + 110, btnY, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
+    const lobbyContainer = this.add.container(width / 2 + 110, btnY).setDepth(btnDepth).setScrollFactor(0);
+    const lobbyBg = this.add.rectangle(0, 0, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
     const lobbyLabel = this.add
-      .text(width / 2 + 110, btnY, 'Ir ao Lobby', {
+      .text(0, 0, 'Ir ao Lobby', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '16px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
+    lobbyContainer.add([lobbyBg, lobbyLabel]);
     lobbyBg.setInteractive({ useHandCursor: true });
     lobbyBg.on('pointerover', () => lobbyBg.setScale(1.04));
     lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
-    modalItems.push(againBg, againLabel, lobbyBg, lobbyLabel);
+    this.matchEndBtns = [againContainer, lobbyContainer];
+
     this.matchEndModal.add(modalItems);
     this.bannerText.setAlpha(0);
   }
