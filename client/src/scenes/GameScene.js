@@ -57,6 +57,7 @@ export class GameScene extends Phaser.Scene {
     this.disconnectConfirmOpen = false;
     this.leaving = false;
     this.matchEndOpen = false;
+    this.matchEndDim = null;
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
     this.moveDust = null;
@@ -206,6 +207,8 @@ export class GameScene extends Phaser.Scene {
       this.stopBattleMusic();
       this.clearAimCursor();
       this.clearMatchEndKillScroll();
+      this.matchEndDim?.destroy();
+      this.matchEndDim = null;
       this.arenaFireWall?.destroy();
       this.arenaFireEmbers?.destroy();
       this.conjureFx?.destroy();
@@ -1136,7 +1139,15 @@ export class GameScene extends Phaser.Scene {
     const killSectionH = elementSectionH + titleKillH + killViewportH + 8;
     const panelH = Math.min(maxPanelH, topBlockH + killSectionH + footerH);
     const panelTop = height / 2 - panelH / 2;
-    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.72);
+    const dim = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x000000, 0.72)
+      .setDepth(449)
+      .setScrollFactor(0);
+    if (this.matchEndDim) {
+      this.matchEndDim.destroy();
+    }
+    this.matchEndDim = dim;
+
     const panel = this.add
       .rectangle(width / 2, height / 2, panelW, panelH, 0x161228, 0.98)
       .setStrokeStyle(2, resultStroke);
@@ -1196,7 +1207,7 @@ export class GameScene extends Phaser.Scene {
 
     const killTop = panelTop + topBlockH + 4;
     const killNeedsScroll = killContentH > killViewportH;
-    const modalItems = [dim, panel, title, subtitle, goldLine, boardHeader, board];
+    const modalItems = [panel, title, subtitle, goldLine, boardHeader, board];
 
     const addElementDamageBlock = (y, label, total, entries, accent) => {
       modalItems.push(
