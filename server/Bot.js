@@ -1,9 +1,13 @@
-/** IA aprimorada: defensiva, movimento circular, esquiva de projéteis/AOE, tiros precisos. */
+/** IA aprimorada: defensiva, movimento circular, esquiva de projéteis/AOE, tiros precisos, escolha inteligente de magias. */
 
 import { CONFIG } from './config.js';
+import { SPELLS, ULTIMATES } from './spells.js';
 
 const PLAYER_R = CONFIG.PLAYER_RADIUS || 14;
 const DODGE_MARGIN = 28;
+
+/** AoE com raio >= este valor é considerada explosão em área. */
+const AOE_MIN_RADIUS = 70;
 
 function dirsToward(px, py, tx, ty, deadzone = 10) {
   const dx = tx - px;
@@ -30,6 +34,40 @@ function dirsAway(px, py, fx, fy, deadzone = 8) {
     left: dx < -deadzone,
     right: dx > deadzone,
   };
+}
+
+/** Pontua uma magia para o bot escolher a melhor opção. */
+function scoreSpell(spellId, kind) {
+  if (ULTIMATES[spellId]) return 1000;
+
+  const def = SPELLS[spellId];
+  if (!def) return 0;
+
+  let score = 0;
+
+  if (def.damage) score += def.damage * 1.8;
+
+  if (def.radius && def.radius >= AOE_MIN_RADIUS) score += def.radius * 2.8;
+
+  if (def.cooldown && def.cooldown > 0) score += (1 / def.cooldown) * 35;
+
+  if (def.range) score += def.range * 0.07;
+
+  if (def.slow) score += 12;
+
+  if (def.duration) score += def.duration * 6;
+
+  if (def.poisonDamage || def.poisonDuration) score += 30;
+
+  if (def.burnDamage) score += 22;
+
+  if (def.heal) score += 8;
+
+  if (def.damagePercentMaxHp) score += 40;
+
+  if (kind === 'upgrade') score *= 1.9;
+
+  return score;
 }
 
 export class BotController {
@@ -62,15 +100,35 @@ export class BotController {
     });
   }
 
-  pickRandomSpell(player) {
+  pickBestSpell(player) {
     if (!player.spellChoices?.length || player.pendingLevelUps <= 0) return;
-    const index = Math.floor(Math.random() * player.spellChoices.length);
-    const choice = player.spellChoices[index];
+    let best = null;
+    let bestScore = -Infinity;
+    for (const choice of player.spellChoices) {
+      const s = scoreSpell(choice.spellId, choice.kind);
+      if (s > bestScore) {
+        bestScore = s;
+        best = choice;
+      }
+    }
+    if (!best) {
+      const fallback = player.spellChoices[0];
+      this.match.chooseSpell(this.playerId, {
+        index: 0,
+        spellId: fallback.spellId,
+        kind: fallback.kind,
+        fromLevel: fallback.fromLevel,
+        choiceSetId: player.choiceSetId,
+      });
+      this.levelUpChoiceSetId = null;
+      return;
+    }
+    const index = player.spellChoices.indexOf(best);
     this.match.chooseSpell(this.playerId, {
       index,
-      spellId: choice.spellId,
-      kind: choice.kind,
-      fromLevel: choice.fromLevel,
+      spellId: best.spellId,
+      kind: best.kind,
+      fromLevel: best.fromLevel,
       choiceSetId: player.choiceSetId,
     });
     this.levelUpChoiceSetId = null;
@@ -243,7 +301,7 @@ export class BotController {
 
       if (pausedChoice || liveChoice) {
         if (!this.match.botLevelUpChoiceEnabled) {
-          this.pickRandomSpell(player);
+          this.pickBestSpell(player);
         } else {
           if (this.levelUpChoiceSetId !== player.choiceSetId) {
             this.levelUpChoiceSetId = player.choiceSetId;
@@ -251,7 +309,7 @@ export class BotController {
           }
           this.levelUpThinkTimer -= dt;
           if (this.levelUpThinkTimer <= 0) {
-            this.pickRandomSpell(player);
+            this.pickBestSpell(player);
           }
         }
         if (pausedChoice) return;
@@ -288,16 +346,16 @@ export class BotController {
       for (const h of hostiles) {
         const d = Math.hypot(h.x - player.x, h.y - player.y);
         const hpPct = (h.hp || 0) / Math.max((h.maxHp || 1), 1);
-        const priorityBonus = (h.isBoss ? 50 : h.isElite ? 30 : 0);
-        const hpPriority = (1 - hpPct) * 80;
-        const score = priorityBonus + hpPriority - d;
+        const threatLevel = h.isBoss ? 200 : h.isElite ? 120 : h.level > 5 ? 60 : h.damage > 25 ? 40 : 0;
+        const hpPriority = (1 - hpPct) * 50;
+        const score = threatLevel + hpPriority - d * 0.5;
         if (score > bestScore) {
           bestScore = score;
           best = h;
         }
       }
       this.target = best;
-      this.retargetTimer = 0.3 + Math.random() * 0.5;
+      this.retargetTimer = 0.25 + Math.random() * 0.4;
     }
 
     const arena = {
