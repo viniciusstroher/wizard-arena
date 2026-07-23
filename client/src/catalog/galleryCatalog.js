@@ -466,10 +466,44 @@ export function getItemEntries() {
   const MULTISHOT_COUNT_LABEL = { 2: 'Dobro', 3: 'Triplo', 4: 'Quádruplo', 5: 'Quíntuplo' };
 
   const droppedByItem = {};
-  for (const [monsterId, rows] of Object.entries(DROP_TABLE)) {
+  const monsterDefs = createMonsterTypeDefs({
+    MONSTER_WEIGHT_COMMON: 1,
+    MONSTER_WEIGHT_ELITE: 1,
+    MONSTER_WEIGHT_BOSS: 1,
+  });
+  const monsterIds = new Set(Object.keys(monsterDefs));
+  const dropBaseToMonsters = {};
+  for (const id of Object.keys(monsterDefs)) {
+    const base = resolveDropType(id);
+    if (base) {
+      if (!dropBaseToMonsters[base]) dropBaseToMonsters[base] = [];
+      dropBaseToMonsters[base].push(id);
+    }
+  }
+
+  function findBestMonster(dropKey) {
+    if (dropBaseToMonsters[dropKey]) return dropBaseToMonsters[dropKey][0];
+    if (monsterIds.has(dropKey)) return dropKey;
+    const parts = dropKey.split('_');
+    for (let i = 0; i < parts.length; i++) {
+      const suffix = parts.slice(i).join('_');
+      if (dropBaseToMonsters[suffix]) return dropBaseToMonsters[suffix][0];
+      if (monsterIds.has(suffix)) return suffix;
+    }
+    for (let len = parts.length - 1; len > 0; len--) {
+      const prefix = parts.slice(0, len).join('_');
+      if (dropBaseToMonsters[prefix]) return dropBaseToMonsters[prefix][0];
+      if (monsterIds.has(prefix)) return prefix;
+    }
+    return null;
+  }
+
+  for (const [dropBaseId, rows] of Object.entries(DROP_TABLE)) {
+    const repId = findBestMonster(dropBaseId);
+    if (!repId) continue;
     for (const [itemId, chance] of rows) {
       if (!droppedByItem[itemId]) droppedByItem[itemId] = [];
-      droppedByItem[itemId].push({ monsterId, chance });
+      droppedByItem[itemId].push({ monsterId: repId, chance });
     }
   }
 
