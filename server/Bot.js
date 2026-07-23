@@ -1,6 +1,9 @@
-/** IA simples para preencher o lobby e testar PvP. */
+/** IA aprimorada: defensiva, movimento circular, esquiva de projéteis/AOE, tiros precisos. */
 
 import { CONFIG } from './config.js';
+
+const PLAYER_R = CONFIG.PLAYER_RADIUS || 14;
+const DODGE_MARGIN = 28;
 
 function dirsToward(px, py, tx, ty, deadzone = 10) {
   const dx = tx - px;
@@ -38,6 +41,10 @@ export class BotController {
     this.target = null;
     this.levelUpThinkTimer = 0;
     this.levelUpChoiceSetId = null;
+    this.orbitAngle = Math.random() * Math.PI * 2;
+    this.orbitDir = Math.random() < 0.5 ? 1 : -1;
+    this.orbitRadius = 0;
+    this.strafeSwitchTimer = 0;
   }
 
   idleInput(player) {
@@ -77,9 +84,55 @@ export class BotController {
     for (const m of this.match.meteors || []) {
       if (m.phase !== 'warn') continue;
       const d = Math.hypot(m.x - player.x, m.y - player.y);
-      const dangerR = m.radius + CONFIG.PLAYER_RADIUS + margin;
+      const dangerR = m.radius + PLAYER_R + margin;
       if (d <= dangerR && d < bestD) {
         best = m;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  /** Projétil que está vindo em direção ao bot. */
+  findThreateningProjectile(player) {
+    let best = null;
+    let bestTime = Infinity;
+    for (const proj of this.match.projectiles || []) {
+      if (proj.team !== 'monster') continue;
+      const px = proj.x;
+      const py = proj.y;
+      const vx = proj.vx || 0;
+      const vy = proj.vy || 0;
+      const speed = Math.hypot(vx, vy);
+      if (speed < 1) continue;
+
+      const dx = player.x - px;
+      const dy = player.y - py;
+      const t = (dx * vx + dy * vy) / (speed * speed);
+      const cpX = px + vx * t;
+      const cpY = py + vy * t;
+      const closestDist = Math.hypot(player.x - cpX, player.y - cpY);
+      const hitR = (proj.radius || 6) + PLAYER_R + DODGE_MARGIN;
+
+      if (closestDist <= hitR && t > -0.2 && t < 1.5) {
+        if (t < bestTime) {
+          best = proj;
+          bestTime = t;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** AOE perigoso sobrando sobre o bot. */
+  findThreateningAOE(player) {
+    let best = null;
+    let bestD = Infinity;
+    for (const aoe of this.match.aoes || []) {
+      const d = Math.hypot(aoe.x - player.x, aoe.y - player.y);
+      const dangerR = (aoe.radius || 40) + PLAYER_R;
+      if (d <= dangerR && d < bestD) {
+        best = aoe;
         bestD = d;
       }
     }
@@ -152,6 +205,32 @@ export class BotController {
     return best;
   }
 
+  /** Mira com lead: antecipa posição futura do alvo baseado no movimento. */
+  predictAim(player, target) {
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
+    const d = Math.hypot(dx, dy) || 1;
+
+    const SPELL_SPEED = 520;
+    const travelTime = d / SPELL_SPEED;
+    const leadTime = Math.min(travelTime, 0.35);
+
+    let leadX = target.x;
+    let leadY = target.y;
+    if (target.vx !== undefined || target.vy !== undefined) {
+      const tvx = target.vx || 0;
+      const tvy = target.vy || 0;
+      const targetSpeed = Math.hypot(tvx, tvy);
+      if (targetSpeed > 5) {
+        const clamped = Math.min(leadTime * targetSpeed, targetSpeed * 0.6);
+        leadX += (tvx / (targetSpeed || 1)) * clamped;
+        leadY += (tvy / (targetSpeed || 1)) * clamped;
+      }
+    }
+
+    return { aimX: leadX, aimY: leadY };
+  }
+
   update(dt) {
     const player = this.match.players.get(this.playerId);
     if (!player || !player.alive) return;
@@ -163,21 +242,18 @@ export class BotController {
       const pausedChoice = this.match.phase === 'levelup';
 
       if (pausedChoice || liveChoice) {
-        // Flag off: resolve na hora (Match.autoResolveBotLevelUpsIfDisabled também cobre).
         if (!this.match.botLevelUpChoiceEnabled) {
           this.pickRandomSpell(player);
         } else {
-          // Flag on: espera um tempo “pensando” e escolhe aleatório.
           if (this.levelUpChoiceSetId !== player.choiceSetId) {
             this.levelUpChoiceSetId = player.choiceSetId;
-            this.levelUpThinkTimer = 1.8 + Math.random() * 2.4; // ~1.8–4.2s
+            this.levelUpThinkTimer = 1.8 + Math.random() * 2.4;
           }
           this.levelUpThinkTimer -= dt;
           if (this.levelUpThinkTimer <= 0) {
             this.pickRandomSpell(player);
           }
         }
-        // Só trava a AI do bot se a partida estiver na phase levelup (legado).
         if (pausedChoice) return;
       }
     }
@@ -189,6 +265,12 @@ export class BotController {
     }
 
     this.retargetTimer -= dt;
+    this.strafeSwitchTimer -= dt;
+
+    if (this.strafeSwitchTimer <= 0) {
+      this.strafe = Math.random() < 0.5 ? 1 : -1;
+      this.strafeSwitchTimer = 1.5 + Math.random() * 3.0;
+    }
 
     const hostiles = [];
     if (this.match.pvpEnabled) {
@@ -202,24 +284,32 @@ export class BotController {
 
     if (this.retargetTimer <= 0 || !this.target || !this.target.alive) {
       let best = null;
-      let bestD = Infinity;
+      let bestScore = -Infinity;
       for (const h of hostiles) {
         const d = Math.hypot(h.x - player.x, h.y - player.y);
-        if (d < bestD) {
-          bestD = d;
+        const hpPct = (h.hp || 0) / Math.max((h.maxHp || 1), 1);
+        const priorityBonus = (h.isBoss ? 50 : h.isElite ? 30 : 0);
+        const hpPriority = (1 - hpPct) * 80;
+        const score = priorityBonus + hpPriority - d;
+        if (score > bestScore) {
+          bestScore = score;
           best = h;
         }
       }
       this.target = best;
-      this.retargetTimer = 0.4 + Math.random() * 0.4;
+      this.retargetTimer = 0.3 + Math.random() * 0.5;
     }
 
     const arena = {
       x: CONFIG.ARENA_CENTER_X,
       y: CONFIG.ARENA_CENTER_Y,
-      r: this.match.arenaRadius * 0.75,
+      r: this.match.arenaRadius * 0.8,
     };
     const fromCenter = Math.hypot(player.x - arena.x, player.y - arena.y);
+
+    if (this.orbitRadius === 0) {
+      this.orbitRadius = arena.r * (0.35 + Math.random() * 0.4);
+    }
 
     let aimX = player.x;
     let aimY = player.y;
@@ -227,22 +317,19 @@ export class BotController {
     let down = false;
     let left = false;
     let right = false;
-    let fleeMeteor = false;
 
-    const threat = this.findThreateningMeteor(player);
+    const threatMeteor = this.findThreateningMeteor(player);
+    const threatProj = this.findThreateningProjectile(player);
+    const threatAOE = this.findThreateningAOE(player);
     const heal = this.findMassHealTarget(player);
     const mist = this.findCooldownMistTarget(player);
     const gale = this.findGaleTarget(player);
     const pickup = this.findNearestPickup(player);
-    // Prefere cura; senão névoa; senão ventania
     const buff = heal || mist || gale;
 
-    // 1) Prioridade máxima: sair da área do meteoro
-    if (threat) {
-      fleeMeteor = true;
-      // Mira na direção da fuga (blink segue aimX/aimY)
-      let fleeDx = player.x - threat.x;
-      let fleeDy = player.y - threat.y;
+    if (threatMeteor) {
+      let fleeDx = player.x - threatMeteor.x;
+      let fleeDy = player.y - threatMeteor.y;
       if (Math.abs(fleeDx) < 1 && Math.abs(fleeDy) < 1) {
         const a = Math.random() * Math.PI * 2;
         fleeDx = Math.cos(a);
@@ -256,15 +343,41 @@ export class BotController {
       aimX = player.x + (fleeDx / fleeLen) * 200;
       aimY = player.y + (fleeDy / fleeLen) * 200;
       ({ up, down, left, right } = dirsToward(player.x, player.y, aimX, aimY, 8));
+    } else if (threatProj) {
+      const px = threatProj.x;
+      const py = threatProj.y;
+      const vx = threatProj.vx || 0;
+      const vy = threatProj.vy || 0;
+      const dx = player.x - px;
+      const dy = player.y - py;
+      const perpX = -vy;
+      const perpY = vx;
+      const sign = (dx * perpX + dy * perpY) > 0 ? 1 : -1;
+      aimX = player.x + perpX * sign * 150;
+      aimY = player.y + perpY * sign * 150;
+      if (fromCenter > arena.r * 0.85) {
+        aimX += (arena.x - player.x) * 0.4;
+        aimY += (arena.y - player.y) * 0.4;
+      }
+      ({ up, down, left, right } = dirsToward(player.x, player.y, aimX, aimY, 6));
+    } else if (threatAOE) {
+      const dAOE = Math.hypot(threatAOE.x - player.x, threatAOE.y - player.y);
+      if (dAOE < 1) {
+        const a = Math.random() * Math.PI * 2;
+        aimX = player.x + Math.cos(a) * 120;
+        aimY = player.y + Math.sin(a) * 120;
+      } else {
+        aimX = player.x + (player.x - threatAOE.x) / dAOE * 120;
+        aimY = player.y + (player.y - threatAOE.y) / dAOE * 120;
+      }
+      ({ up, down, left, right } = dirsToward(player.x, player.y, aimX, aimY, 6));
     } else if (buff) {
-      // 2) Sempre tenta pegar mass heal / névoa / ventania (aviso)
       aimX = buff.x;
       aimY = buff.y;
       const inside =
         Math.hypot(buff.x - player.x, buff.y - player.y) <=
-        Math.max(12, buff.radius - CONFIG.PLAYER_RADIUS * 0.5);
+        Math.max(12, buff.radius - PLAYER_R * 0.5);
       if (inside) {
-        // Já na zona: fica parado para receber o buff
         up = down = left = right = false;
       } else if (fromCenter > arena.r) {
         ({ up, down, left, right } = dirsToward(player.x, player.y, arena.x, arena.y));
@@ -272,28 +385,38 @@ export class BotController {
         ({ up, down, left, right } = dirsToward(player.x, player.y, buff.x, buff.y));
       }
     } else if (pickup && fromCenter <= arena.r) {
-      // 3) Coleta saco de loot ou moeda próximo
       aimX = pickup.x;
       aimY = pickup.y;
       ({ up, down, left, right } = dirsToward(player.x, player.y, pickup.x, pickup.y, 6));
     } else if (fromCenter > arena.r) {
-      // Fica dentro da arena
       aimX = arena.x;
       aimY = arena.y;
       ({ up, down, left, right } = dirsToward(player.x, player.y, arena.x, arena.y));
     } else if (this.target) {
-      aimX = this.target.x;
-      aimY = this.target.y;
       const dx = this.target.x - player.x;
       const dy = this.target.y - player.y;
       const d = Math.hypot(dx, dy);
-      const ideal = 140;
-      if (d > ideal + 20) {
-        ({ up, down, left, right } = dirsToward(player.x, player.y, this.target.x, this.target.y));
-      } else if (d < ideal - 30) {
+      const ideal = 150;
+
+      if (this.target.vx !== undefined) {
+        ({ aimX, aimY } = this.predictAim(player, this.target));
+      } else {
+        aimX = this.target.x;
+        aimY = this.target.y;
+      }
+
+      if (d > ideal + 40) {
+        const dirs = dirsToward(player.x, player.y, this.target.x, this.target.y);
+        const sx = -dy * this.strafe * 0.3;
+        const sy = dx * this.strafe * 0.3;
+        if (sx > 0.6) dirs.right = true;
+        if (sx < -0.6) dirs.left = true;
+        if (sy > 0.6) dirs.down = true;
+        if (sy < -0.6) dirs.up = true;
+        ({ up, down, left, right } = dirs);
+      } else if (d < ideal - 35) {
         ({ up, down, left, right } = dirsAway(player.x, player.y, this.target.x, this.target.y, 10));
       } else {
-        // strafe
         const sx = -dy * this.strafe;
         const sy = dx * this.strafe;
         if (sx > 0) right = true;
@@ -301,9 +424,15 @@ export class BotController {
         if (sy > 0) down = true;
         if (sy < 0) up = true;
       }
+    } else {
+      this.orbitAngle += this.orbitDir * dt * 1.8;
+      const orbitX = arena.x + Math.cos(this.orbitAngle) * this.orbitRadius;
+      const orbitY = arena.y + Math.sin(this.orbitAngle) * this.orbitRadius;
+      aimX = orbitX;
+      aimY = orbitY;
+      ({ up, down, left, right } = dirsToward(player.x, player.y, orbitX, orbitY, 16));
     }
 
-    // Magias / inatas: servidor autocasta fora de CD (castSlot não é mais necessário).
     this.match.setInput(this.playerId, {
       up,
       down,
