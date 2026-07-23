@@ -295,6 +295,13 @@ export class GameScene extends Phaser.Scene {
 
   syncAimCursor(pointer) {
     if (!this.aimCursor) return;
+    const me = this.me();
+    if (me?.autoMode) {
+      this.input.setDefaultCursor('default');
+      this.aimCursor.setVisible(false);
+      return;
+    }
+    this.input.setDefaultCursor('none');
     const p = pointer || this.input.activePointer;
     if (!p) return;
     this.aimCursor.setPosition(p.x, p.y);

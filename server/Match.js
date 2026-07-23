@@ -5228,6 +5228,7 @@ export class Match {
             stats: spellStats(p.ultimate.id, p.ultimate.level),
           }
         : null,
+      autoMode: !!p.autoMode,
     };
   }
 
