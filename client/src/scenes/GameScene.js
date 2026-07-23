@@ -180,7 +180,11 @@ export class GameScene extends Phaser.Scene {
 
     this.socket.off('game_state');
     this.socket.off('game_event');
+    this.socket.off('play_again_created');
     this.socket.on('game_state', (state) => this.onState(state));
+    this.socket.on('play_again_created', () => {
+      this.scene.restart({ playerId: this.socket.id });
+    });
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
         const bossSoon = !!this.state?.bossRound || !!this.state?.pendingBossFight;
@@ -225,6 +229,7 @@ export class GameScene extends Phaser.Scene {
       this.input.keyboard.off('keydown-ENTER', this.onDisconnectEnterKey, this);
       this.socket.off('game_state');
       this.socket.off('game_event');
+      this.socket.off('play_again_created');
     });
 
     // Garante snapshot da arena/spawns mesmo se o state inicial chegou antes da cena
@@ -1349,9 +1354,22 @@ export class GameScene extends Phaser.Scene {
     }
 
     const btnY = height / 2 + panelH / 2 - 42;
-    const lobbyBg = this.add.rectangle(width / 2, btnY, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
+    const againBg = this.add.rectangle(width / 2 - 110, btnY, 180, 44, 0x2ecc71, 1).setStrokeStyle(1, 0xffffff, 0.2);
+    const againLabel = this.add
+      .text(width / 2 - 110, btnY, 'Jogar Outra', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '16px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    againBg.setInteractive({ useHandCursor: true });
+    againBg.on('pointerover', () => againBg.setScale(1.04));
+    againBg.on('pointerout', () => againBg.setScale(1));
+    againBg.on('pointerup', () => this.playAgainFromMatchEnd());
+
+    const lobbyBg = this.add.rectangle(width / 2 + 110, btnY, 180, 44, 0x6b5cff, 1).setStrokeStyle(1, 0xffffff, 0.2);
     const lobbyLabel = this.add
-      .text(width / 2, btnY, 'Ir ao Lobby', {
+      .text(width / 2 + 110, btnY, 'Ir ao Lobby', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '16px',
         color: '#ffffff',
@@ -1362,7 +1380,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
-    modalItems.push(lobbyBg, lobbyLabel);
+    modalItems.push(againBg, againLabel, lobbyBg, lobbyLabel);
     this.matchEndModal.add(modalItems);
     this.bannerText.setAlpha(0);
   }
@@ -1396,6 +1414,13 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(300, () => {
       navigate('/matchmaking');
     });
+  }
+
+  playAgainFromMatchEnd() {
+    if (this.leaving) return;
+    this.leaving = true;
+    this.clearMatchEndKillScroll();
+    this.socket.emit('play_again');
   }
 
   onSpellSlotWheel(dy) {

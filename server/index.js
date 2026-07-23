@@ -402,6 +402,79 @@ io.on('connection', (socket) => {
     broadcastLobbies();
   });
 
+  socket.on('play_again', () => {
+    const match = findMatchBySocket(socket.id);
+    if (!match || match.phase !== 'ended') {
+      socket.emit('error_msg', {
+        message: 'Partida não encontrada ou ainda em andamento.',
+      });
+      return;
+    }
+
+    const player = match.players.get(socket.id);
+    if (!player || player.isBot) {
+      socket.emit('error_msg', { message: 'Jogador não encontrado.' });
+      return;
+    }
+
+    const maxPlayers = match.maxPlayers;
+    const password = match.password;
+    const pvpEnabled = match.pvpEnabled;
+    const roundDuration = match.roundDuration;
+    const botCount = match.bots.length;
+
+    const characterId = player.characterId;
+    const characterName = player.name;
+    const color = player.color;
+    const skin = player.skin;
+    const bonuses = { ...(player.bonuses || {}) };
+
+    match.destroy();
+    matches.delete(match.id);
+    socket.leave(match.id);
+
+    const id = randomUUID();
+    const newMatch = new Match(id, io, {
+      maxPlayers,
+      password,
+      pvpEnabled,
+      roundDuration,
+      onLobbyListChange: broadcastLobbies,
+    });
+    matches.set(id, newMatch);
+
+    const result = newMatch.addPlayer(socket, characterName, {
+      color,
+      skin,
+      characterId,
+      bonuses,
+      skipPassword: true,
+    });
+    if (!result.ok) {
+      destroyMatch(newMatch);
+      socket.emit('error_msg', {
+        message: result.error,
+        code: result.code || 'join_failed',
+      });
+      return;
+    }
+
+    socket.data.matchId = newMatch.id;
+    socket.data.characterId = characterId;
+
+    if (botCount > 0) {
+      newMatch.addBots(botCount);
+    }
+
+    newMatch.setReady(socket.id, true);
+
+    socket.emit('play_again_created', {
+      matchId: newMatch.id,
+      playerId: socket.id,
+    });
+    broadcastLobbies();
+  });
+
   socket.on('remove_bots', (payload = {}) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;
