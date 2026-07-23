@@ -1,5 +1,6 @@
 import { createMonsterTypeDefs } from '../../../server/monsterTypes.js';
 import { SPELLS, ULTIMATES } from '../../../server/spells.js';
+import { DROP_TABLE, resolveDropType } from '../../../server/dropTable.js';
 import {
   spellElementId,
   spellElementLabel,
@@ -312,6 +313,11 @@ export function getMonsterEntries() {
       });
       const resistances = def.resistances || {};
       const resistDetails = resistanceDetails(resistances);
+      const dropBaseType = resolveDropType(id);
+      const dropRows = dropBaseType ? DROP_TABLE[dropBaseType] : null;
+      const drops = dropRows
+        ? dropRows.map(([itemId, chance, qtyMin, qtyMax]) => ({ itemId, chance, qtyMin, qtyMax }))
+        : [];
       return {
         id,
         name: monsterLabel(id),
@@ -331,6 +337,7 @@ export function getMonsterEntries() {
         resistDetails,
         resistLine: formatResistancesLine(resistances),
         color: def.color ?? 0xffffff,
+        drops,
       };
     })
     .sort((a, b) => {
@@ -457,6 +464,15 @@ export function getItemEntries() {
     'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus', 'multishot',
   ];
   const MULTISHOT_COUNT_LABEL = { 2: 'Dobro', 3: 'Triplo', 4: 'Quádruplo', 5: 'Quíntuplo' };
+
+  const droppedByItem = {};
+  for (const [monsterId, rows] of Object.entries(DROP_TABLE)) {
+    for (const [itemId, chance] of rows) {
+      if (!droppedByItem[itemId]) droppedByItem[itemId] = [];
+      droppedByItem[itemId].push({ monsterId, chance });
+    }
+  }
+
   const items = [];
   for (const def of Object.values(ITEM_DEFS)) {
     const bonusLabels = [];
@@ -489,6 +505,7 @@ export function getItemEntries() {
       setLabel: def.set ? (SET_LABELS[def.set] || def.set) : null,
       bonus: def.bonus || null,
       bonusLabels,
+      droppedBy: droppedByItem[def.id] || [],
     });
   }
   return items.sort((a, b) => a.name.localeCompare(b.name, 'pt'));

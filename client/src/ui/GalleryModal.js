@@ -97,6 +97,8 @@ export class GalleryModal {
     this.copyBtn = null;
     this.copyLabel = null;
     this.copyFeedbackTimer = null;
+    this.dropsDom = null;
+    this._dropsRootEl = null;
     this.stageGfx = null;
     this.spellFx = null;
     this._previewPlatformId = null;
@@ -254,6 +256,23 @@ export class GalleryModal {
       })
       .setOrigin(0.5, 0);
 
+    const dropsRoot = document.createElement('div');
+    dropsRoot.style.cssText = [
+      `width: ${L.infoWrapW}px`,
+      'display: flex',
+      'flex-direction: column',
+      'align-items: center',
+      'gap: 4px',
+      'font-family: Trebuchet MS, sans-serif',
+      'user-select: none',
+    ].join(';');
+    this.dropsDom = this.scene.add
+      .dom(L.previewX, L.infoTop + 28, dropsRoot)
+      .setOrigin(0.5, 0)
+      .setDepth(10001)
+      .setVisible(false);
+    this._dropsRootEl = dropsRoot;
+
     const copyY = L.closeY;
     const copyX = L.previewX;
     this.copyBtn = this.scene.add
@@ -310,6 +329,7 @@ export class GalleryModal {
       this.infoTitle,
       this.infoElementIcon,
       this.infoBody,
+      this.dropsDom,
       this.copyBtn,
       this.copyLabel,
       closeBg,
@@ -483,6 +503,8 @@ export class GalleryModal {
     this.infoTitle = null;
     this.infoElementIcon = null;
     this.infoBody = null;
+    this.dropsDom = null;
+    this._dropsRootEl = null;
     this.copyBtn = null;
     this.copyLabel = null;
     this.stageGfx = null;
@@ -564,6 +586,7 @@ export class GalleryModal {
       if (this.infoTitle) this.infoTitle.setText('');
       this._setInfoElement(null);
       if (this.infoBody) this.infoBody.setText('Nenhum item encontrado.');
+      this._hideDrops();
       return;
     }
 
@@ -589,6 +612,7 @@ export class GalleryModal {
       if (this.infoTitle) this.infoTitle.setText('');
       this._setInfoElement(null);
       if (this.infoBody) this.infoBody.setText('Nenhum monstro encontrado.');
+      this._hideDrops();
       return;
     }
 
@@ -613,6 +637,7 @@ export class GalleryModal {
       if (this.infoTitle) this.infoTitle.setText('');
       this._setInfoElement(null);
       if (this.infoBody) this.infoBody.setText('Nenhum terreno encontrado.');
+      this._hideDrops();
       return;
     }
 
@@ -636,6 +661,7 @@ export class GalleryModal {
     if (this.infoTitle) this.infoTitle.setText('');
     this._setInfoElement(null);
     if (this.infoBody) this.infoBody.setText('Nenhuma magia encontrada.');
+    this._hideDrops();
   }
 
   _filteredMonsters() {
@@ -994,6 +1020,8 @@ export class GalleryModal {
       nameWrap.appendChild(this._elementBadgeEl(entry.elementCss, entry.elementLabel, true));
     }
     if (tab === 'items' && entry.slotLabel) {
+      const iconWrap = document.createElement('div');
+      iconWrap.style.cssText = 'position:relative;width:20px;height:20px;flex-shrink:0;';
       const iconKey = itemIconKey(entry.id);
       if (this.scene.textures.exists(iconKey)) {
         try {
@@ -1001,15 +1029,31 @@ export class GalleryModal {
           if (canvas && typeof canvas.toDataURL === 'function') {
             const img = document.createElement('img');
             img.src = canvas.toDataURL();
-            img.style.cssText = 'width:20px;height:20px;border-radius:3px;flex-shrink:0;image-rendering:pixelated';
-            nameWrap.appendChild(img);
+            img.style.cssText = 'width:20px;height:20px;border-radius:3px;display:block;image-rendering:pixelated';
+            iconWrap.appendChild(img);
           }
         } catch { /* fallback to color dot below */ }
       }
-      if (!nameWrap.querySelector('img')) {
+      if (!iconWrap.querySelector('img')) {
         const colorCss = `#${(entry.color >>> 0).toString(16).padStart(6, '0')}`;
-        nameWrap.appendChild(this._elementBadgeEl(colorCss, '', true));
+        iconWrap.appendChild(this._elementBadgeEl(colorCss, '', true));
       }
+      if (entry.level && entry.level > 1) {
+        const lvBadge = document.createElement('span');
+        lvBadge.textContent = String(entry.level);
+        lvBadge.style.cssText = [
+          'position: absolute',
+          'left: -3px',
+          'top: -4px',
+          'font-size: 8px',
+          'line-height: 1',
+          'color: #f4e8ff',
+          'text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
+          'pointer-events: none',
+        ].join(';');
+        iconWrap.appendChild(lvBadge);
+      }
+      nameWrap.appendChild(iconWrap);
     }
 
     const name = document.createElement('span');
@@ -1225,6 +1269,7 @@ export class GalleryModal {
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
     this._setInfoAttack(entry);
     if (this.infoBody) this.infoBody.setText(details.join('\n'));
+    this._renderDrops('monster', entry);
 
     this._previewedTab = 'monsters';
     this._previewedId = id;
@@ -1251,6 +1296,7 @@ export class GalleryModal {
         : entry.typeLabel;
       this.infoBody.setText(`${elLine}\n${entry.description}`);
     }
+    this._hideDrops();
     this._previewedTab = 'spells';
     this._previewedId = id;
     this._playSpellPreview(entry);
@@ -1363,6 +1409,7 @@ export class GalleryModal {
         `${entry.groupLabel}\n${entry.description}\n${speedTxt} · ${inertiaTxt}`
       );
     }
+    this._hideDrops();
     this._previewedTab = 'floors';
     this._previewedId = id;
     this._playFloorPreview(entry);
@@ -1402,6 +1449,7 @@ export class GalleryModal {
     if (this.infoTitle) this.infoTitle.setText(this._capitalize(entry.name));
     this._setInfoElement(null);
     if (this.infoBody) this.infoBody.setText(details.join('\n'));
+    this._renderDrops('item', entry);
     this._previewedTab = 'items';
     this._previewedId = id;
     this._playItemPreview(entry);
@@ -2110,6 +2158,113 @@ export class GalleryModal {
   _monsterTexture(type) {
     const key = `monster_${type}`;
     return this.scene.textures.exists(key) ? key : 'monster';
+  }
+
+  /** Mostra "Dropa:" (monstro→itens) ou "Dropado por:" (item→monstros) com ícones. */
+  _renderDrops(kind, entry) {
+    const root = this._dropsRootEl;
+    if (!root || !this.dropsDom) return;
+    root.replaceChildren();
+
+    let headerText = '';
+    let rows = [];
+    if (kind === 'monster') {
+      headerText = 'Dropa:';
+      rows = (entry.drops || [])
+        .map((d) => {
+          const item = this.items.find((i) => i.id === d.itemId);
+          if (!item) return null;
+          return {
+            iconKey: itemIconKey(item.id),
+            fallbackColor: item.color,
+            label: item.name,
+            sub: `${Math.round(d.chance * 100)}%`,
+          };
+        })
+        .filter(Boolean);
+    } else if (kind === 'item') {
+      headerText = 'Dropado por:';
+      rows = (entry.droppedBy || [])
+        .map((d) => {
+          const monster = this.monsters.find((m) => m.id === d.monsterId);
+          if (!monster) return null;
+          return {
+            iconKey: this._monsterTexture(monster.id),
+            fallbackColor: monster.color,
+            label: this._capitalize(monster.name),
+            sub: `${Math.round(d.chance * 100)}%`,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    if (!rows.length) {
+      this.dropsDom.setVisible(false);
+      return;
+    }
+
+    const header = document.createElement('div');
+    header.textContent = headerText;
+    header.style.cssText = 'font-size: 11px; color: #9a8bb8;';
+    root.appendChild(header);
+
+    const list = document.createElement('div');
+    list.style.cssText = [
+      'display: flex',
+      'flex-wrap: wrap',
+      'justify-content: center',
+      'gap: 6px',
+    ].join(';');
+
+    for (const row of rows) {
+      const cell = document.createElement('div');
+      cell.title = row.sub ? `${row.label} (${row.sub})` : row.label;
+      cell.style.cssText = [
+        'display: flex',
+        'flex-direction: column',
+        'align-items: center',
+        'gap: 1px',
+        'width: 30px',
+      ].join(';');
+
+      const url = this._textureDataUrl(row.iconKey);
+      if (url) {
+        const img = document.createElement('img');
+        img.src = url;
+        img.width = 22;
+        img.height = 22;
+        img.alt = '';
+        img.style.cssText = 'border-radius: 4px; image-rendering: pixelated; display: block;';
+        cell.appendChild(img);
+      } else {
+        const dot = document.createElement('div');
+        const colorCss = `#${(Number.isFinite(row.fallbackColor) ? row.fallbackColor >>> 0 : 0x7a6e96)
+          .toString(16)
+          .padStart(6, '0')}`;
+        dot.style.cssText = `width:22px;height:22px;border-radius:4px;background:${colorCss};`;
+        cell.appendChild(dot);
+      }
+
+      const sub = document.createElement('span');
+      sub.textContent = row.sub || '';
+      sub.style.cssText = 'font-size: 9px; color: #7a6e96;';
+      cell.appendChild(sub);
+
+      list.appendChild(cell);
+    }
+    root.appendChild(list);
+
+    this.dropsDom.setVisible(true);
+    const L = this.layout;
+    if (L && this.infoBody) {
+      const y = this.infoBody.y + this.infoBody.height + 6;
+      this.dropsDom.setPosition(L.previewX, y);
+    }
+  }
+
+  _hideDrops() {
+    if (this.dropsDom) this.dropsDom.setVisible(false);
+    if (this._dropsRootEl) this._dropsRootEl.replaceChildren();
   }
 
   _projectileTexture(kind) {
