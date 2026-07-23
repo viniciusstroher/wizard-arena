@@ -454,8 +454,9 @@ export function getItemEntries() {
   const BONUS_KEYS = [
     'cooldownReduction', 'damageBonus', 'healBonus', 'shieldBonus',
     'speedBonus', 'rangeBonus', 'radiusBonus', 'slowResist',
-    'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus',
+    'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus', 'multishot',
   ];
+  const MULTISHOT_COUNT_LABEL = { 2: 'Dobro', 3: 'Triplo', 4: 'Quádruplo', 5: 'Quíntuplo' };
   const items = [];
   for (const def of Object.values(ITEM_DEFS)) {
     const bonusLabels = [];
@@ -464,8 +465,15 @@ export function getItemEntries() {
         const val = def.bonus[key];
         if (!Number.isFinite(val) || val === 0) continue;
         const label = BONUS_LABELS[key] || key;
-        const pct = Math.round(val * 100);
-        bonusLabels.push(`${label}: +${pct}%`);
+        if (key === 'multishot') {
+          const count = Math.floor(val);
+          const pattern = count % 2 === 0 ? 'X' : 'V';
+          const countLabel = MULTISHOT_COUNT_LABEL[count] || `${count}x`;
+          bonusLabels.push(`${label}: ${countLabel} (${pattern})`);
+        } else {
+          const pct = Math.round(val * 100);
+          bonusLabels.push(`${label}: +${pct}%`);
+        }
       }
     }
     items.push({

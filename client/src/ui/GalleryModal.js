@@ -1439,6 +1439,22 @@ export class GalleryModal {
       this.previewSprites.push(lvText);
     }
 
+    // Multishot badge
+    const msCount = Math.floor(entry.bonus?.multishot || 0);
+    if (msCount >= 2) {
+      const msText = this.scene.add
+        .text(36, -46, `x${msCount}`, {
+          fontFamily: FONT,
+          fontSize: '11px',
+          color: '#ffd35c',
+          backgroundColor: '#1a1430cc',
+          padding: { x: 5, y: 2 },
+        })
+        .setOrigin(0, 0);
+      this.previewRoot.add(msText);
+      this.previewSprites.push(msText);
+    }
+
     const lines = [];
     lines.push(`Tipo: ${entry.slotLabel || entry.categoryLabel}`);
     if (entry.setLabel) lines.push(`Conjunto: ${entry.setLabel}`);
