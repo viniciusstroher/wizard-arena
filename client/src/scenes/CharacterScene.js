@@ -17,6 +17,7 @@ import {
   itemTooltipLines,
   normalizeInventory,
   sortBag,
+  swapFromBag,
   unequipToBag,
   canEquipItem,
 } from '../inventory.js';
@@ -448,6 +449,8 @@ export class CharacterScene extends Phaser.Scene {
 
     this.equipClickKey = null;
     this.equipClickAt = 0;
+    this.bagClickIndex = null;
+    this.bagClickAt = 0;
 
     const equipX = width * 0.24;
     const bagX = width * 0.64;
@@ -855,14 +858,49 @@ export class CharacterScene extends Phaser.Scene {
     if (this.activeTab !== TAB_INVENTORY) return;
     const stack = this.inventory.bag[index];
     if (!stack || !stack.item) {
-      this.equipClickKey = null;
+      this.bagClickIndex = null;
       return;
     }
     if (!isEquippable(stack.item)) {
+      this.bagClickIndex = null;
       this.invHintText?.setText('Este item não pode ser equipado.').setColor('#ff6b6b');
       this.time.delayedCall(1800, () => this.resetInvHint());
       return;
     }
+
+    const now = this.time.now;
+    const isDouble =
+      this.bagClickIndex === index && now - this.bagClickAt < 400;
+
+    this.bagClickIndex = index;
+    this.bagClickAt = now;
+
+    if (!isDouble) {
+      this.invHintText?.setText('Clique novamente para trocar').setColor('#c4b5e0');
+      this.time.delayedCall(400, () => {
+        if (this.bagClickIndex === index && this.time.now - this.bagClickAt >= 400) {
+          this._doBagSingleClick(index);
+        }
+      });
+      return;
+    }
+
+    this.bagClickIndex = null;
+    const result = swapFromBag(this.inventory, index, this.characterLevel);
+    if (!result.ok) {
+      this.invHintText?.setText(result.error).setColor('#ff6b6b');
+      this.time.delayedCall(2200, () => this.resetInvHint());
+      return;
+    }
+    this.inventory = result.inventory;
+    this.persistInventory();
+    this.refreshAllEquipSlots();
+    this.refreshAllBagSlots();
+    this.invHintText?.setText(result.swapped ? 'Item trocado' : 'Item equipado').setColor('#2ecc71');
+    this.time.delayedCall(1400, () => this.resetInvHint());
+  }
+
+  _doBagSingleClick(index) {
     const result = equipFromBag(this.inventory, index, this.characterLevel);
     if (!result.ok) {
       this.invHintText?.setText(result.error).setColor('#ff6b6b');
@@ -879,7 +917,7 @@ export class CharacterScene extends Phaser.Scene {
 
   resetInvHint() {
     this.invHintText
-      ?.setText('Clique no saco para equipar · clique 2× no equipamento para remover')
+      ?.setText('Clique para equipar · 2× para trocar · 2× no equip. para remover')
       .setColor('#6b6088');
   }
 

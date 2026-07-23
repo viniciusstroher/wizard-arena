@@ -579,6 +579,69 @@ export function equipFromBag(inventory, bagIndex, characterLevel) {
   return { ok: true, inventory: inv };
 }
 
+/** Equipa item do saco e troca com o item equipado no slot compatível (se houver). */
+export function swapFromBag(inventory, bagIndex, characterLevel) {
+  const inv = normalizeInventory(inventory);
+  const stack = inv.bag[bagIndex];
+  if (!stack) return { ok: false, error: 'Slot vazio.', inventory: inv };
+  const item = stack.item;
+  if (!isEquippable(item)) {
+    return { ok: false, error: 'Este item não pode ser equipado.', inventory: inv };
+  }
+  if (!canEquipItem(item, characterLevel)) {
+    return {
+      ok: false,
+      error: `Você precisa ser nível ${item.level} para equipar este item.`,
+      inventory: inv,
+    };
+  }
+
+  const slotKey = findEquipSlotForItem(inv.equipment, item);
+  if (!slotKey) {
+    return { ok: false, error: 'Nenhum slot compatível.', inventory: inv };
+  }
+
+  const equipped = inv.equipment[slotKey];
+
+  if (!equipped) {
+    inv.equipment[slotKey] = { ...item };
+    if (stack.qty <= 1) {
+      inv.bag[bagIndex] = null;
+    } else {
+      stack.qty -= 1;
+    }
+    return { ok: true, inventory: inv, swapped: false };
+  }
+
+  const canStack = findStackForItemId(inv.bag, equipped.id) >= 0;
+  const willFreeSlot = stack.qty <= 1;
+  const hasEmptySlot = firstEmptyBagIndex(inv.bag) >= 0;
+
+  if (!canStack && !willFreeSlot && !hasEmptySlot) {
+    return { ok: false, error: 'Inventário cheio! Não é possível trocar.', inventory: inv };
+  }
+
+  if (stack.qty <= 1) {
+    inv.bag[bagIndex] = null;
+  } else {
+    stack.qty -= 1;
+  }
+
+  const stackTarget = findStackForItemId(inv.bag, equipped.id);
+  if (stackTarget >= 0) {
+    inv.bag[stackTarget].qty += 1;
+  } else if (!inv.bag[bagIndex]) {
+    inv.bag[bagIndex] = { item: { ...equipped }, qty: 1 };
+  } else {
+    const freeIdx = firstEmptyBagIndex(inv.bag);
+    inv.bag[freeIdx] = { item: { ...equipped }, qty: 1 };
+  }
+
+  inv.equipment[slotKey] = { ...item };
+
+  return { ok: true, inventory: inv, swapped: true };
+}
+
 /** Remove item do equipamento e tenta empilhar no saco. */
 export function unequipToBag(inventory, equipKey) {
   const inv = normalizeInventory(inventory);
