@@ -35,6 +35,7 @@ export class LobbyScene extends Phaser.Scene {
     this.playerName = this.character.name;
     this.joined = false;
     this.ready = false;
+    this.autoMode = false;
     this.lobby = null;
     this.leavingToMenu = false;
     this.enteringGame = false;
@@ -202,7 +203,13 @@ export class LobbyScene extends Phaser.Scene {
       btnW
     );
 
-    for (const btn of [this.readyBtn, this.leaveBtn]) {
+    this.autoModeBtn = this.makeAutoModeToggle(
+      panelX,
+      btnStartY + step * 2 + 10,
+      uiDepth
+    );
+
+    for (const btn of [this.readyBtn, this.leaveBtn, this.autoModeBtn]) {
       btn.setDepth(uiDepth);
     }
 
@@ -264,6 +271,54 @@ export class LobbyScene extends Phaser.Scene {
     btn.enabled = enabled;
     btn.setAlpha(enabled ? 1 : 0.35);
     btn.bg.setScale(1);
+  }
+
+  makeAutoModeToggle(x, y, depth) {
+    const w = 280;
+    const h = 44;
+    const container = this.add.container(x, y);
+    const bg = this.add.rectangle(0, 0, w, h, 0x1a1540, 1)
+      .setStrokeStyle(2, 0x6b5cff, 0.8);
+    const checkBox = this.add.rectangle(-w / 2 + 20, 0, 18, 18, 0x1a1540, 1)
+      .setStrokeStyle(2, 0x6b5cff, 1);
+    const checkMark = this.add.text(-w / 2 + 20, 0, '\u2713', {
+      fontFamily: 'Trebuchet MS, sans-serif',
+      fontSize: '14px',
+      color: '#2ecc71',
+    }).setOrigin(0.5).setAlpha(0);
+    const label = this.add
+      .text(-w / 2 + 48, 0, 'Modo Automático', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '15px',
+        color: '#c4b5e0',
+      })
+      .setOrigin(0, 0.5);
+    container.add([bg, checkBox, checkMark, label]);
+
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover', () => {
+      if (container.enabled !== false) bg.setStrokeStyle(2, 0x9b8cff, 1);
+    });
+    bg.on('pointerout', () => {
+      if (container.enabled !== false) bg.setStrokeStyle(2, 0x6b5cff, 0.8);
+    });
+    bg.on('pointerup', () => {
+      if (container.enabled !== false) this.toggleAutoMode();
+    });
+
+    container.enabled = true;
+    container._bg = bg;
+    container._checkBox = checkBox;
+    container._checkMark = checkMark;
+    container._label = label;
+    return container;
+  }
+
+  updateAutoModeToggle() {
+    if (!this.autoModeBtn) return;
+    this.autoModeBtn._checkMark.setAlpha(this.autoMode ? 1 : 0);
+    this.autoModeBtn._checkBox.setFillStyle(this.autoMode ? 0x2ecc71 : 0x1a1540, 1);
+    this.autoModeBtn._bg.setStrokeStyle(2, this.autoMode ? 0x2ecc71 : 0x6b5cff, 0.8);
   }
 
   bindSocket() {
@@ -359,12 +414,25 @@ export class LobbyScene extends Phaser.Scene {
     this.readyBtn.bg.setFillStyle(this.ready ? 0xe67e22 : 0x2ecc71);
   }
 
+  toggleAutoMode() {
+    if (!this.joined) return;
+    this.autoMode = !this.autoMode;
+    this.socket.emit('toggle_auto_mode', { enabled: this.autoMode });
+    this.updateAutoModeToggle();
+  }
+
   refreshLobby() {
     if (!this.lobby) return;
+    const me = this.lobby.players.find((p) => p.id === this.socket.id);
+    if (me && me.autoMode !== undefined) {
+      this.autoMode = me.autoMode;
+      this.updateAutoModeToggle();
+    }
     const lines = this.lobby.players.map((p) => {
       const tag = p.isBot ? ' [bot]' : '';
+      const autoTag = p.autoMode ? ' [auto]' : '';
       const ready = p.ready ? '✓ ready' : '… waiting';
-      return `${p.name}${tag}  —  ${ready}`;
+      return `${p.name}${tag}${autoTag}  —  ${ready}`;
     });
     const n = this.lobby.players.length;
     if (this.playersListEl) {

@@ -304,6 +304,21 @@ export class Match {
     };
   }
 
+  setAutoMode(socketId, enabled) {
+    const p = this.players.get(socketId);
+    if (!p || p.isBot) return { ok: false };
+    p.autoMode = !!enabled;
+    if (p.autoMode) {
+      if (!this.bots.some((b) => b.playerId === socketId)) {
+        this.bots.push(new BotController(this, socketId));
+      }
+    } else {
+      this.bots = this.bots.filter((b) => b.playerId !== socketId);
+    }
+    this.broadcastLobby();
+    return { ok: true, autoMode: p.autoMode };
+  }
+
   /**
    * Em PvE, jogadores/bots não causam dano/efeitos em outros jogadores/bots.
    * Monstros, zona e eventos da arena continuam normais.
@@ -749,6 +764,7 @@ export class Match {
       characterId,
       ready: isBot,
       isBot,
+      autoMode: false,
       x: CONFIG.ARENA_CENTER_X + Math.cos(angle) * 120,
       y: CONFIG.ARENA_CENTER_Y + Math.sin(angle) * 120,
       vx: 0,
@@ -5137,6 +5153,7 @@ export class Match {
         color: p.color,
         skin: p.skin || 'classic',
         isBot: !!p.isBot,
+        autoMode: !!p.autoMode,
       })),
     };
   }

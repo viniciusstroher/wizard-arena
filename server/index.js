@@ -417,9 +417,17 @@ io.on('connection', (socket) => {
     socket.emit('admin_settings_ack', result);
   });
 
+  socket.on('toggle_auto_mode', (payload = {}) => {
+    const match = findMatchBySocket(socket.id);
+    if (!match) return;
+    match.setAutoMode(socket.id, !!payload.enabled);
+  });
+
   socket.on('player_input', (input) => {
     const match = findMatchBySocket(socket.id);
     if (!match) return;
+    const player = match.players.get(socket.id);
+    if (player && player.autoMode) return;
     match.setInput(socket.id, input || {});
   });
 
