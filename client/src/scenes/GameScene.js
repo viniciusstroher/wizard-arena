@@ -213,6 +213,8 @@ export class GameScene extends Phaser.Scene {
       this.stopBattleMusic();
       this.clearAimCursor();
       this.clearMatchEndKillScroll();
+      this._leavingTimeout?.remove();
+      this._leavingTimeout = null;
       this.matchEndDim?.destroy();
       this.matchEndDim = null;
       for (const c of this.matchEndBtns) c?.destroy();
@@ -1450,6 +1452,9 @@ export class GameScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     this.clearMatchEndKillScroll();
+    this._leavingTimeout = this.time.delayedCall(5000, () => {
+      this.leaving = false;
+    });
     this.socket.emit('leave_lobby');
     this.time.delayedCall(300, () => {
       navigate('/matchmaking');
@@ -1460,6 +1465,9 @@ export class GameScene extends Phaser.Scene {
     if (this.leaving) return;
     this.leaving = true;
     this.clearMatchEndKillScroll();
+    this._leavingTimeout = this.time.delayedCall(5000, () => {
+      this.leaving = false;
+    });
     this.socket.emit('play_again');
   }
 
