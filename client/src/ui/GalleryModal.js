@@ -273,8 +273,8 @@ export class GalleryModal {
       .setVisible(false);
     this._dropsRootEl = dropsRoot;
 
-    const copyY = L.closeY;
-    const copyX = L.previewX;
+    const copyY = L.closeY - 24;
+    const copyX = L.listX;
     this.copyBtn = this.scene.add
       .rectangle(copyX, copyY, 150, 36, 0x2a2448, 1)
       .setStrokeStyle(1, 0x6b5cff, 0.7);
@@ -291,10 +291,10 @@ export class GalleryModal {
     this.copyBtn.on('pointerup', () => this._copyCurrentLink());
 
     const closeBg = this.scene.add
-      .rectangle(L.cx, L.closeY, 140, 40, 0x6b5cff, 1)
+      .rectangle(L.listX, L.closeY + 6, 140, 40, 0x6b5cff, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
     const closeLabel = this.scene.add
-      .text(L.cx, L.closeY, 'Fechar', {
+      .text(L.listX, L.closeY + 6, 'Fechar', {
         fontFamily: FONT,
         fontSize: '15px',
         color: '#ffffff',
