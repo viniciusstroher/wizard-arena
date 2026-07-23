@@ -16,6 +16,7 @@ import {
   isEquippable,
   itemTooltipLines,
   normalizeInventory,
+  sortBag,
   unequipToBag,
   canEquipItem,
 } from '../inventory.js';
@@ -475,6 +476,16 @@ export class CharacterScene extends Phaser.Scene {
 
     this.buildBagGrid(bagX, 248, depth);
     this.buildItemTooltip(depth + 50);
+
+    const sortBtn = makeMenuButton(this, bagX + 150, 224, 'Organizar', 0x6b5cff, () => {
+      this.inventory = sortBag(this.inventory);
+      this.persistInventory();
+      this.refreshAllEquipSlots();
+      this.refreshAllBagSlots();
+      this.invHintText?.setText('Inventário organizado').setColor('#2ecc71');
+      this.time.delayedCall(1400, () => this.resetInvHint());
+    }, 100).setDepth(depth);
+    this.trackInv(sortBtn);
 
     const backBtn = makeMenuButton(this, cx, height - 36, 'Voltar', 0x443866, () => {
       navigate('/');

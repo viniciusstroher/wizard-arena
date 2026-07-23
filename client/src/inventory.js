@@ -608,6 +608,57 @@ export function unequipToBag(inventory, equipKey) {
   return { ok: true, inventory: inv };
 }
 
+/** Organiza o saco: equipamentos primeiro (ordenados por nível decrescente),
+ *  depois minérios, depois outros. Agrupa stacks do mesmo item e compacta
+ *  para os primeiros slots. */
+export function sortBag(inventory) {
+  const inv = normalizeInventory(inventory);
+  const bag = inv.bag;
+
+  const mergeMap = new Map();
+  for (let i = 0; i < bag.length; i++) {
+    const stack = bag[i];
+    if (!stack || !stack.item) continue;
+    const key = stack.item.id;
+    const existing = mergeMap.get(key);
+    if (existing) {
+      existing.qty += stack.qty;
+    } else {
+      mergeMap.set(key, { item: { ...stack.item }, qty: stack.qty });
+    }
+  }
+
+  const merged = [];
+  for (const [, stack] of mergeMap) {
+    let qty = stack.qty;
+    while (qty > 999) {
+      merged.push({ item: { ...stack.item }, qty: 999 });
+      qty -= 999;
+    }
+    merged.push({ item: { ...stack.item }, qty: qty });
+  }
+
+  const categoryOrder = { equipment: 0, ore: 1, other: 2 };
+  merged.sort((a, b) => {
+    const catA = categoryOrder[a.item.category] ?? 3;
+    const catB = categoryOrder[b.item.category] ?? 3;
+    if (catA !== catB) return catA - catB;
+    if (a.item.category === 'equipment') {
+      const lvA = a.item.level || 1;
+      const lvB = b.item.level || 1;
+      if (lvA !== lvB) return lvB - lvA;
+    }
+    return a.item.name.localeCompare(b.item.name);
+  });
+
+  const newBag = emptyBag();
+  for (let i = 0; i < merged.length && i < BAG_SIZE; i++) {
+    newBag[i] = merged[i];
+  }
+  inv.bag = newBag;
+  return inv;
+}
+
 /** Retorna a quantidade total de um item no saco (soma todos os stacks). */
 export function bagItemQty(bag, itemId) {
   let total = 0;
