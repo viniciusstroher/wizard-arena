@@ -71,6 +71,12 @@ export class LobbyScene extends Phaser.Scene {
       this.messageBoard?.destroy();
       this.messageBoard = null;
       destroyAmbientCreatures(this);
+      this.socket.off('lobby_state');
+      this.socket.off('joined');
+      this.socket.off('error_msg');
+      this.socket.off('game_state');
+      this.socket.off('countdown');
+      this.socket.off('game_event');
       // Ao ir para a GameScene o Lobby encerra — não sair da partida.
       if (!this.leavingToMenu && !this.enteringGame && this.joined) {
         this.socket.emit('leave_lobby');

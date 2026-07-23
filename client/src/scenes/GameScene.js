@@ -181,6 +181,8 @@ export class GameScene extends Phaser.Scene {
     this.socket.off('game_state');
     this.socket.off('game_event');
     this.socket.off('play_again_created');
+    this.socket.off('lobby_state');
+    this.socket.off('joined');
     this.socket.on('game_state', (state) => this.onState(state));
     this.socket.on('play_again_created', () => {
       this.scene.start('Game', { playerId: this.socket.id });
@@ -230,6 +232,8 @@ export class GameScene extends Phaser.Scene {
       this.socket.off('game_state');
       this.socket.off('game_event');
       this.socket.off('play_again_created');
+      this.socket.off('lobby_state');
+      this.socket.off('joined');
     });
 
     // Garante snapshot da arena/spawns mesmo se o state inicial chegou antes da cena
