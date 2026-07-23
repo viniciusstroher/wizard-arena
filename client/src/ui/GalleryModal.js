@@ -41,13 +41,13 @@ const FLOOR_SECTIONS = [
 ];
 
 const FONT = 'Trebuchet MS, sans-serif';
-const PANEL_W = 760;
-const PANEL_H = 540;
-const LIST_W = 280;
+const PANEL_W = 820;
+const PANEL_H = 580;
+const LIST_W = 300;
 const LIST_PAD = 10;
 const LIST_INNER_W = LIST_W - LIST_PAD * 2;
-const PREVIEW_W = 340;
-const PREVIEW_H = 260;
+const PREVIEW_W = 370;
+const PREVIEW_H = 280;
 /** Margem interna ao encaixar o sprite do monstro no painel de preview. */
 const MONSTER_PREVIEW_PAD_X = 28;
 const MONSTER_PREVIEW_PAD_Y = 20;
@@ -273,13 +273,12 @@ export class GalleryModal {
       .setVisible(false);
     this._dropsRootEl = dropsRoot;
 
-    const copyY = L.closeY - 24;
-    const copyX = L.listX;
+    const btnY = L.closeY + 6;
     this.copyBtn = this.scene.add
-      .rectangle(copyX, copyY, 150, 36, 0x2a2448, 1)
+      .rectangle(L.listX - 80, btnY, 150, 36, 0x2a2448, 1)
       .setStrokeStyle(1, 0x6b5cff, 0.7);
     this.copyLabel = this.scene.add
-      .text(copyX, copyY, 'Copiar link', {
+      .text(L.listX - 80, btnY, 'Copiar link', {
         fontFamily: FONT,
         fontSize: '13px',
         color: '#e8dfff',
@@ -291,10 +290,10 @@ export class GalleryModal {
     this.copyBtn.on('pointerup', () => this._copyCurrentLink());
 
     const closeBg = this.scene.add
-      .rectangle(L.listX, L.closeY + 6, 140, 40, 0x6b5cff, 1)
+      .rectangle(L.listX + 80, btnY, 140, 40, 0x6b5cff, 1)
       .setStrokeStyle(1, 0xffffff, 0.15);
     const closeLabel = this.scene.add
-      .text(L.listX, L.closeY + 6, 'Fechar', {
+      .text(L.listX + 80, btnY, 'Fechar', {
         fontFamily: FONT,
         fontSize: '15px',
         color: '#ffffff',
@@ -2157,6 +2156,11 @@ export class GalleryModal {
             fallbackColor: item.color,
             label: item.name,
             sub: `${Math.round(d.chance * 100)}%`,
+            categoryLabel: item.categoryLabel,
+            slotLabel: item.slotLabel,
+            level: item.level,
+            setLabel: item.setLabel,
+            bonusLines: item.bonusLabels || [],
           };
         })
         .filter(Boolean);
@@ -2196,13 +2200,22 @@ export class GalleryModal {
 
     for (const row of rows) {
       const cell = document.createElement('div');
-      cell.title = row.sub ? `${row.label} (${row.sub})` : row.label;
+      const tooltipLines = [row.label];
+      if (row.sub) tooltipLines.push(`Chance: ${row.sub}`);
+      if (row.slotLabel) tooltipLines.push(`Tipo: ${row.categoryLabel} — ${row.slotLabel}`);
+      if (row.level && row.level > 1) tooltipLines.push(`Nv. ${row.level}`);
+      if (row.setLabel) tooltipLines.push(`Conjunto: ${row.setLabel}`);
+      if (row.bonusLines && row.bonusLines.length) {
+        for (const b of row.bonusLines) tooltipLines.push(b);
+      }
+      cell.title = tooltipLines.join('\n');
       cell.style.cssText = [
         'display: flex',
         'flex-direction: column',
         'align-items: center',
         'gap: 1px',
         'width: 30px',
+        'cursor: help',
       ].join(';');
 
       const url = this._textureDataUrl(row.iconKey);
