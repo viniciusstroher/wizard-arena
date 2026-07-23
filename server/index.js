@@ -421,7 +421,8 @@ io.on('connection', (socket) => {
     const password = match.password;
     const pvpEnabled = match.pvpEnabled;
     const roundDuration = match.roundDuration;
-    const botCount = match.bots.length;
+    const botCount = match.bots.filter((b) => b.playerId.startsWith('bot_')).length;
+    const wasAutoMode = !!player.autoMode;
 
     const characterId = player.characterId;
     const characterName = player.name;
@@ -464,6 +465,10 @@ io.on('connection', (socket) => {
 
     if (botCount > 0) {
       newMatch.addBots(botCount);
+    }
+
+    if (wasAutoMode) {
+      newMatch.setAutoMode(socket.id, true);
     }
 
     newMatch.setReady(socket.id, true);
