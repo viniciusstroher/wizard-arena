@@ -4162,26 +4162,62 @@ export class Match {
               : spellInst.id === 'skull_bolt'
                 ? 'skull_bolt'
                 : 'orb';
-        this.projectiles.push({
-          entityId: eid(),
-          ownerId: player.id,
-          team: 'player',
-          kind,
-          spellId: spellInst.id,
-          x: player.x,
-          y: player.y,
-          vx: dirX * stats.speed,
-          vy: dirY * stats.speed,
-          damage: stats.damage,
-          radius: boostedRadius || stats.radius,
-          life: boostedLife || (stats.range / stats.speed),
-          slow: stats.slow || 0,
-          slowDuration: stats.slowDuration || 0,
-          poisonDamage: stats.poisonDamage || 0,
-          poisonTick: stats.poisonTick || 0,
-          poisonDuration: stats.poisonDuration || 0,
-          color: stats.color,
-        });
+
+        const msCount = Math.max(0, Math.floor(player.bonuses?.multishot || 0));
+        const projectiles = [];
+
+        if (msCount >= 2) {
+          if (msCount % 2 === 0) {
+            // Padrão X: projéteis em ângulos simétricos (±)
+            const spreadDeg = msCount === 4 ? 35 : 45;
+            const halfCount = msCount / 2;
+            for (let i = 0; i < halfCount; i++) {
+              const a = (((i + 1) * spreadDeg) * Math.PI) / 180;
+              const c = Math.cos(a);
+              const s = Math.sin(a);
+              // +
+              projectiles.push({ dx: dirX * c - dirY * s, dy: dirX * s + dirY * c });
+              // -
+              projectiles.push({ dx: dirX * c + dirY * s, dy: -dirX * s + dirY * c });
+            }
+          } else {
+            // Padrão V: leque (fan)
+            const spreadDeg = msCount === 3 ? 20 : 14;
+            const half = (msCount - 1) / 2;
+            for (let i = 0; i < msCount; i++) {
+              const a = ((i - half) * spreadDeg * Math.PI) / 180;
+              const c = Math.cos(a);
+              const s = Math.sin(a);
+              projectiles.push({ dx: dirX * c - dirY * s, dy: dirX * s + dirY * c });
+            }
+          }
+        } else {
+          projectiles.push({ dx: dirX, dy: dirY });
+        }
+
+        const life = boostedLife || (stats.range / stats.speed);
+        for (const p of projectiles) {
+          this.projectiles.push({
+            entityId: eid(),
+            ownerId: player.id,
+            team: 'player',
+            kind,
+            spellId: spellInst.id,
+            x: player.x,
+            y: player.y,
+            vx: p.dx * stats.speed,
+            vy: p.dy * stats.speed,
+            damage: stats.damage,
+            radius: boostedRadius || stats.radius,
+            life,
+            slow: stats.slow || 0,
+            slowDuration: stats.slowDuration || 0,
+            poisonDamage: stats.poisonDamage || 0,
+            poisonTick: stats.poisonTick || 0,
+            poisonDuration: stats.poisonDuration || 0,
+            color: stats.color,
+          });
+        }
         break;
       }
       case 'tiro_de_buscape': {

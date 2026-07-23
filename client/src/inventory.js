@@ -6,8 +6,8 @@ export const BAG_COLS = 12;
 export const BAG_ROWS = 12;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
-/** v6: level requirement nos itens + novos tipos de bônus. */
-export const STARTER_KIT_VERSION = 6;
+/** v7: cajado + grimorio slots and multishot bonus. */
+export const STARTER_KIT_VERSION = 7;
 
 /** Slots de equipamento. */
 export const EQUIP_SLOTS = [
@@ -17,6 +17,8 @@ export const EQUIP_SLOTS = [
   { key: 'tunic', label: 'Túnica', accepts: 'tunic' },
   { key: 'cape', label: 'Capa', accepts: 'cape' },
   { key: 'boots', label: 'Botas', accepts: 'boots' },
+  { key: 'cajado', label: 'Cajado', accepts: 'cajado' },
+  { key: 'grimorio', label: 'Grimório', accepts: 'grimorio' },
 ];
 
 export const SET_LABELS = {
@@ -52,6 +54,7 @@ export const BONUS_LABELS = {
   burnResist: 'Resistência a queimadura',
   maxHpBonus: 'Vida máxima',
   xpBonus: 'Experiência',
+  multishot: 'Projéteis múltiplos',
 };
 
 /**
@@ -116,6 +119,24 @@ const BASE_ITEM_DEFS = {
     color: 0x8b6914,
     level: 1,
   },
+  wooden_staff: {
+    id: 'wooden_staff',
+    name: 'Cajado de Madeira',
+    category: 'equipment',
+    slot: 'cajado',
+    color: 0x8b6914,
+    set: 'conjunto_de_pano',
+    level: 1,
+  },
+  torn_grimoire: {
+    id: 'torn_grimoire',
+    name: 'Grimório Rasgado',
+    category: 'equipment',
+    slot: 'grimorio',
+    color: 0x7a5c3c,
+    set: 'conjunto_de_pano',
+    level: 1,
+  },
 
   // --- Minérios ---
   copper_ore:    { id: 'copper_ore',    name: 'Minério de Cobre',     category: 'ore', slot: 'ore', color: 0xe87438 },
@@ -162,6 +183,8 @@ const STARTER_EQUIP_PLAN = [
   { key: 'tunic', id: 'cloth_tunic' },
   { key: 'necklace', id: 'brass_necklace' },
   { key: 'boots', id: 'holey_boots' },
+  { key: 'cajado', id: 'wooden_staff' },
+  { key: 'grimorio', id: 'torn_grimoire' },
 ];
 
 const STARTER_ITEM_IDS = STARTER_EQUIP_PLAN.map((p) => p.id);
@@ -190,6 +213,7 @@ const BONUS_KEYS = [
   'burnResist',
   'maxHpBonus',
   'xpBonus',
+  'multishot',
 ];
 
 function emptyEquipment() {
@@ -258,9 +282,16 @@ export function itemTooltipLines(item, characterLevel) {
       const val = item.bonus[key];
       if (!Number.isFinite(val) || val === 0) continue;
       const label = BONUS_LABELS[key] || key;
-      const pct = Math.round(val * 100);
-      const sign = pct > 0 ? '+' : '';
-      lines.push(`${label}: ${sign}${pct}%`);
+      if (key === 'multishot') {
+        const count = Math.floor(val);
+        const pattern = count % 2 === 0 ? 'X' : 'V';
+        const countLabel = { 2: 'Dobro', 3: 'Triplo', 4: 'Quádruplo', 5: 'Quíntuplo' }[count] || `${count}x`;
+        lines.push(`${label}: ${countLabel} (${pattern})`);
+      } else {
+        const pct = Math.round(val * 100);
+        const sign = pct > 0 ? '+' : '';
+        lines.push(`${label}: ${sign}${pct}%`);
+      }
     }
   } else {
     lines.push('Sem bônus');
@@ -485,6 +516,7 @@ export function equipmentBonusesFromInventory(inventory) {
   bonuses.burnResist = Math.min(0.80, Math.max(0, bonuses.burnResist));
   bonuses.maxHpBonus = Math.min(0.60, Math.max(0, bonuses.maxHpBonus));
   bonuses.xpBonus = Math.min(0.50, Math.max(0, bonuses.xpBonus));
+  bonuses.multishot = Math.min(5, Math.max(0, Math.floor(bonuses.multishot)));
   return bonuses;
 }
 

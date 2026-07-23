@@ -569,7 +569,7 @@ export class CharacterScene extends Phaser.Scene {
     const slotSize = 64;
     const gapX = 14;
     const gapY = 28;
-    const cols = 3;
+    const cols = 4;
     const totalW = cols * slotSize + (cols - 1) * gapX;
     const startX = centerX - totalW / 2 + slotSize / 2;
     const startY = topY + slotSize / 2;
@@ -591,6 +591,18 @@ export class CharacterScene extends Phaser.Scene {
         .image(x, y - 2, itemIconKey('cloth_hat'))
         .setDisplaySize(44, 44)
         .setDepth(depth + 1)
+        .setVisible(false);
+
+      const levelText = this.add
+        .text(x - slotSize / 2 + 4, y - slotSize / 2 + 2, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '10px',
+          color: '#f4e8ff',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0, 0.5)
+        .setDepth(depth + 3)
         .setVisible(false);
 
       const label = this.add
@@ -617,8 +629,8 @@ export class CharacterScene extends Phaser.Scene {
         this.hideItemTooltip();
       });
 
-      this.equipSlotViews[slot.key] = { frame, icon, label, accepts: slot.accepts };
-      this.trackInv(frame, icon, label);
+      this.equipSlotViews[slot.key] = { frame, icon, levelText, label, accepts: slot.accepts };
+      this.trackInv(frame, icon, levelText, label);
     });
 
     this.refreshAllEquipSlots();
@@ -662,6 +674,18 @@ export class CharacterScene extends Phaser.Scene {
           strokeThickness: 2,
         })
         .setOrigin(1, 0.5)
+        .setDepth(depth + 2)
+        .setVisible(false);
+
+      const levelText = this.add
+        .text(x - 12, y - 9, '', {
+          fontFamily: 'Trebuchet MS, sans-serif',
+          fontSize: '9px',
+          color: '#f4e8ff',
+          stroke: '#000000',
+          strokeThickness: 2,
+        })
+        .setOrigin(0, 0.5)
         .setDepth(depth + 2)
         .setVisible(false);
 
@@ -723,8 +747,8 @@ export class CharacterScene extends Phaser.Scene {
         this.hideItemTooltip();
       });
 
-      this.bagSlotViews.push({ frame, icon, qtyText });
-      this.trackInv(frame, icon, qtyText);
+      this.bagSlotViews.push({ frame, icon, qtyText, levelText });
+      this.trackInv(frame, icon, qtyText, levelText);
     }
 
     this.refreshAllBagSlots();
@@ -774,6 +798,11 @@ export class CharacterScene extends Phaser.Scene {
       } else {
         view.icon.setVisible(false);
       }
+      if (item.level && item.level > 1 && view.levelText) {
+        view.levelText.setText(String(item.level)).setVisible(true);
+      } else if (view.levelText) {
+        view.levelText.setVisible(false);
+      }
     } else {
       const hint = this.equipHints[key];
       if (hint === 'equippable') {
@@ -787,6 +816,7 @@ export class CharacterScene extends Phaser.Scene {
         view.frame.setFillStyle(0x161228, 0.95);
       }
       view.icon.setVisible(false);
+      if (view.levelText) view.levelText.setVisible(false);
     }
   }
 
@@ -828,11 +858,17 @@ export class CharacterScene extends Phaser.Scene {
       } else if (view.qtyText) {
         view.qtyText.setVisible(false);
       }
+      if (item.level && item.level > 1 && view.levelText) {
+        view.levelText.setText(String(item.level)).setVisible(true);
+      } else if (view.levelText) {
+        view.levelText.setVisible(false);
+      }
     } else {
       view.frame.setStrokeStyle(1, 0x3a2f66, 0.9);
       view.frame.setFillStyle(0x12101c, 0.92);
       view.icon.setVisible(false);
       if (view.qtyText) view.qtyText.setVisible(false);
+      if (view.levelText) view.levelText.setVisible(false);
     }
   }
 

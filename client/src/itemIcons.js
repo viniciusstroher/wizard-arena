@@ -141,6 +141,74 @@ function drawBoots(ctx, color) {
   ctx.fillRect(16, 12, 3, 14);
 }
 
+function drawCajado(ctx, color) {
+  // Cajado vertical com detalhes
+  fill(ctx, color);
+  ctx.fillRect(22, 4, 4, 40);
+  // Cristal/Orbe no topo
+  fill(ctx, color, 0.9);
+  ctx.beginPath();
+  ctx.arc(24, 6, 6, 0, Math.PI * 2);
+  ctx.fill();
+  fill(ctx, 0xffffff, 0.35);
+  ctx.beginPath();
+  ctx.arc(22, 4, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Detalhes do cajado
+  fill(ctx, 0xffffff, 0.15);
+  ctx.fillRect(23, 8, 2, 36);
+  // Punho/base
+  fill(ctx, 0x1a1430, 0.4);
+  ctx.beginPath();
+  ctx.arc(24, 42, 3, 0, Math.PI * 2);
+  ctx.fill();
+  fill(ctx, 0xffffff, 0.12);
+  ctx.fillRect(21, 16, 6, 2);
+  ctx.fillRect(21, 26, 6, 2);
+}
+
+function drawGrimorio(ctx, color) {
+  // Livro/Grimório
+  fill(ctx, color);
+  // Capa do livro
+  ctx.beginPath();
+  ctx.moveTo(10, 8);
+  ctx.lineTo(22, 12);
+  ctx.lineTo(22, 42);
+  ctx.lineTo(10, 38);
+  ctx.closePath();
+  ctx.fill();
+  // Páginas
+  fill(ctx, 0xf5f0e0, 0.9);
+  ctx.beginPath();
+  ctx.moveTo(22, 12);
+  ctx.lineTo(38, 8);
+  ctx.lineTo(38, 38);
+  ctx.lineTo(22, 42);
+  ctx.closePath();
+  ctx.fill();
+  // Lombada
+  fill(ctx, 0x1a1430, 0.35);
+  ctx.fillRect(20, 10, 4, 34);
+  // Detalhes na capa
+  fill(ctx, 0xffffff, 0.2);
+  ctx.beginPath();
+  ctx.arc(14, 22, 4, 0, Math.PI * 2);
+  ctx.fill();
+  fill(ctx, 0xffffff, 0.15);
+  ctx.fillRect(12, 20, 4, 1);
+  ctx.fillRect(12, 24, 4, 1);
+  // Linhas nas páginas
+  fill(ctx, 0x1a1430, 0.15);
+  ctx.fillRect(26, 16, 8, 1);
+  ctx.fillRect(26, 20, 10, 1);
+  ctx.fillRect(26, 24, 8, 1);
+  ctx.fillRect(26, 28, 10, 1);
+  // Fecho/cinto
+  fill(ctx, 0xc9a227, 0.7);
+  ctx.fillRect(16, 36, 16, 3);
+}
+
 function drawOther(ctx, color) {
   fill(ctx, 0x2a2250);
   ctx.fillRect(12, 16, 24, 24);
@@ -207,6 +275,8 @@ const DRAWER_BY_SLOT = {
   tunic: drawTunic,
   necklace: drawNecklace,
   boots: drawBoots,
+  cajado: drawCajado,
+  grimorio: drawGrimorio,
   ore: drawOre,
   other: drawOther,
 };

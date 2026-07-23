@@ -200,7 +200,7 @@ function normalizeCharacterId(value) {
 const BONUS_KEYS = [
   'cooldownReduction', 'damageBonus', 'healBonus', 'shieldBonus',
   'speedBonus', 'rangeBonus', 'radiusBonus', 'slowResist',
-  'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus',
+  'poisonResist', 'burnResist', 'maxHpBonus', 'xpBonus', 'multishot',
 ];
 
 function clampBonus(key, val) {
@@ -211,6 +211,7 @@ function clampBonus(key, val) {
     shieldBonus: 0.75, speedBonus: 0.50, rangeBonus: 0.50,
     radiusBonus: 0.50, slowResist: 0.80, poisonResist: 0.80,
     burnResist: 0.80, maxHpBonus: 0.60, xpBonus: 0.50,
+    multishot: 5,
   };
   return Math.min(caps[key] || 0.95, Math.max(0, n));
 }

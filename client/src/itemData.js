@@ -9,7 +9,7 @@
  *              burnResist, maxHpBonus, xpBonus, cooldownReduction }
  */
 
-const SLOTS = ['hat', 'cape', 'ring', 'tunic', 'necklace', 'boots'];
+const SLOTS = ['hat', 'cape', 'ring', 'tunic', 'necklace', 'boots', 'cajado', 'grimorio'];
 
 // 10 tiers — cores realistas baseadas nos materiais
 
@@ -80,6 +80,16 @@ const BASE_NAMES = {
     setMid:   ['Botas',          'Pisantes',     'Grevas'],
     alt:      ['Sandálias', 'Calçados', 'Pisantes', 'Botinas', 'Sapatilhas', 'Alpercatas', 'Galochas', 'Botas de Viagem', 'Botas de Salto', 'Botas de Camurça'],
   },
+  cajado: {
+    set:      ['Cajado',         'Bastão',       'Cetro'],
+    setMid:   ['Cajado',         'Bastão Arcano','Cetro Místico'],
+    alt:      ['Vara', 'Báculo', 'Bastão', 'Cetro', 'Cajado Rúnico', 'Cetro de Poder', 'Bastão de Luz', 'Cajado Sombrio', 'Varinha', 'Cajado Arcano'],
+  },
+  grimorio: {
+    set:      ['Grimório',       'Livro',        'Tomo'],
+    setMid:   ['Grimório',       'Livro Arcano', 'Tomo Místico'],
+    alt:      ['Códex', 'Pergaminho', 'Livro de Runas', 'Tomo', 'Grimório das Sombras', 'Escritura', 'Manual Arcano', 'Códex Sombrio', 'Livro Antigo', 'Grimório Sagrado'],
+  },
 };
 
 function prestigeGroup(tierIdx) {
@@ -143,6 +153,8 @@ const POOLS = {
   tunic:    ['maxHpBonus', 'shieldBonus', 'poisonResist', 'burnResist'],
   necklace: ['healBonus', 'shieldBonus', 'cooldownReduction'],
   boots:    ['speedBonus', 'slowResist', 'maxHpBonus'],
+  cajado:   ['damageBonus', 'multishot', 'rangeBonus', 'cooldownReduction', 'speedBonus'],
+  grimorio: ['damageBonus', 'healBonus', 'shieldBonus', 'cooldownReduction', 'radiusBonus', 'rangeBonus'],
 };
 
 /** Gera bônus para um item (1-3 stats determinísticos) */
@@ -155,8 +167,13 @@ function mkBonus(slot, seed, baseVal, count) {
     const key = pool[pickIdx];
     if (used.has(key)) continue;
     used.add(key);
-    const v = bval(seed * 1000 + b * 23, baseVal);
-    if (v > 0) bonus[key] = v;
+    if (key === 'multishot') {
+      const msVal = 2 + Math.floor(fhash(seed * 777 + b * 31) * 4); // 2-5
+      if (msVal > 0) bonus[key] = msVal;
+    } else {
+      const v = bval(seed * 1000 + b * 23, baseVal);
+      if (v > 0) bonus[key] = v;
+    }
   }
   return Object.keys(bonus).length ? bonus : null;
 }
