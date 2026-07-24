@@ -763,6 +763,25 @@ export function sortBag(inventory) {
   return inv;
 }
 
+/** Remove o stack inteiro do slot do saco. */
+export function removeFromBag(inventory, bagIndex) {
+  const inv = normalizeInventory(inventory);
+  if (!inv.bag[bagIndex]) return { ok: false, error: 'Slot vazio.', inventory: inv };
+  inv.bag[bagIndex] = null;
+  return { ok: true, inventory: inv };
+}
+
+/** Deleta o item equipado no slot (não vai para o saco). */
+export function removeEquipped(inventory, equipKey) {
+  const inv = normalizeInventory(inventory);
+  if (!EQUIP_KEYS.includes(equipKey)) {
+    return { ok: false, error: 'Slot inválido.', inventory: inv };
+  }
+  if (!inv.equipment[equipKey]) return { ok: false, error: 'Slot vazio.', inventory: inv };
+  inv.equipment[equipKey] = null;
+  return { ok: true, inventory: inv };
+}
+
 /** Retorna a quantidade total de um item no saco (soma todos os stacks). */
 export function bagItemQty(bag, itemId) {
   let total = 0;
