@@ -59,6 +59,11 @@ export class GameScene extends Phaser.Scene {
     this.matchEndOpen = false;
     this.matchEndDim = null;
     this.matchEndBtns = [];
+    this.matchEndAgainBg = null;
+    this.matchEndLobbyBg = null;
+    this.matchEndStatusText = null;
+    this.playAgainPending = false;
+    this._playAgainTimeout = null;
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
     this.moveDust = null;
@@ -188,11 +193,11 @@ export class GameScene extends Phaser.Scene {
     this.socket.off('joined');
     this.socket.off('error_msg');
     this.socket.on('game_state', (state) => this.onState(state));
-    this.socket.on('play_again_created', () => {
-      this.scene.start('Game', { playerId: this.socket.id });
+    this.socket.on('play_again_created', (payload) => {
+      this.onPlayAgainCreated(payload);
     });
-    this.socket.on('error_msg', () => {
-      this.leaving = false;
+    this.socket.on('error_msg', (payload) => {
+      this.onGameErrorMsg(payload);
     });
     this.socket.on('game_event', (ev) => {
       if (ev.type === 'countdown') {
@@ -215,10 +220,17 @@ export class GameScene extends Phaser.Scene {
       this.clearMatchEndKillScroll();
       this._leavingTimeout?.remove();
       this._leavingTimeout = null;
+      this._playAgainTimeout?.remove();
+      this._playAgainTimeout = null;
       this.matchEndDim?.destroy();
       this.matchEndDim = null;
       for (const c of this.matchEndBtns) c?.destroy();
       this.matchEndBtns = [];
+      this.matchEndAgainBg = null;
+      this.matchEndLobbyBg = null;
+      this.matchEndStatusText = null;
+      this.matchEndOpen = false;
+      this.playAgainPending = false;
       this.matchEndModal?.removeAll(true);
       this.arenaFireWall?.destroy();
       this.arenaFireEmbers?.destroy();
@@ -990,6 +1002,71 @@ export class GameScene extends Phaser.Scene {
     this.matchEndModal = this.add.container(0, 0).setDepth(450).setScrollFactor(0).setVisible(false);
   }
 
+  resetPlayAgainPending() {
+    this._playAgainTimeout?.remove();
+    this._playAgainTimeout = null;
+    this.playAgainPending = false;
+  }
+
+  setMatchEndButtonsInteractive(enabled) {
+    const again = this.matchEndAgainBg;
+    const lobby = this.matchEndLobbyBg;
+    if (again) {
+      if (enabled) again.setInteractive({ useHandCursor: true });
+      else again.disableInteractive();
+      again.setAlpha(enabled ? 1 : 0.45);
+    }
+    if (lobby) {
+      if (enabled) lobby.setInteractive({ useHandCursor: true });
+      else lobby.disableInteractive();
+      lobby.setAlpha(enabled ? 1 : 0.45);
+    }
+  }
+
+  setMatchEndStatus(message, color = '#a99bc8') {
+    if (!this.matchEndStatusText) return;
+    this.matchEndStatusText.setText(message || '');
+    this.matchEndStatusText.setColor(color);
+  }
+
+  hideMatchEndOverlay() {
+    if (!this.matchEndOpen && !this.matchEndModal?.visible) return;
+    this.resetPlayAgainPending();
+    this.matchEndOpen = false;
+    this.clearMatchEndKillScroll();
+    this.matchEndDim?.destroy();
+    this.matchEndDim = null;
+    for (const c of this.matchEndBtns) c?.destroy();
+    this.matchEndBtns = [];
+    this.matchEndAgainBg = null;
+    this.matchEndLobbyBg = null;
+    this.matchEndStatusText = null;
+    this.matchEndModal?.removeAll(true);
+    this.matchEndModal?.setVisible(false);
+  }
+
+  onGameErrorMsg(payload) {
+    this.leaving = false;
+    if (!this.matchEndOpen) return;
+    if (this.playAgainPending) {
+      this.resetPlayAgainPending();
+      this.setMatchEndButtonsInteractive(true);
+      const message = payload?.message || 'Não foi possível criar a partida.';
+      this.setMatchEndStatus(message, '#ff8a80');
+    }
+  }
+
+  onPlayAgainCreated(payload) {
+    this.resetPlayAgainPending();
+    this.leaving = false;
+    const matchId = payload?.matchId;
+    if (matchId) {
+      navigate(`/matchmaking/${matchId}`, { replace: true });
+    }
+    this.hideMatchEndOverlay();
+    this.scene.start('Game', { playerId: this.socket.id });
+  }
+
   handleLootItems(items) {
     try {
       const character = ensureCharacter();
@@ -1421,7 +1498,23 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerout', () => lobbyBg.setScale(1));
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
+    this.matchEndAgainBg = againBg;
+    this.matchEndLobbyBg = lobbyBg;
     this.matchEndBtns = [againContainer, lobbyContainer];
+
+    const statusY = btnY + 36;
+    this.matchEndStatusText = this.add
+      .text(width / 2, statusY, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '13px',
+        color: '#a99bc8',
+        align: 'center',
+        wordWrap: { width: panelW - 48 },
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(btnDepth)
+      .setScrollFactor(0);
+    modalItems.push(this.matchEndStatusText);
 
     this.matchEndModal.add(modalItems);
     this.bannerText.setAlpha(0);
@@ -1449,9 +1542,10 @@ export class GameScene extends Phaser.Scene {
   }
 
   goToLobbyFromMatchEnd() {
-    if (this.leaving) return;
+    if (this.leaving || this.playAgainPending) return;
     this.leaving = true;
-    this.clearMatchEndKillScroll();
+    this.resetPlayAgainPending();
+    this.hideMatchEndOverlay();
     this._leavingTimeout = this.time.delayedCall(5000, () => {
       this.leaving = false;
     });
@@ -1462,11 +1556,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   playAgainFromMatchEnd() {
-    if (this.leaving) return;
-    this.leaving = true;
-    this.clearMatchEndKillScroll();
-    this._leavingTimeout = this.time.delayedCall(5000, () => {
-      this.leaving = false;
+    if (this.leaving || this.playAgainPending) return;
+    this.playAgainPending = true;
+    this.setMatchEndButtonsInteractive(false);
+    this.setMatchEndStatus('Criando nova partida…', '#c4b5e0');
+    this._playAgainTimeout = this.time.delayedCall(15000, () => {
+      if (!this.playAgainPending) return;
+      this.resetPlayAgainPending();
+      this.setMatchEndButtonsInteractive(true);
+      this.setMatchEndStatus('Tempo esgotado. Tente de novo ou vá ao lobby.', '#ff8a80');
     });
     this.socket.emit('play_again');
   }
@@ -1807,6 +1905,8 @@ export class GameScene extends Phaser.Scene {
     }
     if (state.phase === 'ended') {
       this.showMatchEndOverlay(state);
+    } else if (this.matchEndOpen) {
+      this.hideMatchEndOverlay();
     }
   }
 

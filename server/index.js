@@ -405,9 +405,18 @@ io.on('connection', (socket) => {
 
   socket.on('play_again', () => {
     const match = findMatchBySocket(socket.id);
-    if (!match || match.phase !== 'ended') {
+    if (!match) {
       socket.emit('error_msg', {
-        message: 'Partida não encontrada ou ainda em andamento.',
+        message: 'Partida não encontrada.',
+        code: 'play_again_no_match',
+      });
+      return;
+    }
+
+    if (match.phase !== 'ended') {
+      socket.emit('play_again_created', {
+        matchId: match.id,
+        playerId: socket.id,
       });
       return;
     }
@@ -418,6 +427,7 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const oldMatchId = match.id;
     const maxPlayers = match.maxPlayers;
     const password = match.password;
     const pvpEnabled = match.pvpEnabled;
@@ -430,10 +440,6 @@ io.on('connection', (socket) => {
     const color = player.color;
     const skin = player.skin;
     const bonuses = { ...(player.bonuses || {}) };
-
-    match.destroy();
-    matches.delete(match.id);
-    socket.leave(match.id);
 
     const id = randomUUID();
     const newMatch = new Match(id, io, {
@@ -460,6 +466,10 @@ io.on('connection', (socket) => {
       });
       return;
     }
+
+    socket.leave(oldMatchId);
+    match.players.delete(socket.id);
+    destroyMatch(match);
 
     socket.data.matchId = newMatch.id;
     socket.data.characterId = characterId;
