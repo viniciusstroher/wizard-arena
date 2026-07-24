@@ -41,10 +41,160 @@ function normalizePassword(raw) {
 }
 
 function findMatchBySocket(socketId) {
+  let endedMatch = null;
   for (const match of matches.values()) {
-    if (match.players.has(socketId)) return match;
+    if (!match.players.has(socketId)) continue;
+    if (match.phase !== 'ended') return match;
+    endedMatch = match;
   }
-  return null;
+  return endedMatch;
+}
+
+function endedMatchHasHumans(match) {
+  if (!match) return false;
+  return [...match.players.values()].some((p) => !p.isBot);
+}
+
+function emitPlayAgainCreated(socket, matchId) {
+  socket.data.matchId = matchId;
+  socket.emit('play_again_created', {
+    matchId,
+    playerId: socket.id,
+  });
+}
+
+function finishRematchFromEnded(socket, endedMatch, player) {
+  const oldMatchId = endedMatch.id;
+  const maxPlayers = endedMatch.maxPlayers;
+  const password = endedMatch.password;
+  const pvpEnabled = endedMatch.pvpEnabled;
+  const roundDuration = endedMatch.roundDuration;
+  const botCount = endedMatch.bots.filter((b) => b.playerId.startsWith('bot_')).length;
+  const wasAutoMode = !!player.autoMode;
+
+  const characterId = player.characterId;
+  const characterName = player.name;
+  const color = player.color;
+  const skin = player.skin;
+  const bonuses = { ...(player.bonuses || {}) };
+
+  const id = randomUUID();
+  const newMatch = new Match(id, io, {
+    maxPlayers,
+    password,
+    pvpEnabled,
+    roundDuration,
+    onLobbyListChange: broadcastLobbies,
+  });
+  matches.set(id, newMatch);
+
+  const result = newMatch.addPlayer(socket, characterName, {
+    color,
+    skin,
+    characterId,
+    bonuses,
+    skipPassword: true,
+  });
+  if (!result.ok) {
+    destroyMatch(newMatch);
+    socket.emit('error_msg', {
+      message: result.error,
+      code: result.code || 'join_failed',
+    });
+    return;
+  }
+
+  socket.leave(oldMatchId);
+  endedMatch.players.delete(socket.id);
+  destroyMatch(endedMatch);
+
+  socket.data.matchId = newMatch.id;
+  socket.data.characterId = characterId;
+
+  if (botCount > 0) {
+    newMatch.addBots(botCount);
+  }
+
+  if (wasAutoMode) {
+    newMatch.setAutoMode(socket.id, true);
+  }
+
+  newMatch.setReady(socket.id, true);
+
+  emitPlayAgainCreated(socket, newMatch.id);
+  broadcastLobbies();
+}
+
+function startPlayAgainFreshLobby(socket, payload = {}) {
+  const appearance = appearanceFromPayload(payload);
+  if (!appearance.characterId) {
+    socket.emit('error_msg', {
+      message: 'Personagem inválido. Recarregue a página.',
+      code: 'bad_character',
+    });
+    return;
+  }
+
+  const seated = findActiveMatchByCharacterId(appearance.characterId);
+  if (seated) {
+    const seatedSocketId = findSocketIdByCharacterId(seated, appearance.characterId);
+    if (seatedSocketId === socket.id) {
+      emitPlayAgainCreated(socket, seated.id);
+      return;
+    }
+    socket.emit('error_msg', {
+      message: 'Você já está em uma sala em outra aba/navegador.',
+      code: 'already_in_lobby',
+    });
+    return;
+  }
+
+  const maxPlayers = clampMaxPlayers(payload.maxPlayers ?? 4);
+  const password = normalizePassword(payload.password);
+  if (password === undefined) {
+    socket.emit('error_msg', { message: 'Senha inválida. Use exatamente 4 dígitos.' });
+    return;
+  }
+  const pvpEnabled = !!payload.pvpEnabled;
+  const roundDuration = clampRoundDuration(payload.roundDuration);
+
+  const id = randomUUID();
+  const match = new Match(id, io, {
+    maxPlayers,
+    password,
+    pvpEnabled,
+    roundDuration,
+    onLobbyListChange: broadcastLobbies,
+  });
+  matches.set(id, match);
+
+  const result = match.addPlayer(socket, appearance.name, {
+    color: appearance.color,
+    skin: appearance.skin,
+    characterId: appearance.characterId,
+    bonuses: appearance.bonuses,
+    skipPassword: true,
+  });
+  if (!result.ok) {
+    destroyMatch(match);
+    socket.emit('error_msg', {
+      message: result.error,
+      code: result.code || 'join_failed',
+    });
+    return;
+  }
+
+  socket.data.matchId = match.id;
+  socket.data.characterId = appearance.characterId;
+
+  const botCount = Math.min(3, Math.max(0, Math.floor(Number(payload.botCount) || 0)));
+  if (botCount > 0) {
+    match.addBots(botCount);
+  }
+
+  match.setReady(socket.id, true);
+  emitPlayAgainCreated(socket, match.id);
+  broadcastLobbies();
 }
 
 /** Partida ativa (lobby ou em andamento) onde o personagem já ocupa um assento. */
@@ -403,92 +553,25 @@ io.on('connection', (socket) => {
     broadcastLobbies();
   });
 
-  socket.on('play_again', () => {
+  socket.on('play_again', (payload = {}) => {
     const match = findMatchBySocket(socket.id);
     if (!match) {
-      socket.emit('error_msg', {
-        message: 'Partida não encontrada.',
-        code: 'play_again_no_match',
-      });
+      startPlayAgainFreshLobby(socket, payload);
       return;
     }
 
     if (match.phase !== 'ended') {
-      socket.emit('play_again_created', {
-        matchId: match.id,
-        playerId: socket.id,
-      });
+      emitPlayAgainCreated(socket, match.id);
       return;
     }
 
     const player = match.players.get(socket.id);
     if (!player || player.isBot) {
-      socket.emit('error_msg', { message: 'Jogador não encontrado.' });
+      socket.emit('error_msg', { message: 'Jogador não encontrado.', code: 'play_again_no_player' });
       return;
     }
 
-    const oldMatchId = match.id;
-    const maxPlayers = match.maxPlayers;
-    const password = match.password;
-    const pvpEnabled = match.pvpEnabled;
-    const roundDuration = match.roundDuration;
-    const botCount = match.bots.filter((b) => b.playerId.startsWith('bot_')).length;
-    const wasAutoMode = !!player.autoMode;
-
-    const characterId = player.characterId;
-    const characterName = player.name;
-    const color = player.color;
-    const skin = player.skin;
-    const bonuses = { ...(player.bonuses || {}) };
-
-    const id = randomUUID();
-    const newMatch = new Match(id, io, {
-      maxPlayers,
-      password,
-      pvpEnabled,
-      roundDuration,
-      onLobbyListChange: broadcastLobbies,
-    });
-    matches.set(id, newMatch);
-
-    const result = newMatch.addPlayer(socket, characterName, {
-      color,
-      skin,
-      characterId,
-      bonuses,
-      skipPassword: true,
-    });
-    if (!result.ok) {
-      destroyMatch(newMatch);
-      socket.emit('error_msg', {
-        message: result.error,
-        code: result.code || 'join_failed',
-      });
-      return;
-    }
-
-    socket.leave(oldMatchId);
-    match.players.delete(socket.id);
-    destroyMatch(match);
-
-    socket.data.matchId = newMatch.id;
-    socket.data.characterId = characterId;
-
-    if (botCount > 0) {
-      newMatch.addBots(botCount);
-    }
-
-    if (wasAutoMode) {
-      newMatch.setAutoMode(socket.id, true);
-    }
-
-    newMatch.setReady(socket.id, true);
-
-    socket.emit('play_again_created', {
-      matchId: newMatch.id,
-      playerId: socket.id,
-    });
-    broadcastLobbies();
+    finishRematchFromEnded(socket, match, player);
   });
 
   socket.on('remove_bots', (payload = {}) => {
@@ -582,6 +665,9 @@ setInterval(() => {
           match.removePlayer(pid);
         }
       }
+    }
+    if (match.phase === 'ended') {
+      if (endedMatchHasHumans(match)) continue;
     }
     if (match.phase === 'ended' || match.players.size === 0) {
       destroyMatch(match);

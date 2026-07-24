@@ -18,7 +18,7 @@ import {
 import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { ensureCharacter, saveCharacter } from '../character.js';
-import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS } from '../inventory.js';
+import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS, equipmentBonusesFromInventory } from '../inventory.js';
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
@@ -1047,23 +1047,66 @@ export class GameScene extends Phaser.Scene {
 
   onGameErrorMsg(payload) {
     this.leaving = false;
-    if (!this.matchEndOpen) return;
-    if (this.playAgainPending) {
+    const message = this.formatPlayAgainError(payload);
+    const pending = this.playAgainPending;
+    if (pending) {
       this.resetPlayAgainPending();
-      this.setMatchEndButtonsInteractive(true);
-      const message = payload?.message || 'Não foi possível criar a partida.';
-      this.setMatchEndStatus(message, '#ff8a80');
     }
+    if (this.matchEndOpen) {
+      if (pending) {
+        this.setMatchEndButtonsInteractive(true);
+      }
+      this.setMatchEndStatus(message, '#ff8a80');
+      return;
+    }
+    if (pending) {
+      this.showFloatingMessage(message, 0xff6b6b);
+    }
+  }
+
+  formatPlayAgainError(payload) {
+    const code = payload?.code;
+    if (code === 'already_in_lobby') {
+      return 'Você já está em uma sala em outra aba. Saia de lá ou use Ir ao Lobby.';
+    }
+    if (code === 'play_again_no_match' || code === 'play_again_no_player') {
+      return payload?.message || 'Não foi possível recriar a partida.';
+    }
+    if (code === 'match_started') {
+      return 'A nova partida já começou. Aguarde ou vá ao lobby.';
+    }
+    return payload?.message || 'Não foi possível criar a partida.';
+  }
+
+  buildPlayAgainPayload() {
+    const character = ensureCharacter();
+    const me = this.state?.players?.find((p) => p.id === this.playerId);
+    const bonuses = equipmentBonusesFromInventory(character.inventory);
+    return {
+      characterId: character.id,
+      name: character.name || me?.name || 'Wizard',
+      color: character.color ?? me?.color,
+      skin: character.skin,
+      ...bonuses,
+      maxPlayers: 4,
+      pvpEnabled: !!this.state?.pvpEnabled,
+      roundDuration: this.state?.matchDuration ?? this.state?.roundDuration ?? 15,
+      password: null,
+      botCount: 0,
+    };
   }
 
   onPlayAgainCreated(payload) {
     this.resetPlayAgainPending();
     this.leaving = false;
     const matchId = payload?.matchId;
-    if (matchId) {
-      navigate(`/matchmaking/${matchId}`, { replace: true });
-    }
     this.hideMatchEndOverlay();
+    if (matchId) {
+      const url = `/matchmaking/${matchId}`;
+      if (window.location.pathname !== url) {
+        window.history.replaceState(null, '', url);
+      }
+    }
     this.scene.start('Game', { playerId: this.socket.id });
   }
 
@@ -1566,7 +1609,7 @@ export class GameScene extends Phaser.Scene {
       this.setMatchEndButtonsInteractive(true);
       this.setMatchEndStatus('Tempo esgotado. Tente de novo ou vá ao lobby.', '#ff8a80');
     });
-    this.socket.emit('play_again');
+    this.socket.emit('play_again', this.buildPlayAgainPayload());
   }
 
   onSpellSlotWheel(dy) {
