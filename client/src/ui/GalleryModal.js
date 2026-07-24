@@ -41,13 +41,13 @@ const FLOOR_SECTIONS = [
 ];
 
 const FONT = 'Trebuchet MS, sans-serif';
-const PANEL_W = 820;
-const PANEL_H = 580;
-const LIST_W = 300;
+const PANEL_W = 870;
+const PANEL_H = 610;
+const LIST_W = 320;
 const LIST_PAD = 10;
 const LIST_INNER_W = LIST_W - LIST_PAD * 2;
-const PREVIEW_W = 370;
-const PREVIEW_H = 280;
+const PREVIEW_W = 390;
+const PREVIEW_H = 290;
 /** Margem interna ao encaixar o sprite do monstro no painel de preview. */
 const MONSTER_PREVIEW_PAD_X = 28;
 const MONSTER_PREVIEW_PAD_Y = 20;
@@ -2160,6 +2160,8 @@ export class GalleryModal {
             fallbackColor: item.color,
             label: item.name,
             sub: `${Math.round(d.chance * 100)}%`,
+            qtyMin: d.qtyMin,
+            qtyMax: d.qtyMax,
             categoryLabel: item.categoryLabel,
             slotLabel: item.slotLabel,
             level: item.level,
@@ -2179,6 +2181,8 @@ export class GalleryModal {
             fallbackColor: monster.color,
             label: this._capitalize(monster.name),
             sub: `${Math.round(d.chance * 100)}%`,
+            qtyMin: d.qtyMin,
+            qtyMax: d.qtyMax,
             tierLabel: monster.tierLabel,
             attackLabel: monster.attackLabel,
             spellNames: monster.spellNames || [],
@@ -2241,6 +2245,9 @@ export class GalleryModal {
 
       const tooltipLines = [row.label];
       if (row.sub) tooltipLines.push(`Chance: ${row.sub}`);
+      if (Number.isFinite(row.qtyMin) && Number.isFinite(row.qtyMax)) {
+        tooltipLines.push(row.qtyMin === row.qtyMax ? `Qtd: ${row.qtyMin}` : `Qtd: ${row.qtyMin}–${row.qtyMax}`);
+      }
       if (row.tierLabel) tooltipLines.push(`Tier: ${row.tierLabel}`);
       if (row.attackLabel) tooltipLines.push(`Ataque: ${row.attackLabel}`);
       if (row.spellNames && row.spellNames.length) {

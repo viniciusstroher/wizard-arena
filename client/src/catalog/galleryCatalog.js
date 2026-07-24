@@ -501,9 +501,9 @@ export function getItemEntries() {
   for (const [dropBaseId, rows] of Object.entries(DROP_TABLE)) {
     const repId = findBestMonster(dropBaseId);
     if (!repId) continue;
-    for (const [itemId, chance] of rows) {
+    for (const [itemId, chance, qtyMin, qtyMax] of rows) {
       if (!droppedByItem[itemId]) droppedByItem[itemId] = [];
-      droppedByItem[itemId].push({ monsterId: repId, chance });
+      droppedByItem[itemId].push({ monsterId: repId, chance, qtyMin, qtyMax });
     }
   }
 
@@ -519,7 +519,7 @@ export function getItemEntries() {
     for (const entry of entries) {
       if (!existingMonsters.has(entry.monsterId)) {
         existingMonsters.add(entry.monsterId);
-        droppedByItem[baseId].push({ monsterId: entry.monsterId, chance: Math.round(entry.chance * 0.6 * 100) / 100 });
+        droppedByItem[baseId].push({ monsterId: entry.monsterId, chance: Math.round(entry.chance * 0.6 * 100) / 100, qtyMin: entry.qtyMin, qtyMax: entry.qtyMax });
       }
     }
   }
@@ -537,7 +537,7 @@ export function getItemEntries() {
     if (!def) continue;
     for (const fm of FALLBACK_MONSTERS) {
       if (!droppedByItem[itemId]) droppedByItem[itemId] = [];
-      droppedByItem[itemId].push({ ...fm });
+      droppedByItem[itemId].push({ ...fm, qtyMin: 1, qtyMax: 1 });
     }
   }
 
