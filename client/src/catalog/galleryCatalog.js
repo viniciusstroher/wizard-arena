@@ -507,6 +507,40 @@ export function getItemEntries() {
     }
   }
 
+  // Propagar drops para itens variante 0 (que não aparecem na DROP_TABLE)
+  const allItemIds = new Set(Object.keys(ITEM_DEFS));
+  for (const [itemId, entries] of Object.entries(droppedByItem)) {
+    const m = itemId.match(/^(t\d+_[a-z]+)_(\d+)$/);
+    if (!m) continue;
+    const baseId = m[1] + '_0';
+    if (!allItemIds.has(baseId)) continue;
+    if (!droppedByItem[baseId]) droppedByItem[baseId] = [];
+    const existingMonsters = new Set(droppedByItem[baseId].map(e => e.monsterId));
+    for (const entry of entries) {
+      if (!existingMonsters.has(entry.monsterId)) {
+        existingMonsters.add(entry.monsterId);
+        droppedByItem[baseId].push({ monsterId: entry.monsterId, chance: Math.round(entry.chance * 0.6 * 100) / 100 });
+      }
+    }
+  }
+
+  // Itens especiais sem drops — atribuir a monstros básicos
+  const FALLBACK_MONSTERS = [
+    { monsterId: 'imp', chance: 0.04 },
+    { monsterId: 'slime', chance: 0.04 },
+    { monsterId: 'goblin', chance: 0.03 },
+    { monsterId: 'skeleton', chance: 0.03 },
+  ];
+  for (const itemId of allItemIds) {
+    if (droppedByItem[itemId] && droppedByItem[itemId].length > 0) continue;
+    const def = ITEM_DEFS[itemId];
+    if (!def) continue;
+    for (const fm of FALLBACK_MONSTERS) {
+      if (!droppedByItem[itemId]) droppedByItem[itemId] = [];
+      droppedByItem[itemId].push({ ...fm });
+    }
+  }
+
   const items = [];
   for (const def of Object.values(ITEM_DEFS)) {
     const bonusLabels = [];

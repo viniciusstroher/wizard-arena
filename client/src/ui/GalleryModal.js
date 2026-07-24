@@ -265,7 +265,10 @@ export class GalleryModal {
       'gap: 4px',
       'font-family: Trebuchet MS, sans-serif',
       'user-select: none',
-      'overflow: visible',
+      'overflow-y: auto',
+      'max-height: 120px',
+      'scrollbar-width: thin',
+      'scrollbar-color: #6b5cff33 transparent',
     ].join(';');
     this.dropsDom = this.scene.add
       .dom(L.previewX, L.infoTop + 28, dropsRoot)
