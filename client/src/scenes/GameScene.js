@@ -23,6 +23,9 @@ import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
 
+/** Inatividade no placar final → Jogar Outra automático. */
+const MATCH_END_AUTO_PLAY_AGAIN_DELAY_S = 5;
+
 export class GameScene extends Phaser.Scene {
   constructor() {
     super('Game');
@@ -60,10 +63,13 @@ export class GameScene extends Phaser.Scene {
     this.matchEndDim = null;
     this.matchEndBtns = [];
     this.matchEndAgainBg = null;
+    this.matchEndAgainLabel = null;
     this.matchEndLobbyBg = null;
     this.matchEndStatusText = null;
     this.playAgainPending = false;
     this._playAgainTimeout = null;
+    this.matchEndAutoPlayAgainLeft = 0;
+    this._matchEndAutoPlayAgainEvent = null;
     this.lavaFx = [];
     this.selectedSpellSlot = 0;
     this.moveDust = null;
@@ -222,11 +228,14 @@ export class GameScene extends Phaser.Scene {
       this._leavingTimeout = null;
       this._playAgainTimeout?.remove();
       this._playAgainTimeout = null;
+      this.clearMatchEndAutoPlayAgain();
+      this.clearMatchEndAutoPlayAgain();
       this.matchEndDim?.destroy();
       this.matchEndDim = null;
       for (const c of this.matchEndBtns) c?.destroy();
       this.matchEndBtns = [];
       this.matchEndAgainBg = null;
+      this.matchEndAgainLabel = null;
       this.matchEndLobbyBg = null;
       this.matchEndStatusText = null;
       this.matchEndOpen = false;
@@ -1008,6 +1017,52 @@ export class GameScene extends Phaser.Scene {
     this.playAgainPending = false;
   }
 
+  clearMatchEndAutoPlayAgain() {
+    this._matchEndAutoPlayAgainEvent?.remove();
+    this._matchEndAutoPlayAgainEvent = null;
+    this.matchEndAutoPlayAgainLeft = 0;
+    this.updateMatchEndAgainLabel();
+  }
+
+  updateMatchEndAgainLabel() {
+    const label = this.matchEndAgainLabel;
+    if (!label) return;
+    if (this.playAgainPending) {
+      label.setText('Jogar Outra');
+      return;
+    }
+    if (this.matchEndAutoPlayAgainLeft > 0) {
+      label.setText(`Jogar Outra (${this.matchEndAutoPlayAgainLeft})`);
+    } else {
+      label.setText('Jogar Outra');
+    }
+  }
+
+  startMatchEndAutoPlayAgainCountdown() {
+    this.clearMatchEndAutoPlayAgain();
+    if (!this.matchEndOpen || this.leaving || this.playAgainPending) return;
+
+    this.matchEndAutoPlayAgainLeft = MATCH_END_AUTO_PLAY_AGAIN_DELAY_S;
+    this.updateMatchEndAgainLabel();
+
+    this._matchEndAutoPlayAgainEvent = this.time.addEvent({
+      delay: 1000,
+      repeat: MATCH_END_AUTO_PLAY_AGAIN_DELAY_S - 1,
+      callback: () => {
+        if (!this.matchEndOpen || this.leaving || this.playAgainPending) {
+          this.clearMatchEndAutoPlayAgain();
+          return;
+        }
+        this.matchEndAutoPlayAgainLeft -= 1;
+        this.updateMatchEndAgainLabel();
+        if (this.matchEndAutoPlayAgainLeft <= 0) {
+          this.clearMatchEndAutoPlayAgain();
+          this.playAgainFromMatchEnd();
+        }
+      },
+    });
+  }
+
   setMatchEndButtonsInteractive(enabled) {
     const again = this.matchEndAgainBg;
     const lobby = this.matchEndLobbyBg;
@@ -1031,6 +1086,7 @@ export class GameScene extends Phaser.Scene {
 
   hideMatchEndOverlay() {
     if (!this.matchEndOpen && !this.matchEndModal?.visible) return;
+    this.clearMatchEndAutoPlayAgain();
     this.resetPlayAgainPending();
     this.matchEndOpen = false;
     this.clearMatchEndKillScroll();
@@ -1039,6 +1095,7 @@ export class GameScene extends Phaser.Scene {
     for (const c of this.matchEndBtns) c?.destroy();
     this.matchEndBtns = [];
     this.matchEndAgainBg = null;
+    this.matchEndAgainLabel = null;
     this.matchEndLobbyBg = null;
     this.matchEndStatusText = null;
     this.matchEndModal?.removeAll(true);
@@ -1057,6 +1114,9 @@ export class GameScene extends Phaser.Scene {
         this.setMatchEndButtonsInteractive(true);
       }
       this.setMatchEndStatus(message, '#ff8a80');
+      if (!this.playAgainPending && !this.leaving) {
+        this.startMatchEndAutoPlayAgainCountdown();
+      }
       return;
     }
     if (pending) {
@@ -1542,6 +1602,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerup', () => this.goToLobbyFromMatchEnd());
 
     this.matchEndAgainBg = againBg;
+    this.matchEndAgainLabel = againLabel;
     this.matchEndLobbyBg = lobbyBg;
     this.matchEndBtns = [againContainer, lobbyContainer];
 
@@ -1561,6 +1622,7 @@ export class GameScene extends Phaser.Scene {
 
     this.matchEndModal.add(modalItems);
     this.bannerText.setAlpha(0);
+    this.startMatchEndAutoPlayAgainCountdown();
   }
 
   clearMatchEndKillScroll() {
@@ -1586,6 +1648,7 @@ export class GameScene extends Phaser.Scene {
 
   goToLobbyFromMatchEnd() {
     if (this.leaving || this.playAgainPending) return;
+    this.clearMatchEndAutoPlayAgain();
     this.leaving = true;
     this.resetPlayAgainPending();
     this.hideMatchEndOverlay();
@@ -1600,6 +1663,7 @@ export class GameScene extends Phaser.Scene {
 
   playAgainFromMatchEnd() {
     if (this.leaving || this.playAgainPending) return;
+    this.clearMatchEndAutoPlayAgain();
     this.playAgainPending = true;
     this.setMatchEndButtonsInteractive(false);
     this.setMatchEndStatus('Criando nova partida…', '#c4b5e0');
