@@ -6255,7 +6255,7 @@ export class GameScene extends Phaser.Scene {
         ? Math.max(1, (this.state.round || 0) + 1)
         : this.state.round || 1;
     this.modeText.setPosition(PAD_X + 4, y);
-    this.modeText.setText(pvpOn ? 'PVP' : 'PVE');
+    this.modeText.setText(`Lv ${me.level} ${pvpOn ? 'PVP' : 'PVE'}`);
     this.modeText.setColor(pvpOn ? '#ff6b6b' : '#6bffb0');
     this.roundHudText.setPosition(PAD_X + 4 + this.modeText.width + 8, y);
     this.roundHudText.setText(
