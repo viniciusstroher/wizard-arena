@@ -18,7 +18,22 @@ import {
 import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { ensureCharacter, saveCharacter } from '../character.js';
+import { levelFromPoints } from '../characterLevel.js';
 import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS, equipmentBonusesFromInventory } from '../inventory.js';
+
+const TOTAL_POINTS_KEY = 'wa_totalPoints';
+
+function loadTotalPoints() {
+  try {
+    const raw = localStorage.getItem(TOTAL_POINTS_KEY);
+    const n = Number(raw);
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  } catch { return 0; }
+}
+
+function saveTotalPoints(pts) {
+  localStorage.setItem(TOTAL_POINTS_KEY, String(Math.max(0, pts)));
+}
 
 /** Parede mágica circular na borda da arena (só visual). */
 const ARENA_BORDER_FX_ENABLED = true;
@@ -33,6 +48,7 @@ export class GameScene extends Phaser.Scene {
 
   init(data) {
     this.playerId = data.playerId;
+    this.charTotalPoints = loadTotalPoints();
     this.state = null;
     this.playerSprites = new Map();
     this.monsterSprites = new Map();
@@ -1277,6 +1293,10 @@ export class GameScene extends Phaser.Scene {
     this.closeDisconnectConfirm();
 
     this.collectMatchItems(state);
+
+    const meScore = ((state.players || []).find((p) => p.id === this.playerId) || {}).score || 0;
+    this.charTotalPoints += meScore;
+    saveTotalPoints(this.charTotalPoints);
 
     const { width, height } = this.scale;
     this.matchEndModal.removeAll(true);
@@ -6254,8 +6274,9 @@ export class GameScene extends Phaser.Scene {
       this.state.phase === 'countdown' && !bossRound
         ? Math.max(1, (this.state.round || 0) + 1)
         : this.state.round || 1;
+    const charLv = levelFromPoints(this.charTotalPoints).level;
     this.modeText.setPosition(PAD_X + 4, y);
-    this.modeText.setText(`Lv ${me.level} ${pvpOn ? 'PVP' : 'PVE'}`);
+    this.modeText.setText(`Lv ${charLv} ${pvpOn ? 'PVP' : 'PVE'}`);
     this.modeText.setColor(pvpOn ? '#ff6b6b' : '#6bffb0');
     this.roundHudText.setPosition(PAD_X + 4 + this.modeText.width + 8, y);
     this.roundHudText.setText(

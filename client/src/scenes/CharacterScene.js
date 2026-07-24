@@ -85,8 +85,8 @@ export class CharacterScene extends Phaser.Scene {
   create() {
     this.character = ensureCharacter();
     this.inventory = normalizeInventory(this.character.inventory);
-    this.totalPoints = 0;
-    this.characterLevel = 1;
+    this.totalPoints = (() => { try { const v = localStorage.getItem('wa_totalPoints'); return v ? Math.max(0, Number(v) || 0) : 0; } catch { return 0; } })();
+    this.characterLevel = levelFromPoints(this.totalPoints).level;
     this.selectedColor = this.character.color >>> 0;
     this.selectedSkin = normalizeSkinId(this.character.skin);
     this.errorText = null;
@@ -1223,6 +1223,7 @@ export class CharacterScene extends Phaser.Scene {
 
       if (totalPoints !== this.totalPoints) {
         this.totalPoints = totalPoints;
+        try { localStorage.setItem('wa_totalPoints', String(totalPoints)); } catch {}
         this.refreshLevelDisplay();
       }
 
