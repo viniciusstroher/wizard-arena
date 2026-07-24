@@ -3,11 +3,11 @@
 /**
  * Pontos cumulativos necessários para atingir determinado nível.
  * Nível 1 → 0 pts, Nível 2 → 50 pts, Nível 3 → 150 pts, etc.
- * Fórmula: pts = 25 × L × (L - 1)
+ * Fórmula: pts = 3 × L × (L - 1)
  */
 export function pointsForLevel(level) {
   if (level <= 1) return 0;
-  return 25 * level * (level - 1);
+  return 3 * level * (level - 1);
 }
 
 /**
