@@ -11,13 +11,11 @@ import {
   BAG_COLS,
   BAG_SIZE,
   EQUIP_SLOTS,
-  equipFromBag,
   getBagEquipHints,
   isEquippable,
   itemTooltipLines,
   normalizeInventory,
   removeFromBag,
-  removeEquipped,
   sortBag,
   swapFromBag,
   unequipToBag,
@@ -100,6 +98,7 @@ export class CharacterScene extends Phaser.Scene {
     this.equipHints = {};
     this.dragSource = null;
     this.dragGhost = null;
+    this.selectedBagIndex = null;
 
     drawMenuBackground(this, { subtitle: 'Personagem' });
     createAmbientCreatures(this);
@@ -118,16 +117,13 @@ export class CharacterScene extends Phaser.Scene {
       this.skinModal?.destroy();
       this.skinModal = null;
       this.destroyDeletePrompt();
+      this.destroyDeleteItemPrompt();
       this.nameInput?.destroy();
       this.nameInput = null;
       this.historyDom?.destroy();
       this.historyDom = null;
-      this.game.canvas.removeEventListener('contextmenu', this._preventContextMenu);
       destroyAmbientCreatures(this);
     });
-
-    this._preventContextMenu = (e) => e.preventDefault();
-    this.game.canvas.addEventListener('contextmenu', this._preventContextMenu);
   }
 
   trackInfo(...nodes) {
@@ -196,7 +192,10 @@ export class CharacterScene extends Phaser.Scene {
     this.nameInput?.setVisible(showInfo && !this.skinModal?.isOpen?.());
     this.historyDom?.setVisible(showInfo && !this.skinModal?.isOpen?.());
 
-    if (!showInv) this.hideItemTooltip();
+    if (!showInv) {
+      this.hideItemTooltip();
+      this.clearSelection();
+    }
     this.refreshTabStyles();
 
     if (showInv) {
@@ -444,7 +443,7 @@ export class CharacterScene extends Phaser.Scene {
     this.trackInv(this.invLootText);
 
     this.invHintText = this.add
-      .text(cx, 196, 'Clique p/ equipar · 2× p/ trocar · 2× equip p/ desequipar · Dir. p/ deletar', {
+      .text(cx, 196, 'Clique p/ selecionar · 2× equip p/ desequipar', {
         fontFamily: 'Trebuchet MS, sans-serif',
         fontSize: '12px',
         color: '#6b6088',
@@ -455,12 +454,6 @@ export class CharacterScene extends Phaser.Scene {
 
     this.equipClickKey = null;
     this.equipClickAt = 0;
-    this.bagClickIndex = null;
-    this.bagClickAt = 0;
-    this.deleteBagIndex = null;
-    this.deleteBagAt = 0;
-    this.deleteEquipKey = null;
-    this.deleteEquipAt = 0;
 
     const equipX = width * 0.24;
     const bagX = width * 0.64;
@@ -499,6 +492,13 @@ export class CharacterScene extends Phaser.Scene {
       this.time.delayedCall(1400, () => this.resetInvHint());
     }, 100).setDepth(depth);
     this.trackInv(sortBtn);
+
+    this.deleteBtn = makeMenuButton(this, bagX + 150, 260, 'Deletar', 0xc0392b, () => {
+      if (this.selectedBagIndex != null) {
+        this.confirmDeleteItem();
+      }
+    }, 100).setDepth(depth).setVisible(false);
+    this.trackInv(this.deleteBtn);
 
     const backBtn = makeMenuButton(this, cx, height - 36, 'Voltar', 0x443866, () => {
       navigate('/');
@@ -637,10 +637,6 @@ export class CharacterScene extends Phaser.Scene {
         .setDepth(depth);
 
       frame.on('pointerup', (pointer) => {
-        if (pointer.rightButtonDown()) {
-          this.onEquipSlotRightClick(slot.key);
-          return;
-        }
         this.onEquipSlotClick(slot.key);
       });
       frame.on('pointerover', (pointer) => {
@@ -732,7 +728,6 @@ export class CharacterScene extends Phaser.Scene {
       const slotIdx = i;
 
       frame.on('pointerdown', (pointer) => {
-        if (pointer.rightButtonDown()) return;
         const stack = this.inventory.bag[slotIdx];
         if (!stack || !stack.item) return;
         if (this.activeTab !== TAB_INVENTORY) return;
@@ -746,12 +741,6 @@ export class CharacterScene extends Phaser.Scene {
       });
 
       frame.on('pointerup', (pointer) => {
-        if (pointer.rightButtonDown()) {
-          this.cleanupDrag();
-          this.dragSource = null;
-          this.onBagSlotRightClick(slotIdx);
-          return;
-        }
         if (this.dragSource == null || this.activeTab !== TAB_INVENTORY) {
           // Click normal (sem drag)
           this.onBagSlotClick(slotIdx);
@@ -931,6 +920,10 @@ export class CharacterScene extends Phaser.Scene {
       if (view.levelText) view.levelText.setVisible(false);
       if (view.multishotText) view.multishotText.setVisible(false);
     }
+
+    if (index === this.selectedBagIndex) {
+      view.frame.setStrokeStyle(2, 0xffd76a, 1);
+    }
   }
 
   refreshAllBagSlots() {
@@ -955,34 +948,21 @@ export class CharacterScene extends Phaser.Scene {
     if (this.activeTab !== TAB_INVENTORY) return;
     const stack = this.inventory.bag[index];
     if (!stack || !stack.item) {
-      this.bagClickIndex = null;
+      this.clearSelection();
       return;
     }
+
+    if (this.selectedBagIndex !== index) {
+      this.selectBagSlot(index);
+      return;
+    }
+
     if (!isEquippable(stack.item)) {
-      this.bagClickIndex = null;
       this.invHintText?.setText('Este item não pode ser equipado.').setColor('#ff6b6b');
       this.time.delayedCall(1800, () => this.resetInvHint());
       return;
     }
 
-    const now = this.time.now;
-    const isDouble =
-      this.bagClickIndex === index && now - this.bagClickAt < 400;
-
-    this.bagClickIndex = index;
-    this.bagClickAt = now;
-
-    if (!isDouble) {
-      this.invHintText?.setText('Clique novamente para trocar').setColor('#c4b5e0');
-      this.time.delayedCall(400, () => {
-        if (this.bagClickIndex === index && this.time.now - this.bagClickAt >= 400) {
-          this._doBagSingleClick(index);
-        }
-      });
-      return;
-    }
-
-    this.bagClickIndex = null;
     const result = swapFromBag(this.inventory, index, this.characterLevel);
     if (!result.ok) {
       this.invHintText?.setText(result.error).setColor('#ff6b6b');
@@ -991,30 +971,35 @@ export class CharacterScene extends Phaser.Scene {
     }
     this.inventory = result.inventory;
     this.persistInventory();
+    this.clearSelection();
     this.refreshAllEquipSlots();
     this.refreshAllBagSlots();
     this.invHintText?.setText(result.swapped ? 'Item trocado' : 'Item equipado').setColor('#2ecc71');
     this.time.delayedCall(1400, () => this.resetInvHint());
   }
 
-  _doBagSingleClick(index) {
-    const result = equipFromBag(this.inventory, index, this.characterLevel);
-    if (!result.ok) {
-      this.invHintText?.setText(result.error).setColor('#ff6b6b');
-      this.time.delayedCall(1800, () => this.resetInvHint());
-      return;
-    }
-    this.inventory = result.inventory;
-    this.persistInventory();
-    this.refreshAllEquipSlots();
-    this.refreshAllBagSlots();
-    this.invHintText?.setText('Item equipado').setColor('#2ecc71');
-    this.time.delayedCall(1400, () => this.resetInvHint());
+  selectBagSlot(index) {
+    this.selectedBagIndex = index;
+    this.refreshBagSlot(index);
+    const stack = this.inventory.bag[index];
+    const qty = stack?.qty || 1;
+    this.deleteBtn?.setVisible(true);
+    this.invHintText
+      ?.setText(stack.item.name + ' (x' + qty + ') — clique novamente p/ equipar/trocar')
+      .setColor('#ffd76a');
+  }
+
+  clearSelection() {
+    const prev = this.selectedBagIndex;
+    this.selectedBagIndex = null;
+    if (prev != null) this.refreshBagSlot(prev);
+    this.deleteBtn?.setVisible(false);
+    this.resetInvHint();
   }
 
   resetInvHint() {
     this.invHintText
-      ?.setText('Clique p/ equipar · 2× p/ trocar · 2× equip p/ desequipar · Dir. p/ deletar')
+      ?.setText('Clique p/ selecionar · 2× equip p/ desequipar')
       .setColor('#6b6088');
   }
 
@@ -1054,87 +1039,6 @@ export class CharacterScene extends Phaser.Scene {
     this.refreshAllEquipSlots();
     this.refreshAllBagSlots();
     this.invHintText?.setText('Item desequipado').setColor('#2ecc71');
-    this.time.delayedCall(1400, () => this.resetInvHint());
-  }
-
-  onBagSlotRightClick(index) {
-    if (this.activeTab !== TAB_INVENTORY) return;
-    const stack = this.inventory.bag[index];
-    if (!stack || !stack.item) return;
-
-    const now = this.time.now;
-    const isConfirm =
-      this.deleteBagIndex === index && now - this.deleteBagAt < 600;
-
-    this.deleteBagIndex = index;
-    this.deleteBagAt = now;
-    this.deleteEquipKey = null;
-
-    if (!isConfirm) {
-      const itemName = stack.item.name;
-      this.invHintText
-        ?.setText(`Dir. novamente para DELETAR: ${itemName}`)
-        .setColor('#ff6b6b');
-      this.time.delayedCall(600, () => {
-        if (this.deleteBagIndex === index && this.time.now - this.deleteBagAt >= 600) {
-          this.resetInvHint();
-        }
-      });
-      return;
-    }
-
-    this.deleteBagIndex = null;
-    const result = removeFromBag(this.inventory, index);
-    if (!result.ok) {
-      this.invHintText?.setText(result.error).setColor('#ff6b6b');
-      this.time.delayedCall(1800, () => this.resetInvHint());
-      return;
-    }
-    this.inventory = result.inventory;
-    this.persistInventory();
-    this.refreshAllEquipSlots();
-    this.refreshAllBagSlots();
-    this.invHintText?.setText('Item deletado').setColor('#2ecc71');
-    this.time.delayedCall(1400, () => this.resetInvHint());
-  }
-
-  onEquipSlotRightClick(key) {
-    if (this.activeTab !== TAB_INVENTORY) return;
-    const item = this.inventory.equipment[key];
-    if (!item) return;
-
-    const now = this.time.now;
-    const isConfirm =
-      this.deleteEquipKey === key && now - this.deleteEquipAt < 600;
-
-    this.deleteEquipKey = key;
-    this.deleteEquipAt = now;
-    this.deleteBagIndex = null;
-
-    if (!isConfirm) {
-      this.invHintText
-        ?.setText(`Dir. novamente para DELETAR: ${item.name}`)
-        .setColor('#ff6b6b');
-      this.time.delayedCall(600, () => {
-        if (this.deleteEquipKey === key && this.time.now - this.deleteEquipAt >= 600) {
-          this.resetInvHint();
-        }
-      });
-      return;
-    }
-
-    this.deleteEquipKey = null;
-    const result = removeEquipped(this.inventory, key);
-    if (!result.ok) {
-      this.invHintText?.setText(result.error).setColor('#ff6b6b');
-      this.time.delayedCall(1800, () => this.resetInvHint());
-      return;
-    }
-    this.inventory = result.inventory;
-    this.persistInventory();
-    this.refreshAllEquipSlots();
-    this.refreshAllBagSlots();
-    this.invHintText?.setText('Item deletado').setColor('#2ecc71');
     this.time.delayedCall(1400, () => this.resetInvHint());
   }
 
@@ -1545,6 +1449,118 @@ export class CharacterScene extends Phaser.Scene {
     this.inventory = normalizeInventory(result.character.inventory);
     this.errorText.setText('');
     navigate('/');
+  }
+
+  confirmDeleteItem() {
+    const idx = this.selectedBagIndex;
+    if (idx == null) return;
+    const stack = this.inventory.bag[idx];
+    if (!stack || !stack.item) return;
+
+    this.destroyDeleteItemPrompt();
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = [
+      'position: relative',
+      'width: 360px',
+      'padding: 22px 20px',
+      'background: #161228',
+      'border: 2px solid #c0392b',
+      'border-radius: 12px',
+      'font-family: Trebuchet MS, sans-serif',
+      'color: #f0e8ff',
+      'text-align: center',
+      'box-shadow: 0 12px 40px rgba(0,0,0,0.55)',
+    ].join(';');
+
+    const title = document.createElement('div');
+    title.textContent = 'Deletar item?';
+    title.style.cssText = 'font-family: Georgia, serif; font-size: 20px; margin-bottom: 10px;';
+
+    const qty = stack.qty || 1;
+    const hint = document.createElement('div');
+    hint.textContent = stack.item.name + ' (x' + qty + ') — Esta ação é permanente.';
+    hint.style.cssText =
+      'font-size: 13px; color: #9a8bb8; margin-bottom: 18px; line-height: 1.4;';
+
+    const qtyLabel = document.createElement('div');
+    qtyLabel.textContent = 'Quantidade para deletar:';
+    qtyLabel.style.cssText = 'font-size: 12px; color: #9a8bb8; margin-bottom: 6px;';
+
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.min = '1';
+    qtyInput.max = String(qty);
+    qtyInput.value = String(qty);
+    qtyInput.style.cssText =
+      'width: 80px; padding: 8px; border: 1px solid #4a3d78; border-radius: 6px; background: #0e0a1a; color: #fff; font-family: Trebuchet MS, sans-serif; font-size: 14px; text-align: center; outline: none; margin-bottom: 18px;';
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display: flex; gap: 10px; justify-content: center;';
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancelar';
+    cancel.style.cssText =
+      'padding: 10px 16px; border: none; border-radius: 6px; background: #443866; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
+    cancel.addEventListener('click', () => this.destroyDeleteItemPrompt());
+
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.textContent = 'Deletar';
+    ok.style.cssText =
+      'padding: 10px 16px; border: none; border-radius: 6px; background: #c0392b; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
+    ok.addEventListener('click', () => {
+      const n = Math.max(1, Math.min(qty, Number(qtyInput.value) || 1));
+      const result = removeFromBag(this.inventory, idx, n);
+      this.destroyDeleteItemPrompt();
+      if (!result.ok) {
+        this.invHintText?.setText(result.error).setColor('#ff6b6b');
+        this.time.delayedCall(2200, () => this.resetInvHint());
+        return;
+      }
+      this.inventory = result.inventory;
+      this.persistInventory();
+      this.clearSelection();
+      this.refreshAllEquipSlots();
+      this.refreshAllBagSlots();
+      this.invHintText?.setText(n + ' item(ns) deletado(s)').setColor('#2ecc71');
+      this.time.delayedCall(1800, () => this.resetInvHint());
+    });
+
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    wrap.appendChild(title);
+    wrap.appendChild(hint);
+    wrap.appendChild(qtyLabel);
+    wrap.appendChild(qtyInput);
+    wrap.appendChild(actions);
+
+    const dim = document.createElement('div');
+    dim.style.cssText = [
+      'position: fixed',
+      'inset: 0',
+      'background: rgba(0,0,0,0.55)',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'z-index: 9999',
+    ].join(';');
+    dim.appendChild(wrap);
+    dim.addEventListener('click', (e) => {
+      if (e.target === dim) this.destroyDeleteItemPrompt();
+    });
+    document.body.appendChild(dim);
+    this.deleteItemPrompt = dim;
+    qtyInput.focus();
+    qtyInput.select();
+  }
+
+  destroyDeleteItemPrompt() {
+    if (this.deleteItemPrompt) {
+      this.deleteItemPrompt.remove();
+      this.deleteItemPrompt = null;
+    }
   }
 
   update(_time, delta) {

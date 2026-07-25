@@ -763,11 +763,18 @@ export function sortBag(inventory) {
   return inv;
 }
 
-/** Remove o stack inteiro do slot do saco. */
-export function removeFromBag(inventory, bagIndex) {
+/** Remove itens do slot do saco. Se qty for omitido ou >= qty do stack, remove o stack inteiro. */
+export function removeFromBag(inventory, bagIndex, qty) {
   const inv = normalizeInventory(inventory);
-  if (!inv.bag[bagIndex]) return { ok: false, error: 'Slot vazio.', inventory: inv };
-  inv.bag[bagIndex] = null;
+  const stack = inv.bag[bagIndex];
+  if (!stack) return { ok: false, error: 'Slot vazio.', inventory: inv };
+  const stackQty = stack.qty || 1;
+  const n = qty != null ? Math.max(1, Math.min(stackQty, Math.floor(qty))) : stackQty;
+  if (n >= stackQty) {
+    inv.bag[bagIndex] = null;
+  } else {
+    inv.bag[bagIndex] = { ...stack, qty: stackQty - n };
+  }
   return { ok: true, inventory: inv };
 }
 
