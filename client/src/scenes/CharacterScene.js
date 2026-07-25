@@ -732,6 +732,7 @@ export class CharacterScene extends Phaser.Scene {
       const slotIdx = i;
 
       frame.on('pointerdown', (pointer) => {
+        if (pointer.rightButtonDown()) return;
         const stack = this.inventory.bag[slotIdx];
         if (!stack || !stack.item) return;
         if (this.activeTab !== TAB_INVENTORY) return;
@@ -746,6 +747,8 @@ export class CharacterScene extends Phaser.Scene {
 
       frame.on('pointerup', (pointer) => {
         if (pointer.rightButtonDown()) {
+          this.cleanupDrag();
+          this.dragSource = null;
           this.onBagSlotRightClick(slotIdx);
           return;
         }
