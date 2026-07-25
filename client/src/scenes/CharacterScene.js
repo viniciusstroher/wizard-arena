@@ -112,6 +112,12 @@ export class CharacterScene extends Phaser.Scene {
     this.buildInventoryTab(uiDepth);
     this.setTab(TAB_INFO);
 
+    this.input.keyboard.on('keydown-ESC', () => {
+      if (this.activeTab === TAB_INVENTORY && this.selectedBagIndex != null) {
+        this.clearSelection();
+      }
+    });
+
     this.events.once('shutdown', () => {
       this.hideItemTooltip();
       this.skinModal?.destroy();
@@ -483,21 +489,32 @@ export class CharacterScene extends Phaser.Scene {
     this.buildBagGrid(bagX, 248, depth);
     this.buildItemTooltip(depth + 50);
 
-    const sortBtn = makeMenuButton(this, bagX + 150, 224, 'Organizar', 0x6b5cff, () => {
-      this.inventory = sortBag(this.inventory);
-      this.persistInventory();
-      this.refreshAllEquipSlots();
-      this.refreshAllBagSlots();
-      this.invHintText?.setText('Inventário organizado').setColor('#2ecc71');
-      this.time.delayedCall(1400, () => this.resetInvHint());
-    }, 100).setDepth(depth);
-    this.trackInv(sortBtn);
+    const iconBtnSize = 32;
+    const iconBtnGap = 6;
+    const iconBtnY = 224;
 
-    this.deleteBtn = makeMenuButton(this, bagX + 150, 260, 'Deletar', 0xc0392b, () => {
-      if (this.selectedBagIndex != null) {
-        this.confirmDeleteItem();
-      }
-    }, 100).setDepth(depth).setVisible(false);
+    this.sortBtn = this._makeIconButton(
+      bagX + 138, iconBtnY,
+      '⏫', 0x6b5cff, 0x2ecc71, () => {
+        this.inventory = sortBag(this.inventory);
+        this.persistInventory();
+        this.refreshAllEquipSlots();
+        this.refreshAllBagSlots();
+        this.invHintText?.setText('Inventário organizado').setColor('#2ecc71');
+        this.time.delayedCall(1400, () => this.resetInvHint());
+      }, iconBtnSize, depth,
+    );
+    this.trackInv(this.sortBtn);
+
+    this.deleteBtn = this._makeIconButton(
+      bagX + 138 + iconBtnSize + iconBtnGap, iconBtnY,
+      '✕', 0xc0392b, 0xff6b6b, () => {
+        if (this.selectedBagIndex != null) {
+          this.confirmDeleteItem();
+        }
+      }, iconBtnSize, depth,
+    );
+    this.deleteBtn.setVisible(false);
     this.trackInv(this.deleteBtn);
 
     const backBtn = makeMenuButton(this, cx, height - 36, 'Voltar', 0x443866, () => {
@@ -1561,6 +1578,34 @@ export class CharacterScene extends Phaser.Scene {
       this.deleteItemPrompt.remove();
       this.deleteItemPrompt = null;
     }
+  }
+
+  _makeIconButton(x, y, iconChar, color, hoverColor, onClick, size, depth) {
+    const container = this.add.container(x, y).setDepth(depth);
+    const bg = this.add.rectangle(0, 0, size, size, color, 1)
+      .setStrokeStyle(1, 0xffffff, 0.15)
+      .setInteractive({ useHandCursor: true });
+    const icon = this.add.text(0, 0, iconChar, {
+      fontFamily: 'Trebuchet MS, sans-serif',
+      fontSize: '18px',
+      color: '#ffffff',
+    }).setOrigin(0.5);
+    container.add([bg, icon]);
+
+    bg.on('pointerover', () => {
+      if (container.enabled !== false) bg.setFillStyle(hoverColor, 1);
+    });
+    bg.on('pointerout', () => {
+      if (container.enabled !== false) bg.setFillStyle(color, 1);
+    });
+    bg.on('pointerup', () => {
+      if (container.enabled !== false) onClick();
+    });
+
+    container.bg = bg;
+    container.icon = icon;
+    container.enabled = true;
+    return container;
   }
 
   update(_time, delta) {
