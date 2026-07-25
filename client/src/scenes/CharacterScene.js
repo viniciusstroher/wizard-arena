@@ -11,6 +11,7 @@ import {
   BAG_COLS,
   BAG_SIZE,
   EQUIP_SLOTS,
+  defaultInventory,
   getBagEquipHints,
   isEquippable,
   itemTooltipLines,
@@ -124,6 +125,7 @@ export class CharacterScene extends Phaser.Scene {
       this.skinModal = null;
       this.destroyDeletePrompt();
       this.destroyDeleteItemPrompt();
+      this.destroyDeleteAllPrompt();
       this.nameInput?.destroy();
       this.nameInput = null;
       this.historyDom?.destroy();
@@ -516,6 +518,14 @@ export class CharacterScene extends Phaser.Scene {
     );
     this.deleteBtn.setVisible(false);
     this.trackInv(this.deleteBtn);
+
+    this.trashBtn = this._makeIconButton(
+      bagX + 138 + (iconBtnSize + iconBtnGap) * 2, iconBtnY,
+      '🗑', 0x443866, 0xc0392b, () => {
+        this.confirmDeleteAllInventory();
+      }, iconBtnSize, depth,
+    );
+    this.trackInv(this.trashBtn);
 
     const backBtn = makeMenuButton(this, cx, height - 36, 'Voltar', 0x443866, () => {
       navigate('/');
@@ -1577,6 +1587,99 @@ export class CharacterScene extends Phaser.Scene {
     if (this.deleteItemPrompt) {
       this.deleteItemPrompt.remove();
       this.deleteItemPrompt = null;
+    }
+  }
+
+  confirmDeleteAllInventory() {
+    const itemCount = this.inventory.bag.filter((s) => s && s.item).length;
+    const equipCount = Object.values(this.inventory.equipment).filter(Boolean).length;
+    const total = itemCount + equipCount;
+
+    this.destroyDeleteAllPrompt();
+
+    const wrap = document.createElement('div');
+    wrap.style.cssText = [
+      'position: relative',
+      'width: 360px',
+      'padding: 22px 20px',
+      'background: #161228',
+      'border: 2px solid #c0392b',
+      'border-radius: 12px',
+      'font-family: Trebuchet MS, sans-serif',
+      'color: #f0e8ff',
+      'text-align: center',
+      'box-shadow: 0 12px 40px rgba(0,0,0,0.55)',
+    ].join(';');
+
+    const title = document.createElement('div');
+    title.textContent = 'Deletar todo inventário?';
+    title.style.cssText = 'font-family: Georgia, serif; font-size: 20px; margin-bottom: 10px;';
+
+    const hint = document.createElement('div');
+    hint.textContent = total + ' item(ns) (mochila + equipamentos) serão removidos.';
+    hint.style.cssText =
+      'font-size: 13px; color: #9a8bb8; margin-bottom: 6px; line-height: 1.4;';
+
+    const goldLootInfo = document.createElement('div');
+    goldLootInfo.textContent = 'Gold: ' + this.inventory.gold + ' · Loot: ' + this.inventory.loot + ' — também zerados.';
+    goldLootInfo.style.cssText =
+      'font-size: 12px; color: #ff6b6b; margin-bottom: 18px;';
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display: flex; gap: 10px; justify-content: center;';
+
+    const cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Cancelar';
+    cancel.style.cssText =
+      'padding: 10px 16px; border: none; border-radius: 6px; background: #443866; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
+    cancel.addEventListener('click', () => this.destroyDeleteAllPrompt());
+
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.textContent = 'Deletar Tudo';
+    ok.style.cssText =
+      'padding: 10px 16px; border: none; border-radius: 6px; background: #c0392b; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
+    ok.addEventListener('click', () => {
+      this.destroyDeleteAllPrompt();
+      this.inventory = defaultInventory();
+      this.persistInventory();
+      this.clearSelection();
+      this.refreshAllEquipSlots();
+      this.refreshAllBagSlots();
+      this.invHintText?.setText('Inventário resetado').setColor('#2ecc71');
+      this.time.delayedCall(1800, () => this.resetInvHint());
+    });
+
+    actions.appendChild(cancel);
+    actions.appendChild(ok);
+    wrap.appendChild(title);
+    wrap.appendChild(hint);
+    wrap.appendChild(goldLootInfo);
+    wrap.appendChild(actions);
+
+    const dim = document.createElement('div');
+    dim.style.cssText = [
+      'position: fixed',
+      'inset: 0',
+      'background: rgba(0,0,0,0.55)',
+      'display: flex',
+      'align-items: center',
+      'justify-content: center',
+      'z-index: 9999',
+    ].join(';');
+    dim.appendChild(wrap);
+    dim.addEventListener('click', (e) => {
+      if (e.target === dim) this.destroyDeleteAllPrompt();
+    });
+    document.body.appendChild(dim);
+    this.deleteAllPrompt = dim;
+  }
+
+  destroyDeleteAllPrompt() {
+    if (this.deleteAllPrompt) {
+      this.deleteAllPrompt.remove();
+      this.deleteAllPrompt = null;
     }
   }
 
