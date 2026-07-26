@@ -24,13 +24,24 @@ export const EQUIP_SLOTS = [
 export const SET_LABELS = {
   conjunto_de_pano: 'Conjunto de Pano',
   conjunto_de_couro: 'Conjunto de Couro',
+  conjunto_de_osso: 'Conjunto de Osso',
   conjunto_de_bronze: 'Conjunto de Bronze',
+  conjunto_de_latao: 'Conjunto de Latão',
   conjunto_de_ferro: 'Conjunto de Ferro',
+  conjunto_de_aco: 'Conjunto de Aço',
   conjunto_de_prata: 'Conjunto de Prata',
+  conjunto_de_onix: 'Conjunto de Ônix',
   conjunto_de_ouro: 'Conjunto de Ouro',
+  conjunto_de_jade: 'Conjunto de Jade',
+  conjunto_de_esmeralda: 'Conjunto de Esmeralda',
+  conjunto_de_rubi: 'Conjunto de Rubi',
   conjunto_de_cristal: 'Conjunto de Cristal',
   conjunto_de_safira: 'Conjunto de Safira',
   conjunto_de_mitril: 'Conjunto de Mitril',
+  conjunto_de_adamante: 'Conjunto de Adamante',
+  conjunto_de_obsidiana: 'Conjunto de Obsidiana',
+  conjunto_de_platina: 'Conjunto de Platina',
+  conjunto_de_eter: 'Conjunto de Éter',
   conjunto_divino: 'Conjunto Divino',
 };
 
@@ -58,7 +69,7 @@ export const BONUS_LABELS = {
 };
 
 /**
- * Itens base + 360 equipamentos gerados (60 por slot).
+ * Itens base + 1008 equipamentos gerados (126 por slot).
  *
  * Categorias:
  *   equipment — equipável (slot indica onde)

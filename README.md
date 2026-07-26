@@ -91,18 +91,29 @@ Cada slot possui um conjunto fixo de modificadores possíveis:
 
 ### Tiers
 
-São 10 tiers de raridade, com nível mínimo para equipar:
+São 21 tiers de raridade, com nível mínimo para equipar. Um tier novo é liberado a cada 3 níveis, do 1 ao 60:
 
 | Tier | Nível | Material | Cor |
 |------|-------|----------|-----|
 | 1 | 1 | Pano | Bege |
-| 2 | 5 | Couro | Marrom |
-| 3 | 10 | Bronze | Cobre |
-| 4 | 15 | Ferro | Cinza |
-| 5 | 20 | Prata | Prateado |
-| 6 | 30 | Ouro | Dourado |
-| 7 | 40 | Cristal | Verde |
-| 8 | 50 | Safira | Azul |
-| 9 | 65 | Mitril | Ciano |
-| 10 | 80 | Divino | Amarelo |
+| 2 | 3 | Couro | Marrom |
+| 3 | 6 | Osso | Marfim |
+| 4 | 9 | Bronze | Cobre |
+| 5 | 12 | Latão | Dourado escuro |
+| 6 | 15 | Ferro | Cinza |
+| 7 | 18 | Aço | Azulado |
+| 8 | 21 | Prata | Prateado |
+| 9 | 24 | Ônix | Preto |
+| 10 | 27 | Ouro | Dourado |
+| 11 | 30 | Jade | Verde |
+| 12 | 33 | Esmeralda | Verde vivo |
+| 13 | 36 | Rubi | Vermelho |
+| 14 | 39 | Cristal | Verde-água |
+| 15 | 42 | Safira | Azul |
+| 16 | 45 | Mitril | Ciano |
+| 17 | 48 | Adamante | Roxo-azulado |
+| 18 | 51 | Obsidiana | Preto-arroxeado |
+| 19 | 54 | Platina | Branco prateado |
+| 20 | 57 | Éter | Azul claro |
+| 21 | 60 | Divino | Amarelo |
 - XP: matar monstro / matar jogador (maior) / sobreviver ao round (menor que kill de jogador).

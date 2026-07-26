@@ -1,7 +1,8 @@
 /**
- * Catálogo de equipamentos — 60 itens por slot (360 total).
+ * Catálogo de equipamentos — 126 itens por slot (1008 total).
  * Baseado nos itens originais: Chapéu de Pano, Capa de Pano, Anel de Plástico...
  * Cada tier tem 1 item de conjunto + 5 variações temáticas (D&D, Tibia, WoW).
+ * 21 tiers cobrindo os níveis 1 a 60, liberando novos itens a cada 3 níveis.
  *
  * Estrutura: { id, name, slot, color, level, set?, bonus? }
  *   bonus — { damageBonus, healBonus, shieldBonus, speedBonus,
@@ -11,7 +12,7 @@
 
 const SLOTS = ['hat', 'cape', 'ring', 'tunic', 'necklace', 'boots', 'cajado', 'grimorio'];
 
-// 10 tiers — cores realistas baseadas nos materiais
+// 21 tiers — cores realistas baseadas nos materiais
 
 const FEMININE_WORDS = new Set([
   'Diadema', 'Tiara', 'Coifa', 'Mitra', 'Loriga', 'Murça', 'Clâmide', 'Sobrecapa',
@@ -32,22 +33,34 @@ function isFeminine(name) {
   return false;
 }
 
+// 21 tiers — nível 1, depois a cada 3 níveis até 60. Libera itens novos a cada 3 níveis.
 const TIERS = [
-  { key: 't1',  lv: 1,  mat: 'Pano',     set: 'conjunto_de_pano',    title: 'do Aprendiz',      c: 0xc4b59a, adj: false },
-  { key: 't2',  lv: 5,  mat: 'Couro',    set: 'conjunto_de_couro',   title: 'do Viajante',      c: 0x9b7a4b, adj: false },
-  { key: 't3',  lv: 10, mat: 'Bronze',   set: 'conjunto_de_bronze',  title: 'do Guardião',      c: 0xcd7f32, adj: false },
-  { key: 't4',  lv: 15, mat: 'Ferro',    set: 'conjunto_de_ferro',   title: 'do Baluarte',      c: 0x7c6e62, adj: false },
-  { key: 't5',  lv: 20, mat: 'Prata',    set: 'conjunto_de_prata',   title: 'do Sábio',         c: 0xb0b8c4, adj: false },
-  { key: 't6',  lv: 30, mat: 'Ouro',     set: 'conjunto_de_ouro',    title: 'do Arquimago',     c: 0xd8b038, adj: false },
-  { key: 't7',  lv: 40, mat: 'Cristal',  set: 'conjunto_de_cristal', title: 'do Vidente',       c: 0x80e0b0, adj: false },
-  { key: 't8',  lv: 50, mat: 'Safira',   set: 'conjunto_de_safira',  title: 'do Ilusionista',   c: 0x2058d0, adj: false },
-  { key: 't9',  lv: 65, mat: 'Mitril',   set: 'conjunto_de_mitril',  title: 'do Arconte',       c: 0x48a8c0, adj: false },
-  { key: 't10', lv: 80, mat: 'Divino',   set: 'conjunto_divino',     title: 'do Transcendente', c: 0xefc820, adj: true  },
+  { key: 't1',  lv: 1,  mat: 'Pano',       set: 'conjunto_de_pano',       title: 'do Aprendiz',     c: 0xc4b59a, adj: false },
+  { key: 't2',  lv: 3,  mat: 'Couro',      set: 'conjunto_de_couro',      title: 'do Iniciado',     c: 0x9b7a4b, adj: false },
+  { key: 't3',  lv: 6,  mat: 'Osso',       set: 'conjunto_de_osso',       title: 'do Escudeiro',    c: 0xe8e0c8, adj: false },
+  { key: 't4',  lv: 9,  mat: 'Bronze',     set: 'conjunto_de_bronze',     title: 'do Viajante',     c: 0xcd7f32, adj: false },
+  { key: 't5',  lv: 12, mat: 'Latão',      set: 'conjunto_de_latao',      title: 'do Andarilho',    c: 0xb5a642, adj: false },
+  { key: 't6',  lv: 15, mat: 'Ferro',      set: 'conjunto_de_ferro',      title: 'do Guardião',     c: 0x7c6e62, adj: false },
+  { key: 't7',  lv: 18, mat: 'Aço',        set: 'conjunto_de_aco',        title: 'do Sentinela',    c: 0x9fa8b0, adj: false },
+  { key: 't8',  lv: 21, mat: 'Prata',      set: 'conjunto_de_prata',      title: 'do Baluarte',     c: 0xb0b8c4, adj: false },
+  { key: 't9',  lv: 24, mat: 'Ônix',       set: 'conjunto_de_onix',       title: 'do Defensor',     c: 0x2b2b2e, adj: false },
+  { key: 't10', lv: 27, mat: 'Ouro',       set: 'conjunto_de_ouro',       title: 'do Sábio',        c: 0xd8b038, adj: false },
+  { key: 't11', lv: 30, mat: 'Jade',       set: 'conjunto_de_jade',       title: 'do Erudito',      c: 0x4ba876, adj: false },
+  { key: 't12', lv: 33, mat: 'Esmeralda',  set: 'conjunto_de_esmeralda',  title: 'do Arquimago',    c: 0x189d5a, adj: false },
+  { key: 't13', lv: 36, mat: 'Rubi',       set: 'conjunto_de_rubi',       title: 'do Feiticeiro',   c: 0xc0392b, adj: false },
+  { key: 't14', lv: 39, mat: 'Cristal',    set: 'conjunto_de_cristal',    title: 'do Vidente',      c: 0x80e0b0, adj: false },
+  { key: 't15', lv: 42, mat: 'Safira',     set: 'conjunto_de_safira',     title: 'do Oráculo',      c: 0x2058d0, adj: false },
+  { key: 't16', lv: 45, mat: 'Mitril',     set: 'conjunto_de_mitril',     title: 'do Ilusionista',  c: 0x48a8c0, adj: false },
+  { key: 't17', lv: 48, mat: 'Adamante',   set: 'conjunto_de_adamante',   title: 'do Encantador',   c: 0x6a5acd, adj: false },
+  { key: 't18', lv: 51, mat: 'Obsidiana',  set: 'conjunto_de_obsidiana',  title: 'do Arconte',      c: 0x1c1c24, adj: false },
+  { key: 't19', lv: 54, mat: 'Platina',    set: 'conjunto_de_platina',    title: 'do Ascendente',   c: 0xd8d8e0, adj: false },
+  { key: 't20', lv: 57, mat: 'Éter',       set: 'conjunto_de_eter',       title: 'do Exaltado',     c: 0x8fd9ff, adj: false },
+  { key: 't21', lv: 60, mat: 'Divino',     set: 'conjunto_divino',        title: 'do Transcendente',c: 0xefc820, adj: true  },
 ];
 
 /**
  * Nomes base por slot: 3 grupos de prestígio (simples / médio / nobre).
- * O tier define qual grupo usar: T1-3 = simples, T4-6 = médio, T7-10 = nobre.
+ * O tier define qual grupo usar: T1-5 = simples, T6-12 = médio, T13-21 = nobre.
  */
 const BASE_NAMES = {
   hat: {
@@ -93,8 +106,8 @@ const BASE_NAMES = {
 };
 
 function prestigeGroup(tierIdx) {
-  if (tierIdx < 3) return 0;      // simples
-  if (tierIdx < 6) return 1;      // médio
+  if (tierIdx < 6) return 0;      // simples
+  if (tierIdx < 13) return 1;     // médio
   return 2;                        // nobre
 }
 
@@ -139,10 +152,12 @@ function fhash(h) {
   return (h >>> 0) % 1000 / 1000;
 }
 
-/** Valor de bônus: base +- 30% determinístico */
+/** Valor de bônus: base +- 30% determinístico. Escala x10 (itens bem mais fortes). */
+const BONUS_SCALE = 10;
+
 function bval(seed, base) {
   const r = fhash(seed);
-  return +((base + (r - 0.5) * base * 0.6)).toFixed(3);
+  return +((base + (r - 0.5) * base * 0.6) * BONUS_SCALE).toFixed(3);
 }
 
 /** Pools temáticos por slot */
@@ -184,7 +199,7 @@ function getSuffix(themeIdx, long) {
   return long ? t.sufixLong : t.sufix;
 }
 
-/** Gera todos os 360 itens */
+/** Gera todos os 1008 itens */
 export function buildGeneratedItems() {
   const items = [];
 
@@ -196,7 +211,7 @@ export function buildGeneratedItems() {
 
     for (const slot of SLOTS) {
       const slotDef = BASE_NAMES[slot];
-      const setName = ti < 5 ? slotDef.set[pg] : slotDef.setMid[pg];
+      const setName = ti < 10 ? slotDef.set[pg] : slotDef.setMid[pg];
       const altNames = slotDef.alt;
 
       for (let i = 0; i < 6; i++) {
