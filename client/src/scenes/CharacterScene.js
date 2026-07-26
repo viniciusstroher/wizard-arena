@@ -504,7 +504,7 @@ export class CharacterScene extends Phaser.Scene {
         this.refreshAllBagSlots();
         this.invHintText?.setText('Inventário organizado').setColor('#2ecc71');
         this.time.delayedCall(1400, () => this.resetInvHint());
-      }, iconBtnSize, depth,
+      }, iconBtnSize, depth, 'Ordenar itens',
     );
     this.trackInv(this.sortBtn);
 
@@ -514,7 +514,7 @@ export class CharacterScene extends Phaser.Scene {
         if (this.selectedBagIndex != null) {
           this.confirmDeleteItem();
         }
-      }, iconBtnSize, depth,
+      }, iconBtnSize, depth, 'Excluir item selecionado',
     );
     this.deleteBtn.setVisible(false);
     this.trackInv(this.deleteBtn);
@@ -523,7 +523,7 @@ export class CharacterScene extends Phaser.Scene {
       bagX + 138 + (iconBtnSize + iconBtnGap) * 2, iconBtnY,
       '🗑', 0x443866, 0xc0392b, () => {
         this.confirmDeleteAllInventory();
-      }, iconBtnSize, depth,
+      }, iconBtnSize, depth, 'Excluir todos os itens',
     );
     this.trackInv(this.trashBtn);
 
@@ -580,6 +580,30 @@ export class CharacterScene extends Phaser.Scene {
     const h = text.height + padY * 2 + (showWarn ? warnText.height + 4 : 0);
     bg.setSize(w, h).setVisible(true);
 
+    const { tx, ty } = this._positionTooltip(bg, w, h, x, y);
+    text.setPosition(tx + padX, ty + padY);
+    if (showWarn) {
+      warnText.setPosition(tx + padX, ty + padY + text.height + 4);
+    }
+  }
+
+  showTextTooltip(str, x, y) {
+    if (!this.itemTooltip || !str) return;
+    const { bg, text, warnText } = this.itemTooltip;
+    text.setText(str).setVisible(true);
+    warnText.setVisible(false);
+
+    const padX = 12;
+    const padY = 10;
+    const w = Math.max(60, text.width + padX * 2);
+    const h = text.height + padY * 2;
+    bg.setSize(w, h).setVisible(true);
+
+    const { tx, ty } = this._positionTooltip(bg, w, h, x, y);
+    text.setPosition(tx + padX, ty + padY);
+  }
+
+  _positionTooltip(bg, w, h, x, y) {
     const { width, height } = this.scale;
     let tx = x + 16;
     let ty = y + 16;
@@ -587,12 +611,8 @@ export class CharacterScene extends Phaser.Scene {
     if (ty + h > height - 8) ty = y - h - 12;
     tx = Math.max(8, tx);
     ty = Math.max(8, ty);
-
     bg.setPosition(tx, ty);
-    text.setPosition(tx + padX, ty + padY);
-    if (showWarn) {
-      warnText.setPosition(tx + padX, ty + padY + text.height + 4);
-    }
+    return { tx, ty };
   }
 
   hideItemTooltip() {
@@ -1683,7 +1703,7 @@ export class CharacterScene extends Phaser.Scene {
     }
   }
 
-  _makeIconButton(x, y, iconChar, color, hoverColor, onClick, size, depth) {
+  _makeIconButton(x, y, iconChar, color, hoverColor, onClick, size, depth, tooltipText) {
     const container = this.add.container(x, y).setDepth(depth);
     const bg = this.add.rectangle(0, 0, size, size, color, 1)
       .setStrokeStyle(1, 0xffffff, 0.15)
@@ -1704,6 +1724,12 @@ export class CharacterScene extends Phaser.Scene {
     bg.on('pointerup', () => {
       if (container.enabled !== false) onClick();
     });
+
+    if (tooltipText) {
+      bg.on('pointerover', (pointer) => this.showTextTooltip(tooltipText, pointer.worldX, pointer.worldY));
+      bg.on('pointermove', (pointer) => this.showTextTooltip(tooltipText, pointer.worldX, pointer.worldY));
+      bg.on('pointerout', () => this.hideItemTooltip());
+    }
 
     container.bg = bg;
     container.icon = icon;
