@@ -859,6 +859,7 @@ export class Match {
         burnResist: Math.min(0.80, Math.max(0, Number(bonuses.burnResist) || 0)),
         maxHpBonus: Math.min(0.60, Math.max(0, Number(bonuses.maxHpBonus) || 0)),
         xpBonus: Math.min(0.50, Math.max(0, Number(bonuses.xpBonus) || 0)),
+        multishot: Math.min(5, Math.max(0, Math.floor(Number(bonuses.multishot) || 0))),
       },
       cooldownReduction: Math.min(0.95, Math.max(0, Number(bonuses.cooldownReduction) || 0)),
     };
