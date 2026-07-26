@@ -11,7 +11,7 @@ import {
   BAG_COLS,
   BAG_SIZE,
   EQUIP_SLOTS,
-  defaultInventory,
+  emptyInventory,
   getBagEquipHints,
   isEquippable,
   itemTooltipLines,
@@ -1662,7 +1662,7 @@ export class CharacterScene extends Phaser.Scene {
       'padding: 10px 16px; border: none; border-radius: 6px; background: #c0392b; color: #fff; cursor: pointer; font-family: Trebuchet MS, sans-serif;';
     ok.addEventListener('click', () => {
       this.destroyDeleteAllPrompt();
-      this.inventory = defaultInventory();
+      this.inventory = emptyInventory();
       this.persistInventory();
       this.clearSelection();
       this.refreshAllEquipSlots();

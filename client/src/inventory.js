@@ -478,6 +478,17 @@ export function defaultInventory() {
   });
 }
 
+/** Inventário totalmente vazio (sem kit inicial), usado ao deletar tudo. */
+export function emptyInventory() {
+  return {
+    equipment: emptyEquipment(),
+    bag: emptyBag(),
+    gold: 0,
+    loot: 0,
+    starterKit: STARTER_KIT_VERSION,
+  };
+}
+
 function migrateLegacyRing2ToTunic(rawEquipment, inv) {
   if (!rawEquipment || typeof rawEquipment !== 'object') return;
   if (rawEquipment.ring2 == null) return;
