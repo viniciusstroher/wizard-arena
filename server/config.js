@@ -473,6 +473,10 @@ export const CONFIG = {
   XP_MONSTER: 18,
   XP_PLAYER_KILL: 100,
   XP_ROUND_SURVIVE: 40,
+  /** Pontos (placar/pts de personagem) ganhos ao matar um monstro comum/elite/boss. */
+  SCORE_MONSTER_KILL: envNumber('SCORE_MONSTER_KILL', 1),
+  SCORE_ELITE_KILL: envNumber('SCORE_ELITE_KILL', 3),
+  SCORE_BOSS_KILL: envNumber('SCORE_BOSS_KILL', 10),
   XP_PER_SECOND: envNumber('XP_PER_SECOND', 5),
   /** XP passivo por segundo para bots vivos (durante a partida). */
   BOT_XP_PER_SECOND: envNumber('BOT_XP_PER_SECOND', 5),

@@ -2487,6 +2487,11 @@ export class Match {
     const killer = sourcePlayerId ? this.players.get(sourcePlayerId) : null;
     if (killer) {
       killer.monsterKills += 1;
+      killer.score += wasBoss
+        ? CONFIG.SCORE_BOSS_KILL
+        : target.isElite
+          ? CONFIG.SCORE_ELITE_KILL
+          : CONFIG.SCORE_MONSTER_KILL;
       this.grantXp(killer, CONFIG.XP_MONSTER, 'monster');
       // Cura % da vida máxima do mob (MONSTER_KILL_HEAL_PERCENT); efeito só se > 0 e curar de fato
       const healPct = CONFIG.MONSTER_KILL_HEAL_PERCENT || 0;
