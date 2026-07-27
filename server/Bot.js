@@ -456,13 +456,6 @@ export class BotController {
       const d = Math.hypot(dx, dy);
       const ideal = 150;
 
-      if (this.target.vx !== undefined) {
-        ({ aimX, aimY } = this.predictAim(player, this.target));
-      } else {
-        aimX = this.target.x;
-        aimY = this.target.y;
-      }
-
       if (d > ideal + 40) {
         const dirs = dirsToward(player.x, player.y, this.target.x, this.target.y);
         const sx = -dy * this.strafe * 0.3;
@@ -489,6 +482,17 @@ export class BotController {
       aimX = orbitX;
       aimY = orbitY;
       ({ up, down, left, right } = dirsToward(player.x, player.y, orbitX, orbitY, 16));
+    }
+
+    // A mira nunca segue o movimento: sempre trava no alvo hostil (para fugir/desviar
+    // sem parar de castar magias nele), independente de para onde o bot esteja indo.
+    if (this.target) {
+      if (this.target.vx !== undefined) {
+        ({ aimX, aimY } = this.predictAim(player, this.target));
+      } else {
+        aimX = this.target.x;
+        aimY = this.target.y;
+      }
     }
 
     this.match.setInput(this.playerId, {
