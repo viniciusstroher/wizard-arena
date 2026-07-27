@@ -1,8 +1,8 @@
 /**
- * Catálogo de equipamentos — 126 itens por slot (1008 total).
+ * Catálogo de equipamentos — 426 itens por slot (3408 total).
  * Baseado nos itens originais: Chapéu de Pano, Capa de Pano, Anel de Plástico...
  * Cada tier tem 1 item de conjunto + 5 variações temáticas (D&D, Tibia, WoW).
- * 21 tiers cobrindo os níveis 1 a 60, liberando novos itens a cada 3 níveis.
+ * 71 tiers cobrindo os níveis 1 a 210, liberando novos itens a cada 3 níveis.
  *
  * Estrutura: { id, name, slot, color, level, set?, bonus? }
  *   bonus — { damageBonus, healBonus, shieldBonus, speedBonus,
@@ -12,7 +12,7 @@
 
 const SLOTS = ['hat', 'cape', 'ring', 'tunic', 'necklace', 'boots', 'cajado', 'grimorio'];
 
-// 21 tiers — cores realistas baseadas nos materiais
+// 71 tiers — cores baseadas nos materiais
 
 const FEMININE_WORDS = new Set([
   'Diadema', 'Tiara', 'Coifa', 'Mitra', 'Loriga', 'Murça', 'Clâmide', 'Sobrecapa',
@@ -31,6 +31,13 @@ function isFeminine(name) {
     if (prev === 'a' || prev === 'ã') return true;
   }
   return false;
+}
+
+function adjectiveForm(mat, noun) {
+  if (isFeminine(noun)) {
+    if (mat.endsWith('o')) return mat.slice(0, -1) + 'a';
+  }
+  return mat;
 }
 
 // 21 tiers — nível 1, depois a cada 3 níveis até 60. Libera itens novos a cada 3 níveis.
@@ -55,7 +62,57 @@ const TIERS = [
   { key: 't18', lv: 51, mat: 'Obsidiana',  set: 'conjunto_de_obsidiana',  title: 'do Arconte',      c: 0x1c1c24, adj: false },
   { key: 't19', lv: 54, mat: 'Platina',    set: 'conjunto_de_platina',    title: 'do Ascendente',   c: 0xd8d8e0, adj: false },
   { key: 't20', lv: 57, mat: 'Éter',       set: 'conjunto_de_eter',       title: 'do Exaltado',     c: 0x8fd9ff, adj: false },
-  { key: 't21', lv: 60, mat: 'Divino',     set: 'conjunto_divino',        title: 'do Transcendente',c: 0xefc820, adj: true  },
+  { key: 't21', lv: 60,  mat: 'Divino',       set: 'conjunto_divino',         title: 'do Transcendente', c: 0xefc820, adj: true  },
+  { key: 't22', lv: 63,  mat: 'Astral',       set: 'conjunto_astral',         title: 'do Profeta',        c: 0xb0a0ff, adj: true  },
+  { key: 't23', lv: 66,  mat: 'Etéreo',       set: 'conjunto_etereo',         title: 'do Serafim',        c: 0xa0d8ff, adj: true  },
+  { key: 't24', lv: 69,  mat: 'Sombrio',      set: 'conjunto_sombrio',        title: 'do Arcanjo',        c: 0x302868, adj: true  },
+  { key: 't25', lv: 72,  mat: 'Estelar',      set: 'conjunto_estelar',        title: 'do Querubim',       c: 0x6888e8, adj: true  },
+  { key: 't26', lv: 75,  mat: 'Cósmico',      set: 'conjunto_cosmico',        title: 'do Avatar',         c: 0x4828a8, adj: true  },
+  { key: 't27', lv: 78,  mat: 'Rúnico',       set: 'conjunto_runico',         title: 'do Semideus',       c: 0x30d8a0, adj: true  },
+  { key: 't28', lv: 81,  mat: 'Dracônico',    set: 'conjunto_draconico',      title: 'do Colosso',        c: 0xd04840, adj: true  },
+  { key: 't29', lv: 84,  mat: 'Fênix',        set: 'conjunto_de_fenix',       title: 'do Leviatã',        c: 0xff6830, adj: false },
+  { key: 't30', lv: 87,  mat: 'Titânico',     set: 'conjunto_titanico',       title: 'do Behemoth',       c: 0xc8a860, adj: true  },
+  { key: 't31', lv: 90,  mat: 'Celestial',    set: 'conjunto_celestial',      title: 'do Celeste',        c: 0xf0f0ff, adj: true  },
+  { key: 't32', lv: 93,  mat: 'Abissal',      set: 'conjunto_abissal',        title: 'do Abissal',        c: 0x180820, adj: true  },
+  { key: 't33', lv: 96,  mat: 'Místico',      set: 'conjunto_mistico',        title: 'do Místico',        c: 0x7848d0, adj: true  },
+  { key: 't34', lv: 99,  mat: 'Arcanita',     set: 'conjunto_de_arcanita',    title: 'do Arcanista',      c: 0x60b8c0, adj: false },
+  { key: 't35', lv: 102, mat: 'Lunar',        set: 'conjunto_lunar',          title: 'do Luar',           c: 0xc0d8f0, adj: true  },
+  { key: 't36', lv: 105, mat: 'Solar',        set: 'conjunto_solar',          title: 'do Eclipse',        c: 0xffb030, adj: true  },
+  { key: 't37', lv: 108, mat: 'Tempestuoso',  set: 'conjunto_tempestuoso',    title: 'do Furacão',        c: 0x6090b0, adj: true  },
+  { key: 't38', lv: 111, mat: 'Vulcânico',    set: 'conjunto_vulcanico',      title: 'do Vulcão',         c: 0xe05020, adj: true  },
+  { key: 't39', lv: 114, mat: 'Glacial',      set: 'conjunto_glacial',        title: 'do Glacial',        c: 0x80c8ff, adj: true  },
+  { key: 't40', lv: 117, mat: 'Telúrico',     set: 'conjunto_telurico',       title: 'do Telúrico',       c: 0x887050, adj: true  },
+  { key: 't41', lv: 120, mat: 'Espectral',    set: 'conjunto_espectral',      title: 'do Espectro',       c: 0x90a8c0, adj: true  },
+  { key: 't42', lv: 123, mat: 'Fantasmal',    set: 'conjunto_fantasmal',      title: 'do Fantasma',       c: 0x708090, adj: true  },
+  { key: 't43', lv: 126, mat: 'Demoníaco',    set: 'conjunto_demoniaco',      title: 'do Demoníaco',      c: 0xc02020, adj: true  },
+  { key: 't44', lv: 129, mat: 'Angelical',    set: 'conjunto_angelical',      title: 'do Angelical',      c: 0xfff0c0, adj: true  },
+  { key: 't45', lv: 132, mat: 'Primordial',   set: 'conjunto_primordial',     title: 'da Criação',        c: 0x40c0a0, adj: true  },
+  { key: 't46', lv: 135, mat: 'Ancestral',    set: 'conjunto_ancestral',      title: 'do Ancestral',      c: 0x806040, adj: true  },
+  { key: 't47', lv: 138, mat: 'Infinito',     set: 'conjunto_infinito',       title: 'do Infinito',       c: 0x202020, adj: true  },
+  { key: 't48', lv: 141, mat: 'Eterno',       set: 'conjunto_eterno',         title: 'do Eterno',         c: 0xc8d8e0, adj: true  },
+  { key: 't49', lv: 144, mat: 'Supremo',      set: 'conjunto_supremo',        title: 'do Supremo',        c: 0xe0d040, adj: true  },
+  { key: 't50', lv: 147, mat: 'Imortal',      set: 'conjunto_imortal',        title: 'do Imortal',        c: 0x60ff60, adj: true  },
+  { key: 't51', lv: 150, mat: 'Onírico',      set: 'conjunto_onirico',        title: 'do Sonhador',       c: 0x9060d0, adj: true  },
+  { key: 't52', lv: 153, mat: 'Paradoxal',    set: 'conjunto_paradoxal',      title: 'do Paradoxo',       c: 0xd0a0ff, adj: true  },
+  { key: 't53', lv: 156, mat: 'Quântico',     set: 'conjunto_quantico',       title: 'do Quântico',       c: 0x00d0d0, adj: true  },
+  { key: 't54', lv: 159, mat: 'Entrópico',    set: 'conjunto_entropico',      title: 'da Entropia',       c: 0x604020, adj: true  },
+  { key: 't55', lv: 162, mat: 'Níhil',        set: 'conjunto_nihil',          title: 'do Vazio',          c: 0x000000, adj: true  },
+  { key: 't56', lv: 165, mat: 'Apocalíptico', set: 'conjunto_apocaliptico',   title: 'do Apocalipse',     c: 0xd04030, adj: true  },
+  { key: 't57', lv: 168, mat: 'Ômega',        set: 'conjunto_de_omega',       title: 'do Ômega',          c: 0x000040, adj: false },
+  { key: 't58', lv: 171, mat: 'Alfa',         set: 'conjunto_de_alfa',        title: 'do Alfa',           c: 0xf0f0ff, adj: false },
+  { key: 't59', lv: 174, mat: 'Gênesis',      set: 'conjunto_de_genesis',     title: 'da Gênese',         c: 0x40e0a0, adj: false },
+  { key: 't60', lv: 177, mat: 'Zênite',       set: 'conjunto_de_zenite',      title: 'do Zênite',         c: 0xffffff, adj: false },
+  { key: 't61', lv: 180, mat: 'Aurora',       set: 'conjunto_de_aurora',      title: 'da Aurora',         c: 0xff80a0, adj: false },
+  { key: 't62', lv: 183, mat: 'Crepúsculo',   set: 'conjunto_de_crepusculo',  title: 'do Crepúsculo',     c: 0x6040a0, adj: false },
+  { key: 't63', lv: 186, mat: 'Oblívio',      set: 'conjunto_de_oblivio',     title: 'do Oblívio',        c: 0x404040, adj: false },
+  { key: 't64', lv: 189, mat: 'Destino',      set: 'conjunto_de_destino',     title: 'do Destino',        c: 0xe0a030, adj: false },
+  { key: 't65', lv: 192, mat: 'Caótico',      set: 'conjunto_caotico',        title: 'do Caos',           c: 0x802050, adj: true  },
+  { key: 't66', lv: 195, mat: 'Ordeiro',      set: 'conjunto_ordeiro',        title: 'da Ordem',          c: 0xd0d0e0, adj: true  },
+  { key: 't67', lv: 198, mat: 'Psiônico',     set: 'conjunto_psionico',       title: 'do Psíquico',       c: 0xff40a0, adj: true  },
+  { key: 't68', lv: 201, mat: 'Vorpal',       set: 'conjunto_vorpal',         title: 'Vorpal',            c: 0x40ff40, adj: true  },
+  { key: 't69', lv: 204, mat: 'Sideral',      set: 'conjunto_sideral',        title: 'do Sidéreo',        c: 0x3050a0, adj: true  },
+  { key: 't70', lv: 207, mat: 'Numinoso',     set: 'conjunto_numinoso',       title: 'do Nume',           c: 0xfff080, adj: true  },
+  { key: 't71', lv: 210, mat: 'Onipotente',   set: 'conjunto_onipotente',     title: 'do Absoluto',        c: 0xffe0ff, adj: true  },
 ];
 
 /**
@@ -199,7 +256,7 @@ function getSuffix(themeIdx, long) {
   return long ? t.sufixLong : t.sufix;
 }
 
-/** Gera todos os 1008 itens */
+/** Gera todos os 3408 itens */
 export function buildGeneratedItems() {
   const items = [];
 
@@ -224,7 +281,7 @@ export function buildGeneratedItems() {
         if (i === 0) {
           // Item de conjunto
           if (tier.adj) {
-            name = `${setName} ${tier.mat === 'Divino' && isFeminine(setName) ? 'Divina' : tier.mat} ${tier.title}`;
+            name = `${setName} ${adjectiveForm(tier.mat, setName)} ${tier.title}`;
           } else {
             const prep = tier.mat.endsWith('a') ? 'da ' : 'de ';
             name = `${setName} ${prep}${tier.mat} ${tier.title}`;
@@ -236,7 +293,7 @@ export function buildGeneratedItems() {
           const themeIdx = ti * 3 + i;
           const suffix = getSuffix(themeIdx, i >= 3);
           if (tier.adj) {
-            const adjForm = tier.mat === 'Divino' && isFeminine(baseItemName) ? 'Divina' : tier.mat;
+            const adjForm = adjectiveForm(tier.mat, baseItemName);
             name = `${baseItemName} ${adjForm} ${suffix}`;
           } else {
             const prep = tier.mat.endsWith('a') ? 'da ' : 'de ';

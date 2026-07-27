@@ -26,11 +26,11 @@ export function levelFromPoints(totalPoints) {
   return { level, currentPts, nextPts, progress };
 }
 
-export const MAX_LEVEL = 100;
+export const MAX_LEVEL = 210;
 
-/** Grupo de ícone (0–19) baseado no nível — muda a cada 5 níveis. */
+/** Grupo de ícone (0–41) baseado no nível — muda a cada 5 níveis. */
 export function iconGroupForLevel(level) {
-  return Math.min(19, Math.floor((Math.max(1, level) - 1) / 5));
+  return Math.min(41, Math.floor((Math.max(1, level) - 1) / 5));
 }
 
 /** Cor do nível baseada no grupo de ícone. */
@@ -39,6 +39,11 @@ const GROUP_COLORS = [
   0x44d978, 0x5ce68c, 0x7af0a0, 0x9af5b8, 0xc0fad0, // 26-50
   0xf0c040, 0xe8a830, 0xe09020, 0xd87810, 0xc86000, // 51-75
   0xd06050, 0xe04860, 0xf03070, 0xf02080, 0xe01090, // 76-100
+  0xff6090, 0xff4088, 0xff2080, 0xe01078, 0xc00070, // 101-125
+  0xa00068, 0x802060, 0x601858, 0x401050, 0x200848, // 126-150
+  0xffd700, 0xffc000, 0xffb000, 0xffa000, 0xff9000, // 151-175
+  0xe080ff, 0xd060ff, 0xc040ff, 0xb020ff, 0xa000ff, // 176-200
+  0xffffff, 0xe0e0ff, // 201-210
 ];
 
 export function levelColor(level) {
@@ -46,7 +51,7 @@ export function levelColor(level) {
 }
 
 /**
- * 100 títulos — um por nível.
+ * 210 títulos — um por nível.
  * Ícone muda a cada 5 níveis (iconGroup 0–19).
  */
 const TITLES = [
@@ -168,8 +173,140 @@ const TITLES = [
   'Transcendente Arcano',
   'Transcendente Astral',
   'Transcendente Cósmico',
-  'Transcendente Supremo',
-  'Transcendente Absoluto',
+   'Transcendente Supremo',
+   'Transcendente Absoluto',
+  // 101-105 · Ascendente
+  'Ascendente Arcano',
+  'Ascendente Astral',
+  'Ascendente Etéreo',
+  'Ascendente Divino',
+  'Ascendente Supremo',
+  // 106-110 · Exaltado
+  'Exaltado das Chamas',
+  'Exaltado do Gelo',
+  'Exaltado dos Raios',
+  'Exaltado Sombrio',
+  'Exaltado Celestial',
+  // 111-115 · Profeta
+  'Profeta Arcano',
+  'Profeta das Estrelas',
+  'Profeta do Abismo',
+  'Profeta do Destino',
+  'Profeta Supremo',
+  // 116-120 · Serafim
+  'Serafim de Fogo',
+  'Serafim da Luz',
+  'Serafim das Sombras',
+  'Serafim do Firmamento',
+  'Serafim Celestial',
+  // 121-125 · Arcanjo
+  'Arcanjo dos Raios',
+  'Arcanjo da Tempestade',
+  'Arcanjo do Trovão',
+  'Arcanjo da Justiça',
+  'Arcanjo Supremo',
+  // 126-130 · Querubim
+  'Querubim Guardião',
+  'Querubim do Fogo',
+  'Querubim da Luz',
+  'Querubim do Santuário',
+  'Querubim Ancestral',
+  // 131-135 · Avatar
+  'Avatar das Chamas',
+  'Avatar do Gelo',
+  'Avatar da Terra',
+  'Avatar do Vento',
+  'Avatar Primordial',
+  // 136-140 · Semideus
+  'Semideus Arcano',
+  'Semideus das Sombras',
+  'Semideus da Luz',
+  'Semideus do Caos',
+  'Semideus Imortal',
+  // 141-145 · Divindade
+  'Divindade do Fogo',
+  'Divindade do Gelo',
+  'Divindade dos Raios',
+  'Divindade Abissal',
+  'Divindade Suprema',
+  // 146-150 · Colosso
+  'Colosso de Fogo',
+  'Colosso de Gelo',
+  'Colosso da Terra',
+  'Colosso do Abismo',
+  'Colosso Titânico',
+  // 151-155 · Primordial
+  'Primordial das Chamas',
+  'Primordial do Gelo',
+  'Primordial da Luz',
+  'Primordial das Sombras',
+  'Primordial Absoluto',
+  // 156-160 · Cósmico
+  'Cósmico Estelar',
+  'Cósmico Solar',
+  'Cósmico Lunar',
+  'Cósmico Infinito',
+  'Cósmico Supremo',
+  // 161-165 · Celestial
+  'Celestial Arcano',
+  'Celestial de Luz',
+  'Celestial Sombrio',
+  'Celestial Eterno',
+  'Celestial Sublime',
+  // 166-170 · Abissal
+  'Abissal das Trevas',
+  'Abissal do Caos',
+  'Abissal do Vazio',
+  'Abissal Profundo',
+  'Abissal Ancestral',
+  // 171-175 · Infinito
+  'Infinito Arcano',
+  'Infinito das Eras',
+  'Infinito do Cosmo',
+  'Infinito Eterno',
+  'Infinito Absoluto',
+  // 176-180 · Eterno
+  'Eterno das Chamas',
+  'Eterno do Gelo',
+  'Eterno Sombrio',
+  'Eterno Celestial',
+  'Eterno Primordial',
+  // 181-185 · Onipotente
+  'Onipotente Arcano',
+  'Onipotente Astral',
+  'Onipotente Cósmico',
+  'Onipotente Divino',
+  'Onipotente Absoluto',
+  // 186-190 · Numinoso
+  'Numinoso da Luz',
+  'Numinoso da Aurora',
+  'Numinoso do Zênite',
+  'Numinoso Sagrado',
+  'Numinoso Eterno',
+  // 191-195 · Níhil
+  'Níhil das Sombras',
+  'Níhil do Vazio',
+  'Níhil do Abismo',
+  'Níhil do Oblívio',
+  'Níhil Absoluto',
+  // 196-200 · Gênesis
+  'Gênesis da Criação',
+  'Gênesis da Luz',
+  'Gênesis das Chamas',
+  'Gênesis Primordial',
+  'Gênesis Supremo',
+  // 201-205 · Zênite
+  'Zênite Arcano',
+  'Zênite Estelar',
+  'Zênite Celestial',
+  'Zênite Eterno',
+  'Zênite Absoluto',
+  // 206-210 · Transcendental
+  'Transcendental Arcano',
+  'Transcendental Astral',
+  'Transcendental Cósmico',
+  'Transcendental Supremo',
+  'Transcendental Onipotente',
 ];
 
 export function rankTitle(level) {

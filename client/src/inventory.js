@@ -44,6 +44,56 @@ export const SET_LABELS = {
   conjunto_de_platina: 'Conjunto de Platina',
   conjunto_de_eter: 'Conjunto de Éter',
   conjunto_divino: 'Conjunto Divino',
+  conjunto_astral: 'Conjunto Astral',
+  conjunto_etereo: 'Conjunto Etéreo',
+  conjunto_sombrio: 'Conjunto Sombrio',
+  conjunto_estelar: 'Conjunto Estelar',
+  conjunto_cosmico: 'Conjunto Cósmico',
+  conjunto_runico: 'Conjunto Rúnico',
+  conjunto_draconico: 'Conjunto Dracônico',
+  conjunto_de_fenix: 'Conjunto de Fênix',
+  conjunto_titanico: 'Conjunto Titânico',
+  conjunto_celestial: 'Conjunto Celestial',
+  conjunto_abissal: 'Conjunto Abissal',
+  conjunto_mistico: 'Conjunto Místico',
+  conjunto_de_arcanita: 'Conjunto de Arcanita',
+  conjunto_lunar: 'Conjunto Lunar',
+  conjunto_solar: 'Conjunto Solar',
+  conjunto_tempestuoso: 'Conjunto Tempestuoso',
+  conjunto_vulcanico: 'Conjunto Vulcânico',
+  conjunto_glacial: 'Conjunto Glacial',
+  conjunto_telurico: 'Conjunto Telúrico',
+  conjunto_espectral: 'Conjunto Espectral',
+  conjunto_fantasmal: 'Conjunto Fantasmal',
+  conjunto_demoniaco: 'Conjunto Demoníaco',
+  conjunto_angelical: 'Conjunto Angelical',
+  conjunto_primordial: 'Conjunto Primordial',
+  conjunto_ancestral: 'Conjunto Ancestral',
+  conjunto_infinito: 'Conjunto Infinito',
+  conjunto_eterno: 'Conjunto Eterno',
+  conjunto_supremo: 'Conjunto Supremo',
+  conjunto_imortal: 'Conjunto Imortal',
+  conjunto_onirico: 'Conjunto Onírico',
+  conjunto_paradoxal: 'Conjunto Paradoxal',
+  conjunto_quantico: 'Conjunto Quântico',
+  conjunto_entropico: 'Conjunto Entrópico',
+  conjunto_nihil: 'Conjunto Níhil',
+  conjunto_apocaliptico: 'Conjunto Apocalíptico',
+  conjunto_de_omega: 'Conjunto de Ômega',
+  conjunto_de_alfa: 'Conjunto de Alfa',
+  conjunto_de_genesis: 'Conjunto de Gênese',
+  conjunto_de_zenite: 'Conjunto de Zênite',
+  conjunto_de_aurora: 'Conjunto de Aurora',
+  conjunto_de_crepusculo: 'Conjunto de Crepúsculo',
+  conjunto_de_oblivio: 'Conjunto de Oblívio',
+  conjunto_de_destino: 'Conjunto de Destino',
+  conjunto_caotico: 'Conjunto Caótico',
+  conjunto_ordeiro: 'Conjunto Ordeiro',
+  conjunto_psionico: 'Conjunto Psiônico',
+  conjunto_vorpal: 'Conjunto Vorpal',
+  conjunto_sideral: 'Conjunto Sideral',
+  conjunto_numinoso: 'Conjunto Numinoso',
+  conjunto_onipotente: 'Conjunto Onipotente',
 };
 
 export const CATEGORY_LABELS = {
@@ -70,7 +120,7 @@ export const BONUS_LABELS = {
 };
 
 /**
- * Itens base + 1008 equipamentos gerados (126 por slot).
+ * Itens base + 3408 equipamentos gerados (426 por slot).
  *
  * Categorias:
  *   equipment — equipável (slot indica onde)
