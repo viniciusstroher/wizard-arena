@@ -19,7 +19,8 @@ import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { ensureCharacter, saveCharacter } from '../character.js';
 import { levelFromPoints } from '../characterLevel.js';
-import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS, equipmentBonusesFromInventory } from '../inventory.js';
+import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS, equipmentBonusesFromInventory, EQUIP_SLOTS, itemTooltipLines } from '../inventory.js';
+import { ensureItemIconTextures, itemIconKey } from '../itemIcons.js';
 
 const TOTAL_POINTS_KEY = 'wa_totalPoints';
 
@@ -174,6 +175,7 @@ export class GameScene extends Phaser.Scene {
 
     this.createHud();
     this.createDisconnectUi();
+    this.createEquippedItemsUi();
     this.createMatchEndUi();
     this.createRoundSpotlight();
     this.setupAimCursor();
@@ -951,6 +953,102 @@ export class GameScene extends Phaser.Scene {
     const x = panelX + panelW - btnW / 2;
     const y = this.scoreboardLayout.panelY + panelH + gap + btnH / 2;
     this.disconnectBtn.setPosition(x, y);
+    this.layoutEquippedItemsUi();
+  }
+
+  createEquippedItemsUi() {
+    ensureItemIconTextures(this);
+    const character = ensureCharacter();
+    const inventory = normalizeInventory(character.inventory);
+    const charLevel = levelFromPoints(this.charTotalPoints).level;
+
+    this.equippedSlotSize = 30;
+    this.equippedSlotGap = 4;
+    this.equippedSlotCols = 4;
+
+    this.equippedSlots = EQUIP_SLOTS.map((slot) => {
+      const container = this.add.container(0, 0).setScrollFactor(0).setDepth(110);
+      const bg = this.add
+        .rectangle(0, 0, this.equippedSlotSize, this.equippedSlotSize, 0x1a1430, 0.95)
+        .setStrokeStyle(1, 0x6b5cff, 0.9)
+        .setInteractive({ useHandCursor: true });
+      const icon = this.add.image(0, 0, itemIconKey('cloth_hat')).setDisplaySize(20, 20).setVisible(false);
+      container.add([bg, icon]);
+
+      const item = inventory.equipment[slot.key] || null;
+      if (item) {
+        const texKey = itemIconKey(item.id);
+        if (this.textures.exists(texKey)) icon.setTexture(texKey).setVisible(true);
+      }
+
+      bg.on('pointerover', () => this.showEquippedItemTooltip(slot.key, charLevel));
+      bg.on('pointerout', () => this.hideEquippedItemTooltip());
+
+      return { key: slot.key, container, bg, icon, item };
+    });
+
+    this.equippedItemsTooltip = this.add
+      .container(0, 0)
+      .setScrollFactor(0)
+      .setDepth(220)
+      .setVisible(false);
+    this.equippedItemsTooltipBg = this.add
+      .rectangle(0, 0, 200, 56, 0x120e22, 0.96)
+      .setOrigin(0, 0)
+      .setStrokeStyle(1, 0x8b7cff);
+    this.equippedItemsTooltipText = this.add
+      .text(8, 8, '', {
+        fontFamily: 'Trebuchet MS, sans-serif',
+        fontSize: '12px',
+        color: '#f4e8ff',
+        lineSpacing: 4,
+      })
+      .setOrigin(0, 0);
+    this.equippedItemsTooltip.add([this.equippedItemsTooltipBg, this.equippedItemsTooltipText]);
+
+    this.layoutEquippedItemsUi();
+  }
+
+  layoutEquippedItemsUi() {
+    if (!this.equippedSlots || !this.disconnectBtn || !this.disconnectBtnSize) return;
+    const { w: btnW, h: btnH } = this.disconnectBtnSize;
+    const cols = this.equippedSlotCols;
+    const slotSize = this.equippedSlotSize;
+    const gap = this.equippedSlotGap;
+    const panelW = cols * slotSize + (cols - 1) * gap;
+    const baseX = this.disconnectBtn.x + btnW / 2 - panelW + slotSize / 2;
+    const baseY = this.disconnectBtn.y + btnH / 2 + gap + slotSize / 2;
+
+    this.equippedSlots.forEach((view, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      view.container.setPosition(baseX + col * (slotSize + gap), baseY + row * (slotSize + gap));
+    });
+  }
+
+  showEquippedItemTooltip(slotKey, charLevel) {
+    const view = this.equippedSlots?.find((v) => v.key === slotKey);
+    if (!view || !view.item) return;
+
+    const lines = itemTooltipLines(view.item, charLevel);
+    this.equippedItemsTooltipText.setText(lines.join('\n'));
+
+    const pad = 8;
+    const w = this.equippedItemsTooltipText.width + pad * 2;
+    const h = this.equippedItemsTooltipText.height + pad * 2;
+    this.equippedItemsTooltipBg.setSize(w, h);
+
+    const { width, height } = this.scale;
+    let x = view.container.x + 20;
+    let y = view.container.y - h - 8;
+    if (y < 8) y = view.container.y + 20;
+    if (x + w > width - 8) x = Math.max(8, view.container.x - w - 4);
+    if (y + h > height - 8) y = Math.max(8, height - 8 - h);
+    this.equippedItemsTooltip.setPosition(x, y).setVisible(true);
+  }
+
+  hideEquippedItemTooltip() {
+    this.equippedItemsTooltip?.setVisible(false);
   }
 
   openDisconnectConfirm() {
