@@ -3,6 +3,7 @@
 import { buildGeneratedItems } from './itemData.js';
 
 export const BAG_COLS = 12;
+/** Linhas iniciais do saco. O saco cresce automaticamente (+1 linha) quando enche. */
 export const BAG_ROWS = 13;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
@@ -237,6 +238,13 @@ function emptyBag() {
   return Array.from({ length: BAG_SIZE }, () => null);
 }
 
+/** Acrescenta 1 linha (BAG_COLS slots vazios) ao saco e devolve o índice do 1º slot novo. */
+function growBagByOneRow(inv) {
+  const freeIdx = inv.bag.length;
+  inv.bag = inv.bag.concat(Array.from({ length: BAG_COLS }, () => null));
+  return freeIdx;
+}
+
 function copyBonus(bonus) {
   if (!bonus || typeof bonus !== 'object') return null;
   const out = {};
@@ -346,9 +354,13 @@ function normalizeItem(raw) {
 }
 
 function normalizeBag(raw) {
-  const bag = emptyBag();
+  const rawLen = Array.isArray(raw) ? raw.length : 0;
+  // Preserva linhas extras já conquistadas (o saco só cresce, nunca encolhe ao salvar/carregar).
+  const rows = Math.max(BAG_ROWS, Math.ceil(rawLen / BAG_COLS));
+  const size = rows * BAG_COLS;
+  const bag = Array.from({ length: size }, () => null);
   if (!Array.isArray(raw)) return bag;
-  for (let i = 0; i < BAG_SIZE; i++) {
+  for (let i = 0; i < size; i++) {
     const entry = raw[i];
     if (!entry) { bag[i] = null; continue; }
 
@@ -419,12 +431,14 @@ export function addItemToBag(inventory, item) {
     return { ok: true, inventory: inv, index: stackIdx };
   }
 
-  const freeIdx = firstEmptyBagIndex(inv.bag);
+  let freeIdx = firstEmptyBagIndex(inv.bag);
+  let grew = false;
   if (freeIdx < 0) {
-    return { ok: false, error: 'Inventário cheio!', inventory: inv };
+    freeIdx = growBagByOneRow(inv);
+    grew = true;
   }
   inv.bag[freeIdx] = { item: { ...item }, qty: 1 };
-  return { ok: true, inventory: inv, index: freeIdx };
+  return { ok: true, inventory: inv, index: freeIdx, grew };
 }
 
 /** Garante o kit e deixa os itens iniciais equipados. */
@@ -676,14 +690,6 @@ export function swapFromBag(inventory, bagIndex, characterLevel) {
     return { ok: true, inventory: inv, swapped: false };
   }
 
-  const canStack = findStackForItemId(inv.bag, equipped.id) >= 0;
-  const willFreeSlot = stack.qty <= 1;
-  const hasEmptySlot = firstEmptyBagIndex(inv.bag) >= 0;
-
-  if (!canStack && !willFreeSlot && !hasEmptySlot) {
-    return { ok: false, error: 'Inventário cheio! Não é possível trocar.', inventory: inv };
-  }
-
   if (stack.qty <= 1) {
     inv.bag[bagIndex] = null;
   } else {
@@ -697,7 +703,7 @@ export function swapFromBag(inventory, bagIndex, characterLevel) {
     inv.bag[bagIndex] = { item: { ...equipped }, qty: 1 };
   } else {
     const freeIdx = firstEmptyBagIndex(inv.bag);
-    inv.bag[freeIdx] = { item: { ...equipped }, qty: 1 };
+    inv.bag[freeIdx >= 0 ? freeIdx : growBagByOneRow(inv)] = { item: { ...equipped }, qty: 1 };
   }
 
   inv.equipment[slotKey] = { ...item };
@@ -722,14 +728,7 @@ export function unequipToBag(inventory, equipKey) {
   }
 
   const freeIdx = firstEmptyBagIndex(inv.bag);
-  if (freeIdx < 0) {
-    return {
-      ok: false,
-      error: 'Inventário cheio! Não há espaço para desequipar.',
-      inventory: inv,
-    };
-  }
-  inv.bag[freeIdx] = { item: { ...item }, qty: 1 };
+  inv.bag[freeIdx >= 0 ? freeIdx : growBagByOneRow(inv)] = { item: { ...item }, qty: 1 };
   inv.equipment[equipKey] = null;
   return { ok: true, inventory: inv };
 }
@@ -777,8 +776,9 @@ export function sortBag(inventory) {
     return a.item.name.localeCompare(b.item.name);
   });
 
-  const newBag = emptyBag();
-  for (let i = 0; i < merged.length && i < BAG_SIZE; i++) {
+  // Preserva o tamanho atual do saco (pode já ter crescido além de BAG_SIZE).
+  const newBag = Array.from({ length: bag.length }, () => null);
+  for (let i = 0; i < merged.length && i < newBag.length; i++) {
     newBag[i] = merged[i];
   }
   inv.bag = newBag;

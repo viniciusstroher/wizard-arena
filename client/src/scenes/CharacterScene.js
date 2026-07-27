@@ -9,8 +9,6 @@ import {
 import { fetchCharacterMatches } from '../api.js';
 import {
   BAG_COLS,
-  BAG_ROWS,
-  BAG_SIZE,
   EQUIP_SLOTS,
   emptyInventory,
   getBagEquipHints,
@@ -480,15 +478,15 @@ export class CharacterScene extends Phaser.Scene {
 
     this.buildEquipmentSlots(equipX, 270, depth);
 
-    const bagTitle = this.add
-      .text(bagX, 224, `Saco (${BAG_COLS}×${BAG_ROWS})`, {
+    this.bagTitleText = this.add
+      .text(bagX, 224, `Saco (${BAG_COLS}×${this.inventory.bag.length / BAG_COLS})`, {
         fontFamily: 'Georgia, serif',
         fontSize: '20px',
         color: '#f4e8ff',
       })
       .setOrigin(0.5)
       .setDepth(depth);
-    this.trackInv(bagTitle);
+    this.trackInv(this.bagTitleText);
 
     this.buildBagGrid(bagX, 248, depth);
     this.buildItemTooltip(depth + 50);
@@ -710,10 +708,17 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   buildBagGrid(centerX, topY, depth) {
+    // Guarda os args para poder reconstruir a grade quando o saco ganhar novas linhas.
+    this._bagGridX = centerX;
+    this._bagGridTopY = topY;
+    this._bagGridDepth = depth;
+
     const slotSize = 32;
     const gap = 3;
+    const bagLen = this.inventory.bag.length;
+    const rows = Math.max(1, Math.ceil(bagLen / BAG_COLS));
     const totalW = BAG_COLS * slotSize + (BAG_COLS - 1) * gap;
-    const totalH = BAG_ROWS * slotSize + (BAG_ROWS - 1) * gap;
+    const totalH = rows * slotSize + (rows - 1) * gap;
     const startX = centerX - totalW / 2 + slotSize / 2;
     const startY = slotSize / 2; // coordenada local dentro do container (topo do grid)
 
@@ -734,7 +739,7 @@ export class CharacterScene extends Phaser.Scene {
 
     this.bagSlotViews = [];
     this.bagSlotCoords = []; // coords locais (relativas ao container) para hit-test do drop
-    for (let i = 0; i < BAG_SIZE; i++) {
+    for (let i = 0; i < bagLen; i++) {
       const col = i % BAG_COLS;
       const row = Math.floor(i / BAG_COLS);
       const x = startX + col * (slotSize + gap);
@@ -884,6 +889,35 @@ export class CharacterScene extends Phaser.Scene {
       this.scrollBagGrid(dy);
     };
     this.input.on('wheel', this._bagWheelHandler);
+  }
+
+  /** Destroi a grade do saco (e sua scrollbar) para poder reconstruí-la com um novo tamanho. */
+  destroyBagGrid() {
+    const owned = new Set([this.bagGridContainer, this.bagScrollTrack, this.bagScrollThumb].filter(Boolean));
+    if (owned.size) {
+      this.invNodes = this.invNodes.filter((n) => !owned.has(n));
+    }
+    if (this._bagWheelHandler) {
+      this.input.off('wheel', this._bagWheelHandler);
+      this._bagWheelHandler = null;
+    }
+    this.bagGridContainer?.destroy();
+    this.bagScrollTrack?.destroy();
+    this.bagScrollThumb?.destroy();
+    this.bagGridContainer = null;
+    this.bagScrollTrack = null;
+    this.bagScrollThumb = null;
+    this.bagSlotViews = [];
+    this.bagSlotCoords = [];
+  }
+
+  /** Reconstrói a grade do saco (chamado quando o número de linhas muda, ex.: saco cresceu). */
+  rebuildBagGrid() {
+    this.clearSelection();
+    this.destroyBagGrid();
+    this.buildBagGrid(this._bagGridX, this._bagGridTopY, this._bagGridDepth);
+    this.bagTitleText?.setText(`Saco (${BAG_COLS}×${this.inventory.bag.length / BAG_COLS})`);
+    this.setTab(this.activeTab);
   }
 
   scrollBagGrid(deltaY) {
@@ -1041,7 +1075,7 @@ export class CharacterScene extends Phaser.Scene {
   }
 
   refreshAllBagSlots() {
-    for (let i = 0; i < BAG_SIZE; i++) this.refreshBagSlot(i);
+    for (let i = 0; i < this.bagSlotViews.length; i++) this.refreshBagSlot(i);
   }
 
   refreshCurrencyTexts() {
@@ -1054,6 +1088,10 @@ export class CharacterScene extends Phaser.Scene {
     if (result.ok) {
       this.character = result.character;
       this.inventory = normalizeInventory(result.character.inventory);
+      // Saco ganhou (ou perdeu) linhas — reconstrói a grade para refletir o novo tamanho.
+      if (this.inventory.bag.length !== this.bagSlotViews.length) {
+        this.rebuildBagGrid();
+      }
     }
     return result;
   }

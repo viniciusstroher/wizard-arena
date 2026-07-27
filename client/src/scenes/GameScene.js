@@ -19,7 +19,7 @@ import { stopMenuMusic, getMenuMusicVolume } from '../audio/menuMusic.js';
 import { ensureWizardColorTexture } from '../wizardSkin.js';
 import { ensureCharacter, saveCharacter } from '../character.js';
 import { levelFromPoints } from '../characterLevel.js';
-import { addItemToBag, createItem, normalizeInventory, firstEmptyBagIndex, SLOT_LABEL_BY_ACCEPTS, equipmentBonusesFromInventory, EQUIP_SLOTS, itemTooltipLines } from '../inventory.js';
+import { addItemToBag, createItem, normalizeInventory, SLOT_LABEL_BY_ACCEPTS, equipmentBonusesFromInventory, EQUIP_SLOTS, itemTooltipLines } from '../inventory.js';
 import { ensureItemIconTextures, itemIconKey } from '../itemIcons.js';
 
 const TOTAL_POINTS_KEY = 'wa_totalPoints';
@@ -1288,21 +1288,13 @@ export class GameScene extends Phaser.Scene {
       const character = ensureCharacter();
       let inventory = normalizeInventory(character.inventory);
       let addedAny = false;
-      let inventoryFull = false;
 
       for (const { itemId, qty } of items) {
         for (let i = 0; i < qty; i++) {
           const item = createItem(itemId);
           if (!item) { console.warn('[GameScene] createItem null:', itemId); continue; }
-          if (firstEmptyBagIndex(inventory.bag) < 0) {
-            inventoryFull = true;
-            break;
-          }
           const result = addItemToBag(inventory, item);
-          if (!result.ok) {
-            inventoryFull = true;
-            break;
-          }
+          if (!result.ok) continue;
           inventory = result.inventory;
           addedAny = true;
           this.lootNotifications.push({
@@ -1320,16 +1312,11 @@ export class GameScene extends Phaser.Scene {
           });
           this.showFloatingMessage(item.name, item.color);
         }
-        if (inventoryFull) break;
       }
 
       if (addedAny) {
         character.inventory = inventory;
         saveCharacter(character);
-      }
-
-      if (inventoryFull) {
-        this.showFloatingMessage('Inventário cheio!', 0xff6b6b);
       }
     } catch (e) {
       console.error('[GameScene] handleLootItems error:', e);
