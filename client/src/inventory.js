@@ -1,9 +1,9 @@
-/** Inventário do personagem: equipamento + grade 12×12 com agrupamento por item. */
+/** Inventário do personagem: equipamento + grade 12×13 com agrupamento por item. */
 
 import { buildGeneratedItems } from './itemData.js';
 
 export const BAG_COLS = 12;
-export const BAG_ROWS = 12;
+export const BAG_ROWS = 13;
 export const BAG_SIZE = BAG_COLS * BAG_ROWS;
 
 /** v7: cajado + grimorio slots and multishot bonus. */

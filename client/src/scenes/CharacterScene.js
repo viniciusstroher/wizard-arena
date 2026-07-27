@@ -9,6 +9,7 @@ import {
 import { fetchCharacterMatches } from '../api.js';
 import {
   BAG_COLS,
+  BAG_ROWS,
   BAG_SIZE,
   EQUIP_SLOTS,
   emptyInventory,
@@ -120,6 +121,7 @@ export class CharacterScene extends Phaser.Scene {
     });
 
     this.events.once('shutdown', () => {
+      if (this._bagWheelHandler) this.input.off('wheel', this._bagWheelHandler);
       this.hideItemTooltip();
       this.skinModal?.destroy();
       this.skinModal = null;
@@ -479,7 +481,7 @@ export class CharacterScene extends Phaser.Scene {
     this.buildEquipmentSlots(equipX, 270, depth);
 
     const bagTitle = this.add
-      .text(bagX, 224, 'Saco (12×12)', {
+      .text(bagX, 224, `Saco (${BAG_COLS}×${BAG_ROWS})`, {
         fontFamily: 'Georgia, serif',
         fontSize: '20px',
         color: '#f4e8ff',
@@ -711,11 +713,27 @@ export class CharacterScene extends Phaser.Scene {
     const slotSize = 32;
     const gap = 3;
     const totalW = BAG_COLS * slotSize + (BAG_COLS - 1) * gap;
+    const totalH = BAG_ROWS * slotSize + (BAG_ROWS - 1) * gap;
     const startX = centerX - totalW / 2 + slotSize / 2;
-    const startY = topY + slotSize / 2;
+    const startY = slotSize / 2; // coordenada local dentro do container (topo do grid)
+
+    const viewportX = centerX - totalW / 2 - 2;
+    const viewportW = totalW + 4;
+    const viewportH = Math.min(totalH, this.scale.height - topY - 74);
+    this.bagViewport = { x: viewportX, y: topY, w: viewportW, h: viewportH };
+    this.bagScrollMin = Math.min(0, viewportH - totalH);
+    this.bagScrollOffset = 0;
+
+    this.bagGridContainer = this.add.container(0, topY).setDepth(depth);
+    this.trackInv(this.bagGridContainer);
+
+    const maskGfx = this.make.graphics({ x: 0, y: 0, add: false });
+    maskGfx.fillStyle(0xffffff);
+    maskGfx.fillRect(viewportX, topY, viewportW, viewportH);
+    this.bagGridContainer.setMask(maskGfx.createGeometryMask());
 
     this.bagSlotViews = [];
-    this.bagSlotCoords = []; // { x, y } para hit-test do drop
+    this.bagSlotCoords = []; // coords locais (relativas ao container) para hit-test do drop
     for (let i = 0; i < BAG_SIZE; i++) {
       const col = i % BAG_COLS;
       const row = Math.floor(i / BAG_COLS);
@@ -727,7 +745,6 @@ export class CharacterScene extends Phaser.Scene {
       const frame = this.add
         .rectangle(x, y, slotSize, slotSize, 0x12101c, 0.92)
         .setStrokeStyle(1, 0x3a2f66, 0.9)
-        .setDepth(depth)
         .setInteractive({ useHandCursor: true, draggable: true });
 
       const icon = this.add
@@ -830,20 +847,70 @@ export class CharacterScene extends Phaser.Scene {
         this.hideItemTooltip();
       });
 
+      this.bagGridContainer.add([frame, icon, qtyText, levelText, multishotText]);
       this.bagSlotViews.push({ frame, icon, qtyText, levelText, multishotText });
-      this.trackInv(frame, icon, qtyText, levelText, multishotText);
     }
 
     this.refreshAllBagSlots();
+    this.buildBagScrollbar(depth);
+    this.setupBagScroll();
+  }
+
+  buildBagScrollbar(depth) {
+    if (this.bagScrollMin >= 0) return; // conteúdo cabe no viewport, sem necessidade de scroll
+
+    const { x, y, w, h } = this.bagViewport;
+    const trackX = x + w + 6;
+    this.bagScrollTrack = this.add
+      .rectangle(trackX, y, 4, h, 0x2a2250, 0.6)
+      .setOrigin(0, 0)
+      .setDepth(depth + 5);
+    this.trackInv(this.bagScrollTrack);
+
+    const totalH = h - this.bagScrollMin;
+    this.bagScrollThumbH = Math.max(24, (h * h) / totalH);
+    this.bagScrollThumb = this.add
+      .rectangle(trackX, y, 4, this.bagScrollThumbH, 0x8b7cff, 0.9)
+      .setOrigin(0, 0)
+      .setDepth(depth + 6);
+    this.trackInv(this.bagScrollThumb);
+  }
+
+  setupBagScroll() {
+    this._bagWheelHandler = (pointer, _gameObjects, _dx, dy) => {
+      if (this.activeTab !== TAB_INVENTORY || !this.bagViewport) return;
+      const { x, y, w, h } = this.bagViewport;
+      if (pointer.x < x || pointer.x > x + w || pointer.y < y || pointer.y > y + h) return;
+      this.scrollBagGrid(dy);
+    };
+    this.input.on('wheel', this._bagWheelHandler);
+  }
+
+  scrollBagGrid(deltaY) {
+    if (!this.bagGridContainer || this.bagScrollMin >= 0) return;
+    this.bagScrollOffset = Phaser.Math.Clamp(
+      this.bagScrollOffset - deltaY * 0.4,
+      this.bagScrollMin,
+      0
+    );
+    this.bagGridContainer.y = this.bagViewport.y + this.bagScrollOffset;
+
+    if (this.bagScrollThumb) {
+      const progress = this.bagScrollOffset / this.bagScrollMin; // 0..1
+      const { y, h } = this.bagViewport;
+      this.bagScrollThumb.y = y + progress * (h - this.bagScrollThumbH);
+    }
   }
 
   /** Retorna o índice do slot do saco sob as coordenadas da tela, ou null. */
   bagSlotAtPoint(px, py) {
+    const offsetY = this.bagGridContainer ? this.bagGridContainer.y : 0;
     for (let i = 0; i < this.bagSlotCoords.length; i++) {
       const r = this.bagSlotCoords[i];
       const halfW = r.w / 2 + 1;
       const halfH = r.h / 2 + 1;
-      if (px >= r.x - halfW && px <= r.x + halfW && py >= r.y - halfH && py <= r.y + halfH) {
+      const absY = r.y + offsetY;
+      if (px >= r.x - halfW && px <= r.x + halfW && py >= absY - halfH && py <= absY + halfH) {
         return i;
       }
     }

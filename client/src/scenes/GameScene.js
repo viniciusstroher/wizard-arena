@@ -953,7 +953,6 @@ export class GameScene extends Phaser.Scene {
     const x = panelX + panelW - btnW / 2;
     const y = this.scoreboardLayout.panelY + panelH + gap + btnH / 2;
     this.disconnectBtn.setPosition(x, y);
-    this.layoutEquippedItemsUi();
   }
 
   createEquippedItemsUi() {
@@ -962,9 +961,9 @@ export class GameScene extends Phaser.Scene {
     const inventory = normalizeInventory(character.inventory);
     const charLevel = levelFromPoints(this.charTotalPoints).level;
 
-    this.equippedSlotSize = 30;
+    this.equippedSlotSize = 26;
     this.equippedSlotGap = 4;
-    this.equippedSlotCols = 4;
+    this.equippedSlotCols = EQUIP_SLOTS.length;
 
     this.equippedSlots = EQUIP_SLOTS.map((slot) => {
       const container = this.add.container(0, 0).setScrollFactor(0).setDepth(110);
@@ -1010,14 +1009,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   layoutEquippedItemsUi() {
-    if (!this.equippedSlots || !this.disconnectBtn || !this.disconnectBtnSize) return;
-    const { w: btnW, h: btnH } = this.disconnectBtnSize;
+    if (!this.equippedSlots || !this.lootBox) return;
     const cols = this.equippedSlotCols;
     const slotSize = this.equippedSlotSize;
     const gap = this.equippedSlotGap;
-    const panelW = cols * slotSize + (cols - 1) * gap;
-    const baseX = this.disconnectBtn.x + btnW / 2 - panelW + slotSize / 2;
-    const baseY = this.disconnectBtn.y + btnH / 2 + gap + slotSize / 2;
+    const rows = Math.ceil(this.equippedSlots.length / cols);
+    const panelH = rows * slotSize + (rows - 1) * gap;
+    const baseX = this.lootBox.x + slotSize / 2;
+    const baseY = this.lootBox.y - 10 - panelH + slotSize / 2;
 
     this.equippedSlots.forEach((view, i) => {
       const col = i % cols;
