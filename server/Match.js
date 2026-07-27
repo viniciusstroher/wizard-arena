@@ -700,7 +700,7 @@ export class Match {
     }
   }
 
-  /** Mantém o monstro dentro da plataforma (círculo da arena). */
+  /** Reposiciona o monstro dentro da plataforma (círculo da arena). Usado apenas no reset de round — durante o combate os monstros podem sair da arena para perseguir jogador/bot. */
   clampMonsterToArena(m) {
     const radius = m.radius || CONFIG.MONSTER_RADIUS;
     this.resolveRockCollision(m, radius);
@@ -3044,7 +3044,7 @@ export class Match {
     monster.y = monster.y + dirY * distBlink;
     monster.vx = 0;
     monster.vy = 0;
-    this.clampMonsterToArena(monster);
+    this.resolveRockCollision(monster, monster.radius || CONFIG.MONSTER_RADIUS);
     monster.blinkCooldown = stats.cooldown;
     this.effects.push({
       type: 'blink',
@@ -4768,7 +4768,7 @@ export class Match {
       this.autocastPlayerSpells(p);
     }
 
-    // Monsters AI — sempre na plataforma; sempre tentam engajar jogador/bot
+    // Monsters AI — sempre tentam engajar jogador/bot, podendo sair da plataforma para persegui-los
     for (const m of this.monsters) {
       if (!m.alive) continue;
       m.stunTimer = Math.max(0, (m.stunTimer || 0) - dt);
@@ -4793,7 +4793,7 @@ export class Match {
         m.vx = 0;
         m.vy = 0;
         m.knockbackTimer = 0;
-        this.clampMonsterToArena(m);
+        this.resolveRockCollision(m, m.radius || CONFIG.MONSTER_RADIUS);
         continue;
       }
 
@@ -4809,7 +4809,6 @@ export class Match {
           m.vx *= 0.35;
           m.vy *= 0.35;
         }
-        this.clampMonsterToArena(m);
         continue;
       }
 
@@ -4834,9 +4833,6 @@ export class Match {
       }
 
       const mRadius = m.radius || CONFIG.MONSTER_RADIUS;
-      const fromCenter = dist(m, { x: CONFIG.ARENA_CENTER_X, y: CONFIG.ARENA_CENTER_Y });
-      const maxR = Math.max(0, this.arenaRadius - mRadius);
-      const outsidePlatform = fromCenter > maxR;
 
       const meleeRange =
         CONFIG.MONSTER_ATTACK_RANGE +
@@ -4844,22 +4840,7 @@ export class Match {
 
       let targetVx = 0;
       let targetVy = 0;
-      if (outsidePlatform) {
-        // Prioridade: voltar para a plataforma — mas ainda pode castar/atirar
-        const dx = CONFIG.ARENA_CENTER_X - m.x;
-        const dy = CONFIG.ARENA_CENTER_Y - m.y;
-        const len = Math.hypot(dx, dy) || 1;
-        targetVx = (dx / len) * m.speed;
-        targetVy = (dy / len) * m.speed;
-        if (nearest && m.attackCd <= 0) {
-          if (m.attack === 'caster') {
-            const spell = this.pickCasterSpell(m, nearestD);
-            if (spell) this.monsterCast(m, spell, nearest);
-          } else if (m.attack === 'ranged' && nearestD <= (m.range || 180)) {
-            this.monsterShoot(m, nearest);
-          }
-        }
-      } else if (nearest) {
+      if (nearest) {
         const dx = nearest.x - m.x;
         const dy = nearest.y - m.y;
         const len = Math.hypot(dx, dy) || 1;
@@ -4986,7 +4967,6 @@ export class Match {
       this.resolveRockCollision(m, mRadius);
       m.y += m.vy * dt;
       this.resolveRockCollision(m, mRadius);
-      this.clampMonsterToArena(m);
 
       if (m.fireTrail && m.alive) {
         const moving = Math.hypot(m.vx, m.vy) > 18;
